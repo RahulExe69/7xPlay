@@ -178,11 +178,6 @@ Future<DevicePresentation> appInitialize({
   await appDependencyProvider.getTmdbProxy();
   await appDependencyProvider.getUpdateConfiguration();
 
-  if (!AuthRuntime.enabled) {
-    await BookmarkSyncService.instance.init();
-    await RecentlyWatchedSyncService.instance.init();
-  }
-
   return devicePresentation;
 }
 
@@ -196,21 +191,24 @@ void main() async {
     await recentProvider.fetchEpisodes();
     await wellnessProvider.reload();
   });
-  HostedAdsRepository.instance.configure(injector.adsRepository, enabled: injector.migrationFlags.ads);
+  HostedAdsRepository.instance.configure(injector.adsRepository);
   if (injector.migrationFlags.ads) {
     // Observe each rendered frame so brief visibility interruptions reset dwell.
     VisibilityDetectorController.instance.updateInterval = Duration.zero;
   }
-  final adsController = injector.migrationFlags.ads ? AdEventsController(injector.adsRepository) : null;
+  final adsController = injector.migrationFlags.ads
+      ? AdEventsController(injector.adsRepository)
+      : null;
   ConfigLifecycle? configController;
   if (!kDebugMode || injector.migrationFlags.config) {
-    final bootstrap = BootstrapViewModel(injector.configRepository, appDependencyProvider);
+    final bootstrap =
+        BootstrapViewModel(injector.configRepository, appDependencyProvider);
     final sourceController = ConfigSourceController(injector.configRepository,
         bootstrap, injector.kvStore, SdkFirebaseConfigSource());
     await sourceController.hydrate();
     configController = sourceController;
   }
-  AuthRuntime.configure(injector.session, enabled: injector.migrationFlags.auth);
+  AuthRuntime.configure(injector.session);
   SyncRuntime.configure(injector.syncCoordinator,
       enabled: injector.migrationFlags.auth && injector.migrationFlags.sync);
   if (SyncRuntime.enabled) {
@@ -225,7 +223,7 @@ void main() async {
       unawaited(recentProvider.fetchEpisodes());
     });
   }
-  if (AuthRuntime.enabled) {
+  {
     await injector.session.restore();
     AuthSessionController.instance.initialize();
     await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
@@ -242,16 +240,23 @@ void main() async {
     notifications = NotificationController(
       DeviceRegistrationController(injector.deviceRepository, injector.session,
           injector.kvStore, messaging,
-          platform: devicePresentation == DevicePresentation.television ? 'tv' : Platform.isIOS ? 'ios' : 'android',
+          platform: devicePresentation == DevicePresentation.television
+              ? 'tv'
+              : Platform.isIOS
+                  ? 'ios'
+                  : 'android',
           appVersion: currentAppVersion),
       InAppMessageController(injector.announcementRepository, injector.kvStore,
           InAppMessagingService.present),
       messaging,
     );
   }
-  NetworkRuntime.configure(publicDio: injector.publicDio,
-      httpCache: injector.httpCache, tmdb: injector.tmdbRepository);
-  Timer.run(() => unawaited(injector.httpCache.pruneExpired().catchError((Object _) {})));
+  NetworkRuntime.configure(
+      publicDio: injector.publicDio,
+      httpCache: injector.httpCache,
+      tmdb: injector.tmdbRepository);
+  Timer.run(() =>
+      unawaited(injector.httpCache.pruneExpired().catchError((Object _) {})));
   HomeWidgetNavigationService.configure(
     source: () => (
       language: settingsProvider.appLanguage,
@@ -260,20 +265,24 @@ void main() async {
     ),
   );
   await MediaLinkNavigationService.initialize();
-  runApp(ChangeNotifierProvider<SessionViewModel>.value(value: injector.session, child: Provider<AppInjector>.value(value: injector, child: EasyLocalization(
-    supportedLocales: Translation.all,
-    path: 'assets/translations',
-    fallbackLocale: Translation.all[0],
-    startLocale: Locale(settingsProvider.appLanguage),
-    child: FlixQuest(
-      settingsProvider: settingsProvider,
-      recentProvider: recentProvider,
-      bookmarkProvider: bookmarkProvider,
-      appDependencyProvider: appDependencyProvider,
-      devicePresentation: devicePresentation,
-      configController: configController,
-      adsController: adsController,
-      notifications: notifications,
-    ),
-  ))));
+  runApp(ChangeNotifierProvider<SessionViewModel>.value(
+      value: injector.session,
+      child: Provider<AppInjector>.value(
+          value: injector,
+          child: EasyLocalization(
+            supportedLocales: Translation.all,
+            path: 'assets/translations',
+            fallbackLocale: Translation.all[0],
+            startLocale: Locale(settingsProvider.appLanguage),
+            child: FlixQuest(
+              settingsProvider: settingsProvider,
+              recentProvider: recentProvider,
+              bookmarkProvider: bookmarkProvider,
+              appDependencyProvider: appDependencyProvider,
+              devicePresentation: devicePresentation,
+              configController: configController,
+              adsController: adsController,
+              notifications: notifications,
+            ),
+          ))));
 }

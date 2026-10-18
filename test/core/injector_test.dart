@@ -40,7 +40,7 @@ void main() {
         const Duration(seconds: 10));
     expect(injector.publicDio.options.headers.containsKey('Authorization'),
         isFalse);
-    expect(injector.migrationFlags.auth, isFalse);
+    expect(injector.migrationFlags.auth, isTrue);
   });
 
   test('dependency injection can construct without invoking platform storage',

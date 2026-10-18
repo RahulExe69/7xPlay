@@ -1,5 +1,3 @@
-import '../../legacy/firebase_auth/screens/user/login_screen.dart' as legacy;
-import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -43,7 +41,6 @@ class _LoginScreenState extends State<LaravelLoginScreen> {
     final isValid = formKey.currentState!.validate();
     FocusScope.of(context).unfocus();
     if (!isValid) return;
-
 
     if (!mounted) return;
     setState(() => isLoading = true);
@@ -140,9 +137,8 @@ class _LoginScreenState extends State<LaravelLoginScreen> {
         error.message?.toLowerCase().contains('network') == true) {
       return tr('check_connection');
     }
-    final detail = (error.message?.isNotEmpty ?? false)
-        ? error.message!
-        : error.code;
+    final detail =
+        (error.message?.isNotEmpty ?? false) ? error.message! : error.code;
     return '${tr('google_signin_failed')}\n$detail';
   }
 
@@ -194,8 +190,7 @@ class _LoginScreenState extends State<LaravelLoginScreen> {
                 decoration: InputDecoration(
                   prefixIcon: Icon(PhosphorIcons.lock()),
                   suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => obscureText = !obscureText),
+                    onPressed: () => setState(() => obscureText = !obscureText),
                     icon: Icon(obscureText
                         ? PhosphorIcons.eye()
                         : PhosphorIcons.eyeSlash()),
@@ -236,6 +231,5 @@ class _LoginScreenState extends State<LaravelLoginScreen> {
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelLoginScreen() : const legacy.LoginScreen();
+  Widget build(BuildContext context) => const LaravelLoginScreen();
 }

@@ -1,6 +1,4 @@
 import 'package:flixquest/data/models/auth_session.dart';
-import '../../legacy/firebase_auth/tv/screens/tv_auth_screen.dart' as legacy;
-import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -701,10 +699,5 @@ class TvAuthScreen extends StatelessWidget {
       : mode = TvAuthMode.createAccount;
   final TvAuthMode mode;
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? LaravelTvAuthScreen(mode: mode)
-      : legacy.TvAuthScreen(
-          mode: mode == TvAuthMode.signIn
-              ? legacy.TvAuthMode.signIn
-              : legacy.TvAuthMode.createAccount);
+  Widget build(BuildContext context) => LaravelTvAuthScreen(mode: mode);
 }

@@ -17,7 +17,6 @@ import 'package:flixquest/data/sync/sync_runtime.dart';
 import 'package:flixquest/models/wellness.dart';
 import 'package:flixquest/provider/bookmark_provider.dart';
 import 'package:flixquest/provider/wellness_provider.dart';
-import 'package:flixquest/presentation/session/auth_runtime.dart';
 import '../support/fake_dio.dart';
 import '../support/fakes.dart';
 
@@ -50,7 +49,7 @@ void main() {
         authenticatedOwner: () => LibraryScope.owner);
     SyncRuntime.configure(coordinator, enabled: true);
     SharedPreferences.setMockInitialValues({});
-    AuthRuntime.enabled = true;
+
     await WellnessProvider.instance.initialize();
   });
   tearDownAll(() async {

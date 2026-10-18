@@ -1,5 +1,3 @@
-import '../../legacy/firebase_auth/screens/user/signup_screen.dart' as legacy;
-import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 // ignore_for_file: use_build_context_synchronously
 import 'package:easy_localization/easy_localization.dart';
@@ -328,6 +326,5 @@ class _SignupScreenState extends State<LaravelSignupScreen> {
 class SignupScreen extends StatelessWidget {
   const SignupScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelSignupScreen() : const legacy.SignupScreen();
+  Widget build(BuildContext context) => const LaravelSignupScreen();
 }

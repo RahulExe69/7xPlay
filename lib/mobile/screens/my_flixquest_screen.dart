@@ -1,5 +1,3 @@
-import '../../legacy/firebase_auth/mobile/screens/my_flixquest_screen.dart'
-    as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:flixquest/data/models/app_user.dart';
@@ -99,7 +97,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
 
   @override
   void dispose() {
-    AuthRuntime.session.removeListener(_onSessionChanged);
+    AuthRuntime.maybeSession?.removeListener(_onSessionChanged);
     super.dispose();
   }
 
@@ -517,7 +515,5 @@ class _DownloadSummaryRow extends StatelessWidget {
 class MyFlixQuestScreen extends StatelessWidget {
   const MyFlixQuestScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelMyFlixQuestScreen()
-      : const legacy.MyFlixQuestScreen();
+  Widget build(BuildContext context) => const LaravelMyFlixQuestScreen();
 }

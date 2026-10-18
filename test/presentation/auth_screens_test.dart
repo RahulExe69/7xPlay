@@ -37,7 +37,7 @@ void main() {
     dotenv.testLoad(fileInput: 'FLIXQUEST_API_URL=http://scraper.test\n');
     h = await SessionHarness.create();
     await EasyLocalization.ensureInitialized();
-    AuthRuntime.configure(h.session, enabled: true);
+    AuthRuntime.configure(h.session);
     AuthSessionController.instance.initialize();
     await h.session.restore();
   }
@@ -50,7 +50,7 @@ void main() {
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         await h.dispose();
-        AuthRuntime.enabled = false;
+
       }
     });
   }

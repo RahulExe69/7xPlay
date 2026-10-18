@@ -1,4 +1,3 @@
-import '../../legacy/firebase_auth/screens/user/email_change.dart' as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:flixquest/data/models/auth_requests.dart';
@@ -28,7 +27,6 @@ class EmailChangeScreenState extends State<LaravelEmailChangeScreen> {
   bool _isLoading = false;
   final FocusNode _newEmailFocusNode = FocusNode();
   final FocusNode _emailVerifyFocusNode = FocusNode();
-
 
   String? uid;
   String? userId;
@@ -60,9 +58,11 @@ class EmailChangeScreenState extends State<LaravelEmailChangeScreen> {
     _formKey.currentState!.save();
     setState(() => _isLoading = true);
     try {
-      await _auth.changeEmail(ChangeEmailRequest(currentPassword: currentPassword, email: newEmail));
+      await _auth.changeEmail(ChangeEmailRequest(
+          currentPassword: currentPassword, email: newEmail));
       if (!mounted) return;
-      GlobalMethods.showCustomScaffoldMessage(SnackBar(content: Text(tr('email_successful'))), context);
+      GlobalMethods.showCustomScaffoldMessage(
+          SnackBar(content: Text(tr('email_successful'))), context);
       Navigator.of(context).pop();
     } on AuthActionException catch (error) {
       if (mounted) _globalMethods.authErrorHandle(error.message, context);
@@ -86,9 +86,13 @@ class EmailChangeScreenState extends State<LaravelEmailChangeScreen> {
               TextFormField(
                 key: const ValueKey('currentPassword'),
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Current password'),
-                validator: (value) => AuthRuntime.session.user?.provider != 'google' &&
-                    (value == null || value.isEmpty) ? 'Enter your current password.' : null,
+                decoration:
+                    const InputDecoration(labelText: 'Current password'),
+                validator: (value) =>
+                    AuthRuntime.session.user?.provider != 'google' &&
+                            (value == null || value.isEmpty)
+                        ? 'Enter your current password.'
+                        : null,
                 onSaved: (value) => currentPassword = value ?? '',
               ),
               const AccountFieldGap(),
@@ -153,6 +157,5 @@ class EmailChangeScreenState extends State<LaravelEmailChangeScreen> {
 class EmailChangeScreen extends StatelessWidget {
   const EmailChangeScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelEmailChangeScreen() : const legacy.EmailChangeScreen();
+  Widget build(BuildContext context) => const LaravelEmailChangeScreen();
 }

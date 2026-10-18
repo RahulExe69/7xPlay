@@ -20,8 +20,8 @@ void main() {
     final public = FakeDioAdapter()
       ..enqueueJson({'id': 7, 'title': 'Public title'});
     final injector = await buildInjector(
-        environment: AppEnvironment.resolve(defineUrl: 'http://backend.test'),
         migrationFlags: MigrationFlags.parse('auth'),
+        environment: AppEnvironment.resolve(defineUrl: 'http://backend.test'),
         kvStore: h.preferences,
         tokenStore: h.tokens,
         responseCacheStore: MemCacheStore(),
@@ -54,6 +54,7 @@ void main() {
     addTearDown(h.dispose);
     final firstAdapter = FakeDioAdapter()..enqueueJson(authFixture());
     final first = await buildInjector(
+        migrationFlags: MigrationFlags.parse('auth'),
         environment: AppEnvironment.resolve(defineUrl: 'http://backend.test'),
         kvStore: h.preferences,
         tokenStore: h.tokens,
@@ -64,6 +65,7 @@ void main() {
     await first.dispose();
     final restoredAdapter = FakeDioAdapter()..enqueueJson(authFixture());
     final next = await buildInjector(
+        migrationFlags: MigrationFlags.parse('auth'),
         environment: AppEnvironment.resolve(defineUrl: 'http://backend.test'),
         kvStore: h.preferences,
         tokenStore: h.tokens,

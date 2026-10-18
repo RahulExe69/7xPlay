@@ -1,6 +1,5 @@
 import 'package:provider/provider.dart';
 import '/provider/settings_provider.dart';
-import '../../legacy/firebase_auth/screens/user/password_change.dart' as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:flixquest/data/models/auth_requests.dart';
@@ -48,10 +47,12 @@ class PasswordChangeScreenState extends State<LaravelPasswordChangeScreen> {
     setState(() => _isLoading = true);
     final analytics = context.read<SettingsProvider>().analytics;
     try {
-      await _auth.changePassword(ChangePasswordRequest(currentPassword: currentPassword, password: newPassword));
+      await _auth.changePassword(ChangePasswordRequest(
+          currentPassword: currentPassword, password: newPassword));
       analytics.trackPasswordChanged();
       if (!mounted) return;
-      GlobalMethods.showCustomScaffoldMessage(SnackBar(content: Text(tr('password_changed'))), context);
+      GlobalMethods.showCustomScaffoldMessage(
+          SnackBar(content: Text(tr('password_changed'))), context);
       Navigator.of(context).pop();
     } on AuthActionException catch (error) {
       if (mounted) _globalMethods.authErrorHandle(error.message, context);
@@ -81,9 +82,13 @@ class PasswordChangeScreenState extends State<LaravelPasswordChangeScreen> {
               TextFormField(
                 key: const ValueKey('currentPassword'),
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Current password'),
-                validator: (value) => AuthRuntime.session.user?.provider != 'google' &&
-                    (value == null || value.isEmpty) ? 'Enter your current password.' : null,
+                decoration:
+                    const InputDecoration(labelText: 'Current password'),
+                validator: (value) =>
+                    AuthRuntime.session.user?.provider != 'google' &&
+                            (value == null || value.isEmpty)
+                        ? 'Enter your current password.'
+                        : null,
                 onSaved: (value) => currentPassword = value ?? '',
               ),
               const AccountFieldGap(),
@@ -159,6 +164,5 @@ class PasswordChangeScreenState extends State<LaravelPasswordChangeScreen> {
 class PasswordChangeScreen extends StatelessWidget {
   const PasswordChangeScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelPasswordChangeScreen() : const legacy.PasswordChangeScreen();
+  Widget build(BuildContext context) => const LaravelPasswordChangeScreen();
 }

@@ -1,5 +1,3 @@
-import '../../legacy/firebase_auth/tv/screens/tv_landing_screen.dart' as legacy;
-import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -444,7 +442,5 @@ class TvLandingScreen extends StatelessWidget {
   const TvLandingScreen({super.key});
   static const screenKey = LaravelTvLandingScreen.screenKey;
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelTvLandingScreen()
-      : const legacy.TvLandingScreen();
+  Widget build(BuildContext context) => const LaravelTvLandingScreen();
 }

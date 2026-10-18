@@ -4,7 +4,6 @@ import 'package:flixquest/core/cache/http_cache.dart';
 import 'package:flixquest/core/config/app_environment.dart';
 import 'package:flixquest/core/network/dio_factory.dart';
 import 'package:flixquest/services/hosted_ads_repository.dart';
-import 'package:flixquest/core/network/network_runtime.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -89,7 +88,7 @@ void main() {
   });
 
   test(
-      'Laravel adapter shares its catalog across scraper URLs and flag-off retains rollback delivery',
+      'Laravel catalog stays independent of scraper URLs after rollback removal',
       () async {
     final payload =
         jsonDecode(File('test/support/fixtures/ads.json').readAsStringSync());
@@ -97,28 +96,17 @@ void main() {
     final dio = Dio(BaseOptions(baseUrl: 'https://backend.test/api/v1/'))
       ..httpClientAdapter = adapter;
     final repository = AdsRepository(dio);
-    HostedAdsRepository.instance.configure(repository, enabled: true);
+    HostedAdsRepository.instance.configure(repository);
     await Future.wait([
       HostedAdsRepository.instance.load('https://scraper-a.test'),
       HostedAdsRepository.instance.load('https://scraper-b.test')
     ]);
     expect(adapter.requests, hasLength(1));
     expect(adapter.requests.single.uri.host, 'backend.test');
-    HostedAdsRepository.instance.configure(repository, enabled: false);
-    expect(HostedAdsRepository.instance.telemetryEnabled, false);
-    final fallback = FakeDioAdapter()..enqueueJson(payload);
-    final legacy = Dio()..httpClientAdapter = fallback;
-    final fallbackCache = HttpCache(MemCacheStore());
-    NetworkRuntime.configure(publicDio: legacy, httpCache: fallbackCache);
-    expect(
-        await HostedAdsRepository.instance.load('https://scraper.test/api/v2/'),
-        hasLength(1));
-    expect(fallback.requests.single.uri.toString(),
-        'https://scraper.test/api/v2/ads');
-    HostedAdsRepository.instance.configure(repository, enabled: false);
+    expect(HostedAdsRepository.instance.telemetryEnabled, true);
+    // Reset test transport without providing a production scraper fallback.
+    HostedAdsRepository.instance.useFetcherForTesting((_) async => const []);
     dio.close();
-    legacy.close();
-    await fallbackCache.close();
   });
 
   test(

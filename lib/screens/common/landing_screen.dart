@@ -1,5 +1,3 @@
-import '../../legacy/firebase_auth/screens/common/landing_screen.dart' as legacy;
-import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -156,7 +154,6 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
     if (_loadingGoogle) return;
     setState(() => _loadingAnonymous = true);
     try {
-
       await _authService.signInAnonymously();
       settings.analytics.trackLogin('anonymous');
       // UserState's session gate owns the handheld/TV destination.
@@ -190,12 +187,9 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
 
   String _googleAuthMessage(AuthActionException error) {
     return switch (error.code) {
-      'account-exists-with-different-credential' =>
-        error.message,
+      'account-exists-with-different-credential' => error.message,
       'network-request-failed' => tr('check_connection'),
-      'invalid-credential' ||
-      'invalid-email' =>
-        tr('invalid_credential'),
+      'invalid-credential' || 'invalid-email' => tr('invalid_credential'),
       'user-disabled' => tr('banned_user'),
       _ => error.message,
     };
@@ -215,9 +209,8 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
         error.message?.toLowerCase().contains('network') == true) {
       return tr('check_connection');
     }
-    final detail = (error.message?.isNotEmpty ?? false)
-        ? error.message!
-        : error.code;
+    final detail =
+        (error.message?.isNotEmpty ?? false) ? error.message! : error.code;
     return '${tr('google_signin_failed')}\n$detail';
   }
 
@@ -278,6 +271,5 @@ class _Intro extends StatelessWidget {
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelLandingScreen() : const legacy.LandingScreen();
+  Widget build(BuildContext context) => const LaravelLandingScreen();
 }

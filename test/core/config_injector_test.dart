@@ -1,3 +1,4 @@
+import 'package:flixquest/core/config/migration_flags.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -27,6 +28,7 @@ void main() {
     final fixture = jsonDecode(
         File('test/support/fixtures/bootstrap_config.json').readAsStringSync());
     final injector = await buildInjector(
+        migrationFlags: MigrationFlags.parse('auth'),
         environment: AppEnvironment.resolve(defineUrl: 'http://backend.test'),
         kvStore: KvStore(sharedPrefsSingleton),
         tokenStore: MemoryTokens(),

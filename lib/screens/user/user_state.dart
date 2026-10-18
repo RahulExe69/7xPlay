@@ -28,7 +28,7 @@ class _UserStateState extends State<UserState> {
   Widget build(BuildContext context) {
     // Mandatory updates are gated above the navigator: MobileUpdateGate on
     // phones, TvUpdateGate on TV.
-    final authSession = AuthSessionController.instance..initialize();
+    AuthSessionController.instance.initialize();
     Widget shell(BuildContext context, bool isAuthenticated) {
       final previewTvHome =
           widget.devicePresentation == DevicePresentation.television &&
@@ -38,9 +38,8 @@ class _UserStateState extends State<UserState> {
         isAuthenticated: isAuthenticated || previewTvHome,
       );
     }
-    return AuthRuntime.enabled
-        ? SessionGate(session: AuthRuntime.session, builder: shell)
-        : AuthStateRouter(userIdListenable: authSession.userId, builder: shell);
+
+    return SessionGate(session: AuthRuntime.session, builder: shell);
   }
 }
 

@@ -1,4 +1,3 @@
-import '../../legacy/firebase_auth/tv/screens/tv_profile_screen.dart' as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 
@@ -323,9 +322,6 @@ class TvProfileScreen extends StatelessWidget {
   final TvShellMetrics metrics;
   final TvScreenFocusController? focusController;
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? LaravelTvProfileScreen(
-          metrics: metrics, focusController: focusController)
-      : legacy.TvProfileScreen(
-          metrics: metrics, focusController: focusController);
+  Widget build(BuildContext context) => LaravelTvProfileScreen(
+      metrics: metrics, focusController: focusController);
 }

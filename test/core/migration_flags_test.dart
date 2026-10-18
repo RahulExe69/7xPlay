@@ -10,4 +10,13 @@ void main() {
     expect(flags.sync, isFalse);
     expect(MigrationFlags.parse('').auth, isFalse);
   });
+  test('app runtime enables the migrated paths without launch flags', () {
+    final flags = MigrationFlags.fromRuntime();
+    expect(flags.auth, isTrue);
+    expect(flags.config, isTrue);
+    expect(flags.ads, isTrue);
+    expect(flags.sync, isTrue);
+    expect(flags.notifications, isTrue);
+    expect(flags.telemetry, isFalse);
+  });
 }

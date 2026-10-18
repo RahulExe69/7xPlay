@@ -1313,24 +1313,85 @@ Remove replaced Firebase Auth, Firestore and in-app-messaging packages/hooks. Ke
 ### Milestones
 
 **F7.1 `pubspec.yaml`**
-- [ ] Remove only: `cloud_firestore`, `firebase_auth`, `firebase_in_app_messaging` after their callers have migrated.
-- [ ] **Keep:** `firebase_core`, `firebase_messaging`, `firebase_remote_config`, `firebase_crashlytics`, `firebase_analytics`, and required supporting dependencies.
-- [ ] Remove `http` if all importers migrated (grep; migrate stragglers first) and `google_sign_in` stays.
-- [ ] `flutter pub get`; resolve conflicts; full suite + `test/tv_*.dart` green.
+- [x] Remove only: `cloud_firestore`, `firebase_auth`, `firebase_in_app_messaging` after their callers have migrated.
+- [x] **Keep:** `firebase_core`, `firebase_messaging`, `firebase_remote_config`, `firebase_crashlytics`, `firebase_analytics`, and required supporting dependencies.
+- [x] Audit `http`: retain it for active VAST, Live TV, intro, subtitle, widget and ad-block callers. Keep `google_sign_in`.
+- [x] `flutter pub get`; resolve conflicts; full suite + `test/tv_*.dart` green.
 
 **F7.2 Native**
-- [ ] Android: remove only obsolete Auth/Firestore/in-app-messaging setup/rules. **Keep** Google Services configuration/plugin, Crashlytics Gradle plugin and tasks, reporting/symbol-upload setup and rules required by all retained SDKs.
+- [x] Android: remove only obsolete Auth/Firestore/in-app-messaging setup/rules. **Keep** Google Services configuration/plugin, Crashlytics Gradle plugin and tasks, reporting/symbol-upload setup and rules required by all retained SDKs.
 - [ ] iOS: remove only obsolete Auth/Firestore/in-app-messaging pods/hooks; keep Core, Messaging, Remote Config, Crashlytics and Analytics pods and Crashlytics symbol-upload scripts; `pod install`.
-- [ ] Delete dead Auth/Firestore code, legacy sync/checkpoint code and orphaned imports after grep. **Keep** `app_remote_config.dart` and the Firebase config controller (promote from `legacy` if appropriate), as well as Crashlytics/Analytics adapters and calls.
+- [x] Delete dead Auth/Firestore code, legacy sync/checkpoint code and orphaned imports after grep. **Keep** `app_remote_config.dart` and the Firebase config controller (promote from `legacy` if appropriate), as well as Crashlytics/Analytics adapters and calls.
 
 **F7.3 Build verification**
-- [ ] `flutter build apk --release`; record size delta vs the pre-migration build. Do not assume the PRD's ~3.5 MB reduction: five Firebase packages/native integrations remain.
-- [ ] Measure cold-start timing with the production Firebase initialization and all retained SDKs enabled; record the real result, without promising a fixed reduction.
-- [ ] `rg 'cloud_firestore|firebase_auth|firebase_in_app_messaging' lib` → no remaining imports/callers. Separately verify Core/Messaging/Remote Config/Crashlytics/Analytics initialization, imports and native hooks remain.
+- [x] `flutter build apk --release`; record size delta vs the pre-migration build. Do not assume the PRD's ~3.5 MB reduction: five Firebase packages/native integrations remain.
+- [x] Measure cold-start timing with the production Firebase initialization and all retained SDKs enabled; record the real result, without promising a fixed reduction.
+- [x] `rg 'cloud_firestore|firebase_auth|firebase_in_app_messaging' lib` → no remaining imports/callers. Separately verify Core/Messaging/Remote Config/Crashlytics/Analytics initialization, imports and native hooks remain.
 - [ ] Smoke both config sources, FCM delivery, a Crashlytics test report and an existing Google Analytics event in the release/test builds on phone and TV; confirm these reports are not sent to Laravel.
 
 ### Exit criteria
 App builds with Auth/Firestore/in-app-messaging removed and all five retained Firebase SDKs operational; Laravel still chooses the config source at runtime and receives no Google crash/analytics mirror; measured APK/startup numbers reported.
+
+---
+
+### F7 implementation handover — 2026-10-18
+
+Implemented on `codex/laravel-f7-cleanup`, based on the merged F6 checkpoint
+`b821232`. Device/Google-console exit checks below are still open; this is not a
+production cutover approval.
+
+- Removed Firebase Auth, Firestore and in-app-messaging packages and their
+  platform dependencies, old phone/TV account routes, Firebase sync services,
+  Firestore checkpoints and scraper ads rollback loader. Bookmarks and wellness
+  no longer initialize Firebase Auth. Existing account/session, guest merge,
+  scoped local libraries, sync and Laravel ad-event behavior remain in place.
+- App runtime now enables auth/config/ads/sync/notifications without migration
+  defines: a flag must not select a removed implementation. Explicit feature
+  sets remain available to isolated tests until the F8 flag cleanup. Laravel's
+  runtime `config_source` decision and both config providers remain intact.
+  The local backend is set to `firebase`; this does not restore Firebase Auth
+  or Firestore. A reachable Laravel URL is required for the migrated services.
+- Promoted the retained Firebase config controller to
+  `lib/services/firebase_config_controller.dart`. Core, Messaging, Remote
+  Config, Crashlytics, Analytics, Google sign-in and Mixpanel remain. Existing
+  Android Google Services/Crashlytics configuration, background FCM entry point,
+  reporting filters and collection controls are preserved. No native source or
+  build-script changes were needed for the retired SDKs.
+- Sync service adapters now detach old runner listeners when rebound and copy
+  current runner status/timestamps. Guest calls remain local and do not
+  initialize a Firebase account. Added regression coverage for guest behavior,
+  coordinator replacement and app defaults without launch flags.
+
+| Check | Result |
+|---|---|
+| Analyzer | **0 issues**, Flutter 3.35.7 / Dart 3.9.2 |
+| Focused regression checks | **50 passed** |
+| Full suite, including TV tests | **1,538 passed, 3 skipped, 0 failures** |
+| Dependency/native APK audit | All three retired SDKs absent from the lockfile and compiled DEX; all five retained Firebase plugin classes present |
+| Signed universal prod release | **84,792,818 bytes**, all three Android ABIs; built without `FLIXQUEST_MIGRATION` |
+| Comparable pre-F7 release | `b821232`, same SDK/flavor/signing/version: **87,980,962 bytes**; reduction **3,188,144 bytes (3.62%)** |
+| Phone startup | Pixel 7 Pro / Android 36.1 read-only emulator: cold activity launch **1,498 / 1,798 / 1,446 ms**, median **1,498 ms**. First-install permission prompt excluded; Android `am start -W` activity timing, not full catalog readiness or a physical-device performance claim |
+| Phone release navigation | Signed-out landing, notification permission and local guest Home checked in a separate read-only emulator |
+| TV release smoke | Separate Android TV 36 read-only emulator: signed-out landing, D-pad guest entry and TV Home rendered without Flutter/runtime errors; initial cold activity launch **1,127 ms** with notification permission pre-granted |
+| Config boundary | Live local bootstrap returns **200**, `config_source: firebase`; automated tests cover both directions, source-owned offline caches and modern settings |
+
+Build/verification evidence is under `/tmp/flixquest-f7-*` on this host. The test
+APK uses `http://10.0.2.2:8000`; configure a deployed, device-reachable Laravel URL
+before shipping. The comparison-only worktree was archived after measurement.
+
+Remaining F7 exit checks:
+
+- This checkout has no iOS project. iOS pod/native-hook and release verification
+  require the actual iOS target; no replacement project was generated.
+- Verify real FCM delivery/taps, an active announcement from both delivery
+  sources, Crashlytics console ingestion and Analytics DebugView/consent on
+  phone and TV. Automated reporting preservation tests and compiled classes
+  do not prove remote ingestion. The isolated phone emulator logged a
+  Crashlytics settings-fetch failure, so Google reporting is not signed off.
+- Exercise both config providers on the release devices. The automated source
+  switch/cache matrix is green, but Laravel config still lacks the modern
+  network-ad/popup/Telegram fields; keep the operator selection on Firebase
+  until that backend contract is updated.
 
 ---
 

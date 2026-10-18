@@ -1,5 +1,3 @@
-import '../../legacy/firebase_auth/screens/user/forgot_password.dart' as legacy;
-import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -30,9 +28,7 @@ class ForgotPasswordScreenState extends State<LaravelForgotPasswordScreen> {
       });
       _formKey.currentState!.save();
       try {
-        await _auth
-            .forgotPassword(_emailAddress)
-            .then((value) {
+        await _auth.forgotPassword(_emailAddress).then((value) {
           if (mounted) {
             _globalMethods.checkMessage(tr('reset_sent'), context);
           }
@@ -100,6 +96,5 @@ class ForgotPasswordScreenState extends State<LaravelForgotPasswordScreen> {
 class ForgotPasswordScreen extends StatelessWidget {
   const ForgotPasswordScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelForgotPasswordScreen() : const legacy.ForgotPasswordScreen();
+  Widget build(BuildContext context) => const LaravelForgotPasswordScreen();
 }

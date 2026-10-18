@@ -26,7 +26,7 @@ import 'services/in_app_messaging_service.dart';
 import 'services/deep_link_dispatcher.dart';
 import 'services/home_widget_service.dart';
 import 'services/recently_watched_sync_service.dart';
-import 'legacy/firebase_config_controller.dart';
+import 'services/firebase_config_controller.dart';
 import 'presentation/config/refresh_controller.dart';
 import 'mobile/app/mobile_shell.dart';
 import 'mobile/app/mobile_update_gate.dart';
@@ -61,7 +61,7 @@ class FlixQuest extends StatefulWidget {
 
 class _FlixQuestState extends State<FlixQuest>
     with ChangeNotifier, WidgetsBindingObserver {
-  FirebaseConfigController? _legacyConfig;
+  FirebaseConfigController? _firebaseConfig;
   Timer? _widgetRefreshDebounce;
 
   Future<void> _initConfig() async {
@@ -69,13 +69,13 @@ class _FlixQuestState extends State<FlixQuest>
     if (controller != null) {
       await controller.boot();
     } else {
-      final legacy = FirebaseConfigController(widget.appDependencyProvider);
-      _legacyConfig = legacy;
+      final firebase = FirebaseConfigController(widget.appDependencyProvider);
+      _firebaseConfig = firebase;
       if (WidgetsBinding.instance.lifecycleState != null &&
           WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-        legacy.pause();
+        firebase.pause();
       }
-      await legacy.start();
+      await firebase.start();
     }
     if (mounted) {
       await requestNotificationPermissions();
@@ -95,7 +95,7 @@ class _FlixQuestState extends State<FlixQuest>
       if (controller != null) {
         await controller.onResume();
       } else {
-        await _legacyConfig?.refresh();
+        await _firebaseConfig?.refresh();
       }
     } catch (error) {
       if (kDebugMode) {
@@ -145,7 +145,7 @@ class _FlixQuestState extends State<FlixQuest>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      _legacyConfig?.pause();
+      _firebaseConfig?.pause();
       // Leaving the app is the last chance to hand off progress saved by the
       // player, so push it now instead of waiting out the debounce.
       unawaited(RecentlyWatchedSyncService.instance.flushPending());
@@ -156,7 +156,7 @@ class _FlixQuestState extends State<FlixQuest>
     }
     DeepLinkDispatcher.onAppReady();
     unawaited(widget.configController?.onResume());
-    unawaited(_legacyConfig?.resume());
+    unawaited(_firebaseConfig?.resume());
     unawaited(widget.adsController?.onResume());
     unawaited(widget.notifications?.onResume());
     unawaited(_refreshHomeWidgets());
@@ -173,7 +173,7 @@ class _FlixQuestState extends State<FlixQuest>
     WellnessProvider.instance.removeListener(_scheduleLocalWidgetRefresh);
     widget.bookmarkProvider.removeListener(_scheduleLocalWidgetRefresh);
     _widgetRefreshDebounce?.cancel();
-    _legacyConfig?.dispose();
+    _firebaseConfig?.dispose();
     widget.configController?.dispose();
     unawaited(widget.adsController?.dispose());
     InAppMessagingService.dispose();

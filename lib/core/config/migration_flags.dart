@@ -1,10 +1,12 @@
-/// Development-only cutover switches; production stays on existing paths in F0.
+/// Explicit feature sets for isolated tests; app runtime uses migrated paths.
 class MigrationFlags {
   MigrationFlags.parse(String value)
       : _features = value.split(',').map((item) => item.trim()).toSet();
 
+  // F7 retires the Firebase account/sync rollback paths. Old launch defines
+  // remain harmless; runtime source selection still belongs to Laravel.
   factory MigrationFlags.fromRuntime() => MigrationFlags.parse(
-        const String.fromEnvironment('FLIXQUEST_MIGRATION'),
+        'auth,config,ads,sync,notifications',
       );
 
   final Set<String> _features;

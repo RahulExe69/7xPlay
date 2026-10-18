@@ -1,5 +1,4 @@
 import 'package:flixquest/data/models/app_user.dart';
-import '../../legacy/firebase_auth/screens/user/edit_profile.dart' as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:flixquest/data/models/auth_requests.dart';
@@ -8,7 +7,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '/screens/user/delete_account.dart';
 import '/screens/user/email_change.dart';
 import '/screens/user/password_change.dart';
-
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -65,19 +63,26 @@ class _ProfileEditState extends State<LaravelProfileEdit> {
     }
     setState(() {
       userAnonymous = false;
-      uid = user.id.toString(); userId = uid;
-      name = user.name; email = user.email; userEmail = user.email;
-      joinedAt = user.joinedAt.toIso8601String(); createdAt = user.createdAt;
-      month = DateFormat('MMMM').format(user.joinedAt); year = user.joinedAt.year;
-      isVerified = user.isVerified; profileId = user.profileId;
-      username = user.username; photoUrl = user.photoUrl;
+      uid = user.id.toString();
+      userId = uid;
+      name = user.name;
+      email = user.email;
+      userEmail = user.email;
+      joinedAt = user.joinedAt.toIso8601String();
+      createdAt = user.createdAt;
+      month = DateFormat('MMMM').format(user.joinedAt);
+      year = user.joinedAt.year;
+      isVerified = user.isVerified;
+      profileId = user.profileId;
+      username = user.username;
+      photoUrl = user.photoUrl;
       userProfile = user;
     });
     if (profileId != null && profileId! > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_profileScrollController.hasClients) {
-          final double offset = (profileId! * (72.0 + 14.0)).clamp(
-            0.0, _profileScrollController.position.maxScrollExtent);
+          final double offset = (profileId! * (72.0 + 14.0))
+              .clamp(0.0, _profileScrollController.position.maxScrollExtent);
           _profileScrollController.jumpTo(offset);
         }
       });
@@ -97,10 +102,14 @@ class _ProfileEditState extends State<LaravelProfileEdit> {
     try {
       if (_userName.trim().toLowerCase() != username &&
           !await _auth.usernameAvailable(_userName)) {
-        throw const AuthActionException(code: 'username-already-in-use', message: 'That username is already in use.');
+        throw const AuthActionException(
+            code: 'username-already-in-use',
+            message: 'That username is already in use.');
       }
-      await _auth.updateProfile(UpdateProfileRequest(name: _fullName.trim(),
-          username: _userName.trim().toLowerCase(), profileId: profileId,
+      await _auth.updateProfile(UpdateProfileRequest(
+          name: _fullName.trim(),
+          username: _userName.trim().toLowerCase(),
+          profileId: profileId,
           photoUrl: _avatarChanged ? '' : photoUrl));
       if (!mounted) return;
       context.read<SettingsProvider>().analytics.trackProfileUpdated();
@@ -304,6 +313,5 @@ class _ProfileEditState extends State<LaravelProfileEdit> {
 class ProfileEdit extends StatelessWidget {
   const ProfileEdit({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelProfileEdit() : const legacy.ProfileEdit();
+  Widget build(BuildContext context) => const LaravelProfileEdit();
 }

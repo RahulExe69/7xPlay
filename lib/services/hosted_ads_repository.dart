@@ -1,5 +1,4 @@
 import '../models/banner_ad.dart';
-import '../legacy/scraper_ads_fetcher.dart';
 import '../data/repositories/ads_repository.dart';
 
 /// Shares one `/ads` response between every banner slot on screen, so a Home
@@ -18,18 +17,19 @@ class HostedAdsRepository {
   final Map<String, _Entry> _entries = <String, _Entry>{};
 
   Future<List<BannerAd>> Function(String apiUrl) _fetch =
-      (apiUrl) => ScraperAdsFetcher().load(apiUrl);
+      (_) async => const <BannerAd>[];
 
   AdsRepository? _laravel;
   bool get telemetryEnabled => _laravel != null;
 
-  void configure(AdsRepository repository, {required bool enabled}) {
-    _laravel = enabled ? repository : null;
-    _fetch = (apiUrl) => ScraperAdsFetcher().load(apiUrl);
+  void configure(AdsRepository repository) {
+    _laravel = repository;
+    _fetch = (_) async => const <BannerAd>[];
     clear();
   }
 
-  Future<void> reportImpression(String id) async => await _laravel?.reportImpression(id);
+  Future<void> reportImpression(String id) async =>
+      await _laravel?.reportImpression(id);
   Future<void> reportClick(String id) async => await _laravel?.reportClick(id);
 
   Future<List<BannerAd>> load(String apiUrl) {

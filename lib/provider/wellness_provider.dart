@@ -1,10 +1,8 @@
 import '../data/sync/library_scope.dart';
 import '../data/sync/sync_runtime.dart';
-import '../presentation/session/auth_runtime.dart';
 import 'dart:async';
 import 'dart:math';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,7 +30,6 @@ class WellnessProvider extends ChangeNotifier {
   final WellnessDatabaseController _database =
       WellnessDatabaseController.instance;
   late final WellnessSyncService _syncService;
-  StreamSubscription<User?>? _authSubscription;
   ValueListenable<String?>? _laravelOwner;
   Timer? _syncDebounce;
   DateTime? _pushDueAt;
@@ -54,7 +51,10 @@ class WellnessProvider extends ChangeNotifier {
   String get activeOwnerId => _ownerId;
   String get deviceId => _deviceId;
   bool get shouldOfferGuestMerge =>
-      !SyncRuntime.enabled && canSync && _hasGuestHistory && !_guestMergeDismissed;
+      !SyncRuntime.enabled &&
+      canSync &&
+      _hasGuestHistory &&
+      !_guestMergeDismissed;
 
   WellnessInsights get insights => WellnessInsights.fromSessions(
         _sessions,
@@ -70,18 +70,11 @@ class WellnessProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _deviceId = prefs.getString(_deviceIdKey) ?? _newDeviceId();
     await prefs.setString(_deviceIdKey, _deviceId);
-    _syncService = WellnessSyncService(database: _database);
+    _syncService = WellnessSyncService();
     _syncService.status.addListener(_onSyncStatusChanged);
     _syncService.lastSynced.addListener(notifyListeners);
-    if (AuthRuntime.enabled) {
-      await _applyUser(null, sync: false);
-      return;
-    }
-    await _applyUser(FirebaseAuth.instance.currentUser, sync: false);
-    _authSubscription = FirebaseAuth.instance.authStateChanges().listen(
-          (user) => unawaited(_applyUser(user)),
-        );
-    if (canSync) unawaited(_autoSync());
+    _ownerId = guestOwnerId;
+    await reload();
   }
 
   void _onSyncStatusChanged() {
@@ -94,7 +87,9 @@ class WellnessProvider extends ChangeNotifier {
 
   Future<void> flushPending() async {
     if (_syncDebounce == null || !canSync) return;
-    _syncDebounce?.cancel(); _syncDebounce = null; _pushDueAt = null;
+    _syncDebounce?.cancel();
+    _syncDebounce = null;
+    _pushDueAt = null;
     await _syncService.pushPending();
   }
 
@@ -126,16 +121,6 @@ class WellnessProvider extends ChangeNotifier {
         .map((value) => value.toRadixString(16).padLeft(8, '0'))
         .join();
     return '${DateTime.now().microsecondsSinceEpoch}-$entropy';
-  }
-
-  Future<void> _applyUser(User? user, {bool sync = true}) async {
-    final registered = user != null && !user.isAnonymous;
-    _ownerId = registered ? 'user:${user.uid}' : guestOwnerId;
-    _guestMergeDismissed = false;
-    await reload();
-    _hasGuestHistory = await _database.ownerSessionCount(guestOwnerId) > 0;
-    notifyListeners();
-    if (sync && registered) await _autoSync();
   }
 
   /// A pull the user did not ask for, skipped when this account pulled
@@ -213,7 +198,8 @@ class WellnessProvider extends ChangeNotifier {
     int? networkBytes,
     bool syncImmediately = false,
   }) async {
-    if (SyncRuntime.enabled && tracker.libraryGeneration != null &&
+    if (SyncRuntime.enabled &&
+        tracker.libraryGeneration != null &&
         tracker.libraryGeneration != LibraryScope.generation) {
       return;
     }
@@ -254,7 +240,8 @@ class WellnessProvider extends ChangeNotifier {
       languages: languages,
       countries: countries,
       networkBytes: networkBytes,
-      updatedAtUtc: DateTime.fromMillisecondsSinceEpoch(LibraryScope.nowUtcMs(), isUtc: true),
+      updatedAtUtc: DateTime.fromMillisecondsSinceEpoch(LibraryScope.nowUtcMs(),
+          isUtc: true),
       synced: false,
     );
     await _database.upsertSession(session);
@@ -275,13 +262,11 @@ class WellnessProvider extends ChangeNotifier {
 
   Future<void> mergeGuestHistory() async {
     if (!canSync || !_ownerId.startsWith('user:')) return;
-    await _database.moveOwner(
-      fromOwnerId: guestOwnerId,
-      toOwnerId: _ownerId,
-    );
-    _hasGuestHistory = false;
+    final owner = _ownerId;
+    await SyncRuntime.coordinator!.mergeGuest(owner);
+    if (owner != _ownerId) return;
+    _hasGuestHistory = await _database.ownerSessionCount(guestOwnerId) > 0;
     await reload();
-    await syncNow();
   }
 
   void dismissGuestMerge() {
@@ -311,19 +296,13 @@ class WellnessProvider extends ChangeNotifier {
     return WellnessDatabaseController.encodeCsv(sessions);
   }
 
-  Future<void> deleteAccountData(String uid) async {
-    await _syncService.deleteRemoteAccountData(uid);
-    if (!SyncRuntime.enabled) await _database.permanentlyDeleteOwner('user:$uid');
-    if (_ownerId == 'user:$uid') await _applyUser(null, sync: false);
-  }
-
   @override
   void dispose() {
     _syncDebounce?.cancel();
-    _authSubscription?.cancel();
     _laravelOwner?.removeListener(_onLaravelOwner);
     _syncService.status.removeListener(_onSyncStatusChanged);
     _syncService.lastSynced.removeListener(notifyListeners);
+    _syncService.dispose();
     super.dispose();
   }
 }

@@ -1,4 +1,3 @@
-import '../../legacy/firebase_auth/screens/user/delete_account.dart' as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 
@@ -39,7 +38,8 @@ class DeleteAccountScreenState extends State<LaravelDeleteAccountScreen> {
 
   void getUserData() {
     final user = AuthRuntime.session.user;
-    uid = user?.id.toString(); username = user?.username;
+    uid = user?.id.toString();
+    username = user?.username;
   }
 
   void _submitForm() async {
@@ -51,7 +51,8 @@ class DeleteAccountScreenState extends State<LaravelDeleteAccountScreen> {
       await _auth.deleteAccount();
       if (!mounted) return;
       final analytics = context.read<SettingsProvider>().analytics;
-      analytics.trackAccountDeleted(); analytics.resetUser();
+      analytics.trackAccountDeleted();
+      analytics.resetUser();
       await AuthNavigationService.returnToSignedOutRoot(context);
     } on AuthActionException catch (error) {
       if (mounted) _globalMethods.authErrorHandle(error.message, context);
@@ -102,6 +103,5 @@ class DeleteAccountScreenState extends State<LaravelDeleteAccountScreen> {
 class DeleteAccountScreen extends StatelessWidget {
   const DeleteAccountScreen({super.key});
   @override
-  Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelDeleteAccountScreen() : const legacy.DeleteAccountScreen();
+  Widget build(BuildContext context) => const LaravelDeleteAccountScreen();
 }
