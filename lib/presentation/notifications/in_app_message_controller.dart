@@ -5,7 +5,7 @@ import 'package:flixquest/models/in_app_message_payload.dart';
 typedef MessagePresenter = Future<bool> Function(
     InAppMessagePayload payload, Future<void> Function() acknowledge);
 
-/// Coordinates public announcements and FCM through one presentation queue.
+/// Coordinates public announcements and push messages through one presentation queue.
 /// A presenter acknowledges when UI opens, rather than when it is dismissed.
 class InAppMessageController {
   InAppMessageController(this.repository, this.store, this.present,
@@ -20,7 +20,8 @@ class InAppMessageController {
   static const _seenKey = 'notifications.announcements.shown';
   final _seen = <String>{};
   final _pendingIds = <String>{};
-  final _queue = <InAppMessagePayload>[];
+  final _queue =
+      <({InAppMessagePayload payload, bool Function()? canPresent})>[];
   Future<void>? _polling;
   Future<void>? _draining;
   bool _disposed = false;
@@ -60,19 +61,21 @@ class InAppMessageController {
         (payload.endsAt == null || !now.isAfter(payload.endsAt!));
   }
 
-  void _enqueue(InAppMessagePayload payload) {
+  void _enqueue(InAppMessagePayload payload, {bool Function()? canPresent}) {
     if (_disposed ||
+        (canPresent != null && !canPresent()) ||
         !_active(payload) ||
         (payload.title.trim().isEmpty && payload.body.trim().isEmpty)) {
       return;
     }
     final id = payload.id;
     if (id != null && (_seen.contains(id) || !_pendingIds.add(id))) return;
-    _queue.add(payload);
+    _queue.add((payload: payload, canPresent: canPresent));
   }
 
-  Future<void> offer(InAppMessagePayload payload) {
-    _enqueue(payload);
+  Future<void> offer(InAppMessagePayload payload,
+      {bool Function()? canPresent}) {
+    _enqueue(payload, canPresent: canPresent);
     return onReady();
   }
 
@@ -83,8 +86,10 @@ class InAppMessageController {
 
   Future<void> _drain() async {
     while (!_disposed && _queue.isNotEmpty) {
-      final payload = _queue.removeAt(0);
-      if (!_active(payload)) {
+      final entry = _queue.removeAt(0);
+      final payload = entry.payload;
+      if ((entry.canPresent != null && !entry.canPresent!()) ||
+          !_active(payload)) {
         _pendingIds.remove(payload.id);
         continue;
       }
@@ -105,7 +110,7 @@ class InAppMessageController {
         /* An unavailable navigator retries on the next ready/resume. */
       }
       if (!displayed && !acknowledged && !_disposed) {
-        _queue.insert(0, payload);
+        _queue.insert(0, entry);
         return;
       }
       _pendingIds.remove(payload.id);

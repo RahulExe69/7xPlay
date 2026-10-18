@@ -1,3 +1,4 @@
+import 'package:flixquest/data/models/auth_requests.dart';
 import 'package:flixquest/screens/user/password_change.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/services.dart';
@@ -50,7 +51,6 @@ void main() {
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         await h.dispose();
-
       }
     });
   }
@@ -183,6 +183,41 @@ void main() {
     expect(find.byType(LaravelLoginScreen), findsOneWidget);
     expect(h.tokens.value, null);
   });
+  authTest('switching accounts dismisses an already-open private message',
+      (tester) async {
+    h.adapter.enqueueJson(authFixture());
+    await pumpPage(tester, const LoginScreen(), gate: true);
+    await loginFields(tester);
+    await submit(tester);
+    final navigator = InAppMessagingService.navigatorKey.currentState!;
+    ScaffoldMessenger.of(navigator.context).showMaterialBanner(MaterialBanner(
+      content: const Text('private account banner'),
+      actions: [TextButton(onPressed: () {}, child: const Text('Close'))],
+    ));
+    showDialog<void>(
+        context: navigator.context,
+        builder: (_) =>
+            const AlertDialog(content: Text('private account message')));
+    await tester.pumpAndSettle();
+    expect(find.text('private account message'), findsOneWidget);
+    h.adapter.enqueueJson(authFixture(id: 8, token: 'new-account-token'));
+    final signIn = h.session.signIn(
+        const LoginRequest(email: 'other@example.com', password: 'password'));
+    var completed = false;
+    signIn.whenComplete(() => completed = true);
+    for (var frame = 0; frame < 30 && !completed; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(completed, true);
+    await signIn;
+    await tester.pumpAndSettle();
+    expect(h.session.ownerId.value, 'user:8');
+    expect(find.text('private account message'), findsNothing);
+    expect(find.text('private account banner'), findsNothing);
+    expect(find.text('account home'), findsOneWidget);
+    expect(tester.takeException(), null);
+  });
+
   authTest('guest can enter the app from the phone landing page offline',
       (tester) async {
     await pumpPage(tester, const LandingScreen(), gate: true);

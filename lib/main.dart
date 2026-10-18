@@ -1,3 +1,6 @@
+import 'data/sources/onesignal_messaging_client.dart';
+import 'data/repositories/push_message_repository.dart';
+import 'presentation/notifications/push_message_controller.dart';
 import 'services/google_error_reporting.dart';
 import 'presentation/notifications/device_registration_controller.dart';
 import 'presentation/notifications/in_app_message_controller.dart';
@@ -236,19 +239,44 @@ void main() async {
   }
   NotificationController? notifications;
   if (injector.migrationFlags.notifications) {
-    final messaging = SdkPushMessagingClient();
+    final platform = devicePresentation == DevicePresentation.television
+        ? 'tv'
+        : Platform.isIOS
+            ? 'ios'
+            : 'android';
+    const oneSignalAppId = String.fromEnvironment('ONESIGNAL_APP_ID');
+    if (oneSignalAppId.isNotEmpty &&
+        !OneSignalMessagingClient.validAppId(oneSignalAppId)) {
+      throw StateError('ONESIGNAL_APP_ID must be a valid public App ID.');
+    }
+    PushMessagingClient messaging = SdkPushMessagingClient();
+    if (oneSignalAppId.isNotEmpty) {
+      final oneSignal = OneSignalMessagingClient();
+      try {
+        await oneSignal
+            .initialize(oneSignalAppId, platform: platform)
+            .timeout(const Duration(seconds: 10));
+        messaging = oneSignal;
+      } catch (_) {
+        await oneSignal.dispose();
+        debugPrint(
+            'OneSignal initialization unavailable; retry on next app launch.');
+      }
+    }
+    final messages = InAppMessageController(injector.announcementRepository,
+        injector.kvStore, InAppMessagingService.present);
     notifications = NotificationController(
       DeviceRegistrationController(injector.deviceRepository, injector.session,
           injector.kvStore, messaging,
-          platform: devicePresentation == DevicePresentation.television
-              ? 'tv'
-              : Platform.isIOS
-                  ? 'ios'
-                  : 'android',
+          platform: platform,
+          provider: messaging is OneSignalMessagingClient ? 'onesignal' : 'fcm',
           appVersion: currentAppVersion),
-      InAppMessageController(injector.announcementRepository, injector.kvStore,
-          InAppMessagingService.present),
+      messages,
       messaging,
+      pushMessages: PushMessageController(
+          PushMessageRepository(injector.laravelDio), messages,
+          currentOwner: () => injector.session.ownerId.value,
+          currentToken: () => injector.session.token),
     );
   }
   NetworkRuntime.configure(

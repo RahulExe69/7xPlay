@@ -116,7 +116,8 @@ class _FlixQuestState extends State<FlixQuest>
     InAppMessagingService.initialize(
         onConfigHint: widget.configController?.onPushData,
         messages: widget.notifications?.messages,
-        messaging: widget.notifications?.messaging);
+        messaging: widget.notifications?.messaging,
+        onMessage: widget.notifications?.receive);
     unawaited(widget.notifications?.boot());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       DeepLinkDispatcher.onAppReady();

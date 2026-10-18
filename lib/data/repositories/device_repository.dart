@@ -10,11 +10,15 @@ class DeviceRepository {
 
   Future<Result<void>> register(
       String fcmToken, String platform, String appVersion,
-      {required String owner}) async {
+      {required String owner, String provider = 'fcm'}) async {
     try {
-      final response = await dio.post<dynamic>('devices/register',
+      final response = await dio.post<dynamic>(
+          provider == 'onesignal' ? 'push/subscriptions' : 'devices/register',
           data: {
-            'fcm_token': fcmToken,
+            if (provider == 'onesignal')
+              'subscription_id': fcmToken
+            else
+              'fcm_token': fcmToken,
             'platform': platform,
             'app_version': appVersion
           },
@@ -30,5 +34,17 @@ class DeviceRepository {
     } on DioException catch (error) {
       return Result.err(failureForDio(error));
     }
+  }
+
+  Future<void> unregister(String subscriptionId,
+      {required String owner}) async {
+    if (!RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(subscriptionId)) return;
+    try {
+      await dio.delete<dynamic>('push/subscriptions/$subscriptionId',
+          options: Options(extra: {
+            'sessionOwner': owner,
+            'cachePolicy': CachePolicy.noStore
+          }));
+    } catch (_) {/* The token association is also removed on server logout. */}
   }
 }

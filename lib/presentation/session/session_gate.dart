@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/in_app_messaging_service.dart';
 import 'session_view_model.dart';
 
-/// Replaces the app shell when identity changes and removes routes on expiry.
+/// Replaces the app shell and removes private routes when identity changes.
 class SessionGate extends StatefulWidget {
   const SessionGate({required this.session, required this.builder, super.key});
   final SessionViewModel session;
@@ -12,9 +12,12 @@ class SessionGate extends StatefulWidget {
 }
 
 class _SessionGateState extends State<SessionGate> {
+  String? _identity;
+
   @override
   void initState() {
     super.initState();
+    _identity = widget.session.gateIdentity.value;
     widget.session.addListener(_changed);
   }
 
@@ -29,13 +32,21 @@ class _SessionGateState extends State<SessionGate> {
 
   void _changed() {
     if (!mounted) return;
+    final identity = widget.session.gateIdentity.value;
+    final identityChanged = identity != _identity;
+    _identity = identity;
     setState(() {});
-    if (widget.session.state
-        .maybeWhen(expired: () => true, orElse: () => false)) {
+    if (identityChanged ||
+        widget.session.state
+            .maybeWhen(expired: () => true, orElse: () => false)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final navigator = InAppMessagingService.navigatorKey.currentState ??
             Navigator.maybeOf(context, rootNavigator: true);
+        final messenger =
+            ScaffoldMessenger.maybeOf(navigator?.context ?? context);
+        messenger?.clearMaterialBanners();
+        messenger?.removeCurrentMaterialBanner();
         navigator?.popUntil((route) => route.isFirst);
       });
     }

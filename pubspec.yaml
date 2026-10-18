@@ -51,6 +51,7 @@ dependencies:
   json_annotation: ^4.9.0
   mixpanel_flutter: ^2.13.0
   native_device_orientation: ^2.0.2
+  onesignal_flutter: ^5.7.1
   open_filex: ^4.5.0
   package_info_plus: ^9.0.1
   path: ^1.9.1

@@ -2,7 +2,7 @@
 
 **Document Version:** 1.1
 **Branch:** `feat/laravel`
-**Status:** F0 implemented and verified against the measured baseline (2026-10-03); F1 implemented and automatically verified (2026-10-03), device smoke pending; F2 implemented and automatically verified (2026-10-03), staging/device smoke pending; original F3 implemented and automatically verified (2026-10-03), device/Filament smoke pending, F3.5 server-controlled source selection implemented (2026-10-04), automated verification recorded below and device smoke pending; F4 implemented and automatically verified (2026-10-04), device/Filament smoke pending; F5 implemented (2026-10-04), automated verification recorded below and two-device/staging smoke pending; F6 implemented (2026-10-04), automated verification recorded below and phone/TV Google reporting + push smoke pending; F7–F8 pending
+**Status:** F0 implemented and verified against the measured baseline (2026-10-03); F1 implemented and automatically verified (2026-10-03), device smoke pending; F2 implemented and automatically verified (2026-10-03), staging/device smoke pending; original F3 implemented and automatically verified (2026-10-03), device/Filament smoke pending, F3.5 server-controlled source selection implemented (2026-10-04), automated verification recorded below and device smoke pending; F4 implemented and automatically verified (2026-10-04), device/Filament smoke pending; F5 implemented (2026-10-04), automated verification recorded below and two-device/staging smoke pending; F6 implemented (2026-10-04), automated verification recorded below and phone/TV Google reporting + push smoke pending; F7 implementation/build verification completed (2026-10-18), remote Google/device exit checks pending; OneSignal individual/bulk delivery implemented and locally verified; F8 local integration/preflight/playbook implemented (2026-10-18), MySQL staging and production gates pending
 **Sources of truth:**
 - `docs/migration_prd_firebase_to_laravel.md` (this repo)
 - `~/Documents/web/phplaravel/flixquest-backend` — backend + `docs/migration_phases.md` (Phases 1 & 3 complete)
@@ -1396,6 +1396,40 @@ Remaining F7 exit checks:
 ---
 
 ## Phase F8 — QA, staging & cutover
+
+### F8 local implementation — 2026-10-18
+
+OneSignal is an additive delivery step after F7. Flutter selects it when built
+with a public `ONESIGNAL_APP_ID`; without the define, FCM remains selected.
+Laravel now has separate private/public campaigns, token-scoped subscription
+registration, selected-user/bulk/platform targeting, scheduled batches, UUID v4
+idempotency, retry/cancel controls and Filament delivery status. Private content
+is authorized and fetched from Laravel; it is absent from public announcements
+and OS payloads. The existing Firebase config owner remains selected.
+
+- [x] Write [OneSignal setup guide](onesignal_setup.md), covering new-app/FCM setup,
+  backend secrets/worker, Flutter build, campaign operations and rollout checks.
+- [x] Add opt-in real HTTP rehearsal in
+  `test/integration/laravel_migration_e2e_test.dart`: synthetic account/two logins,
+  bookmarks union, recents LWW, actual 25-hour clock-skew 422/recovery, 451 wellness
+  sessions across pages, bootstrap/ads ETags, subscription registration, logout
+  isolation and account deletion. Passed against an isolated SQLite backend.
+- [x] Add `flixquest:migration-preflight` in Laravel with JSON/strict/OneSignal
+  options and tests. It checks deployment prerequisites without sending push or
+  changing the runtime config selection.
+- [x] Add local Postman provider simulation and real Laravel-transport checks:
+  accepted, 429, 503, 403, no audience, and connection loss after acceptance;
+  retries preserve the exact payload and idempotency key.
+- [x] Write [F8 staging/cutover/recovery playbook](f8_staging_playbook.md).
+- [ ] Run the matrix on MySQL/Redis staging with actual historical exports,
+  private known-credential samples, real Google sign-in, physical phone/TV
+  delivery/reporting and source-specific offline checks.
+- [ ] Production cutover and post-cutover cleanup remain gated on that evidence.
+
+Local checks do not check off the staging-only requirements below. This checkout
+has no iOS target. OneSignal activation awaits app creation and credentials;
+keep `config_source=firebase` until the modern Laravel config fields reach parity.
+
 
 ### Goal
 Prove parity end-to-end on staging, then ship the cutover release with the backend running production data.

@@ -8,12 +8,15 @@ import 'package:flixquest/presentation/session/session_view_model.dart';
 class DeviceRegistrationController {
   DeviceRegistrationController(
       this.repository, this.session, this.store, this.messaging,
-      {required this.platform, required this.appVersion});
+      {required this.platform,
+      required this.appVersion,
+      this.provider = 'fcm'});
   final DeviceRepository repository;
   final SessionViewModel session;
   final KvStore store;
   final PushMessagingClient messaging;
   final String platform;
+  final String provider;
   final String appVersion;
   static const _receiptKey = 'notifications.device.registration';
   StreamSubscription<String>? _subscription;
@@ -36,8 +39,8 @@ class DeviceRegistrationController {
       session.addListener(_sessionChanged);
       try {
         _subscription = messaging.tokenRefresh.listen((token) {
-          if (token.trim().isEmpty || token == _token) return;
-          _token = token;
+          if (token == _token) return;
+          if (provider != 'onesignal') _token = token;
           _generation++;
           unawaited(_refresh());
         }, onError: (_) {});
@@ -73,17 +76,36 @@ class DeviceRegistrationController {
       if (_disposed || owner == null || authToken == null) return;
       final generation = _generation;
       try {
-        final token = _token ?? await messaging.getToken();
+        final token = provider == 'onesignal'
+            ? await messaging.getToken()
+            : _token ?? await messaging.getToken();
         if (_disposed ||
             generation != _generation ||
             session.ownerId.value != owner ||
             session.token != authToken) {
           continue;
         }
-        if (token == null || token.trim().isEmpty) return;
+        if (token == null || token.trim().isEmpty) {
+          final receipt = store.getJson(_receiptKey);
+          final previous = _token ??
+              (receipt is Map &&
+                      receipt['provider'] == provider &&
+                      receipt['owner'] == owner
+                  ? receipt['token'] as String?
+                  : null);
+          _token = null;
+          _forceRegistration = true;
+          if (provider == 'onesignal' &&
+              previous != null &&
+              previous.isNotEmpty) {
+            await repository.unregister(previous, owner: owner);
+          }
+          return;
+        }
         _token = token;
         final receipt = {
           'owner': owner,
+          'provider': provider,
           'token': token,
           'platform': platform,
           'app_version': appVersion,
@@ -96,7 +118,7 @@ class DeviceRegistrationController {
           continue;
         }
         final result = await repository.register(token, platform, appVersion,
-            owner: owner);
+            owner: owner, provider: provider);
         if (!_disposed &&
             generation == _generation &&
             session.ownerId.value == owner &&

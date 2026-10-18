@@ -49,6 +49,7 @@ void main() {
     expect(h.adapter.requests.length, 2);
     expect(h.preferences.getJson('notifications.device.registration'), {
       'owner': 'user:7',
+      'provider': 'fcm',
       'token': 'device-token',
       'platform': 'android',
       'app_version': '4.3.0',
