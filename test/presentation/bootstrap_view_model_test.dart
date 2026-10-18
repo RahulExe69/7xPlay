@@ -48,13 +48,9 @@ void main() {
             'tmdb_proxy': 'https://proxy.test'
           },
           'ads': {
-            'banner_ad_network': 'startio',
+            'banner_ad_network': 'clickadu',
             'hosted_banner_mode': 'priority',
             'unity_test_mode': true,
-            'startio_banner_enabled': true,
-            'startio_interstitial_enabled': true,
-            'startio_interstitial_interval_seconds': 3,
-            'startio_tv_interstitial_mode': 'automatic'
           },
           'banners': [
             {
@@ -96,11 +92,7 @@ void main() {
     expect(provider.isForcedUpdate, isTrue);
     expect(provider.minimumBuildNumber, 40);
     expect(provider.hostedBannerMode, HostedBannerMode.priority);
-    expect(provider.startIoBannerEnabled, isTrue);
-    expect(
-        provider.startIoAds.interstitialInterval, const Duration(seconds: 60));
-    expect(provider.startIoAds.tvInterstitialMode.name, 'automatic');
-    expect(provider.startIoAds.testMode, isTrue);
+    expect(provider.bannerAdNetwork, 'clickadu');
     expect(provider.bannerConfigFor('promo').enabled, isFalse);
     expect(provider.activeOccasionalTheme?.id, 'enkutatash');
     expect(provider.shouldShowOccasionalEffects, isTrue);

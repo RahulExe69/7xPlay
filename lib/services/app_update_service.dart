@@ -4,6 +4,24 @@ import 'package:package_info_plus/package_info_plus.dart';
 class AppUpdateService {
   const AppUpdateService._();
 
+  /// ABIs `flutter build apk --split-per-abi` produces an APK for.
+  static const splitApkAbis = ['arm64-v8a', 'armeabi-v7a', 'x86_64'];
+
+  /// The smallest APK this device can install: the first of [deviceAbis]
+  /// (most preferred first, as Android reports them) that has a per-ABI link,
+  /// else the universal [universalUrl].
+  static String resolveDownloadUrl({
+    required List<String> deviceAbis,
+    required Map<String, String> abiUrls,
+    required String universalUrl,
+  }) {
+    for (final abi in deviceAbis) {
+      final url = abiUrls[abi]?.trim() ?? '';
+      if (url.isNotEmpty) return url;
+    }
+    return universalUrl;
+  }
+
   static int effectiveBuildNumber({
     required int latestBuildNumber,
     required int minimumBuildNumber,
@@ -70,4 +88,13 @@ class AppUpdateService {
     if (version.isNotEmpty) return version;
     return remoteBuild > 0 ? remoteBuild.toString() : '';
   }
+
+  /// The changelog as one entry per line, list markers stripped, so a long
+  /// remote string can be previewed a few lines at a time.
+  static List<String> changelogItems(String changeLog) => changeLog
+      .split('\n')
+      .map((line) =>
+          line.trim().replaceFirst(RegExp(r'^(?:#+|[-*•·]|\d+[.)])\s+'), ''))
+      .where((line) => line.isNotEmpty)
+      .toList(growable: false);
 }

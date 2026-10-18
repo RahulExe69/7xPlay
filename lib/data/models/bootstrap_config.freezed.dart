@@ -971,15 +971,6 @@ mixin _$AdsConfig {
   String get unityBannerPlacementId => throw _privateConstructorUsedError;
   @JsonKey(name: 'unity_test_mode')
   bool get unityTestMode => throw _privateConstructorUsedError;
-  @JsonKey(name: 'startio_banner_enabled')
-  bool get startioBannerEnabled => throw _privateConstructorUsedError;
-  @JsonKey(name: 'startio_interstitial_enabled')
-  bool get startioInterstitialEnabled => throw _privateConstructorUsedError;
-  @JsonKey(name: 'startio_interstitial_interval_seconds')
-  int get startioInterstitialIntervalSeconds =>
-      throw _privateConstructorUsedError;
-  @JsonKey(name: 'startio_tv_interstitial_mode')
-  String get startioTvInterstitialMode => throw _privateConstructorUsedError;
 
   /// Serializes this AdsConfig to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -1001,14 +992,7 @@ abstract class $AdsConfigCopyWith<$Res> {
       @JsonKey(name: 'hosted_banner_mode') String hostedBannerMode,
       @JsonKey(name: 'unity_game_id_android') String unityGameIdAndroid,
       @JsonKey(name: 'unity_banner_placement_id') String unityBannerPlacementId,
-      @JsonKey(name: 'unity_test_mode') bool unityTestMode,
-      @JsonKey(name: 'startio_banner_enabled') bool startioBannerEnabled,
-      @JsonKey(name: 'startio_interstitial_enabled')
-      bool startioInterstitialEnabled,
-      @JsonKey(name: 'startio_interstitial_interval_seconds')
-      int startioInterstitialIntervalSeconds,
-      @JsonKey(name: 'startio_tv_interstitial_mode')
-      String startioTvInterstitialMode});
+      @JsonKey(name: 'unity_test_mode') bool unityTestMode});
 }
 
 /// @nodoc
@@ -1031,10 +1015,6 @@ class _$AdsConfigCopyWithImpl<$Res, $Val extends AdsConfig>
     Object? unityGameIdAndroid = null,
     Object? unityBannerPlacementId = null,
     Object? unityTestMode = null,
-    Object? startioBannerEnabled = null,
-    Object? startioInterstitialEnabled = null,
-    Object? startioInterstitialIntervalSeconds = null,
-    Object? startioTvInterstitialMode = null,
   }) {
     return _then(_value.copyWith(
       bannerAdNetwork: null == bannerAdNetwork
@@ -1057,23 +1037,6 @@ class _$AdsConfigCopyWithImpl<$Res, $Val extends AdsConfig>
           ? _value.unityTestMode
           : unityTestMode // ignore: cast_nullable_to_non_nullable
               as bool,
-      startioBannerEnabled: null == startioBannerEnabled
-          ? _value.startioBannerEnabled
-          : startioBannerEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      startioInterstitialEnabled: null == startioInterstitialEnabled
-          ? _value.startioInterstitialEnabled
-          : startioInterstitialEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      startioInterstitialIntervalSeconds: null ==
-              startioInterstitialIntervalSeconds
-          ? _value.startioInterstitialIntervalSeconds
-          : startioInterstitialIntervalSeconds // ignore: cast_nullable_to_non_nullable
-              as int,
-      startioTvInterstitialMode: null == startioTvInterstitialMode
-          ? _value.startioTvInterstitialMode
-          : startioTvInterstitialMode // ignore: cast_nullable_to_non_nullable
-              as String,
     ) as $Val);
   }
 }
@@ -1091,14 +1054,7 @@ abstract class _$$AdsConfigImplCopyWith<$Res>
       @JsonKey(name: 'hosted_banner_mode') String hostedBannerMode,
       @JsonKey(name: 'unity_game_id_android') String unityGameIdAndroid,
       @JsonKey(name: 'unity_banner_placement_id') String unityBannerPlacementId,
-      @JsonKey(name: 'unity_test_mode') bool unityTestMode,
-      @JsonKey(name: 'startio_banner_enabled') bool startioBannerEnabled,
-      @JsonKey(name: 'startio_interstitial_enabled')
-      bool startioInterstitialEnabled,
-      @JsonKey(name: 'startio_interstitial_interval_seconds')
-      int startioInterstitialIntervalSeconds,
-      @JsonKey(name: 'startio_tv_interstitial_mode')
-      String startioTvInterstitialMode});
+      @JsonKey(name: 'unity_test_mode') bool unityTestMode});
 }
 
 /// @nodoc
@@ -1119,10 +1075,6 @@ class __$$AdsConfigImplCopyWithImpl<$Res>
     Object? unityGameIdAndroid = null,
     Object? unityBannerPlacementId = null,
     Object? unityTestMode = null,
-    Object? startioBannerEnabled = null,
-    Object? startioInterstitialEnabled = null,
-    Object? startioInterstitialIntervalSeconds = null,
-    Object? startioTvInterstitialMode = null,
   }) {
     return _then(_$AdsConfigImpl(
       bannerAdNetwork: null == bannerAdNetwork
@@ -1145,23 +1097,6 @@ class __$$AdsConfigImplCopyWithImpl<$Res>
           ? _value.unityTestMode
           : unityTestMode // ignore: cast_nullable_to_non_nullable
               as bool,
-      startioBannerEnabled: null == startioBannerEnabled
-          ? _value.startioBannerEnabled
-          : startioBannerEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      startioInterstitialEnabled: null == startioInterstitialEnabled
-          ? _value.startioInterstitialEnabled
-          : startioInterstitialEnabled // ignore: cast_nullable_to_non_nullable
-              as bool,
-      startioInterstitialIntervalSeconds: null ==
-              startioInterstitialIntervalSeconds
-          ? _value.startioInterstitialIntervalSeconds
-          : startioInterstitialIntervalSeconds // ignore: cast_nullable_to_non_nullable
-              as int,
-      startioTvInterstitialMode: null == startioTvInterstitialMode
-          ? _value.startioTvInterstitialMode
-          : startioTvInterstitialMode // ignore: cast_nullable_to_non_nullable
-              as String,
     ));
   }
 }
@@ -1170,21 +1105,13 @@ class __$$AdsConfigImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$AdsConfigImpl implements _AdsConfig {
   const _$AdsConfigImpl(
-      {@JsonKey(name: 'banner_ad_network') this.bannerAdNetwork = 'native',
+      {@JsonKey(name: 'banner_ad_network') this.bannerAdNetwork = 'adsterra',
       @JsonKey(name: 'hosted_banner_mode') this.hostedBannerMode = 'stack',
       @JsonKey(name: 'unity_game_id_android')
       this.unityGameIdAndroid = '5445375',
       @JsonKey(name: 'unity_banner_placement_id')
       this.unityBannerPlacementId = 'Banner_Android',
-      @JsonKey(name: 'unity_test_mode') this.unityTestMode = false,
-      @JsonKey(name: 'startio_banner_enabled')
-      this.startioBannerEnabled = false,
-      @JsonKey(name: 'startio_interstitial_enabled')
-      this.startioInterstitialEnabled = false,
-      @JsonKey(name: 'startio_interstitial_interval_seconds')
-      this.startioInterstitialIntervalSeconds = 600,
-      @JsonKey(name: 'startio_tv_interstitial_mode')
-      this.startioTvInterstitialMode = 'video'});
+      @JsonKey(name: 'unity_test_mode') this.unityTestMode = false});
 
   factory _$AdsConfigImpl.fromJson(Map<String, dynamic> json) =>
       _$$AdsConfigImplFromJson(json);
@@ -1204,22 +1131,10 @@ class _$AdsConfigImpl implements _AdsConfig {
   @override
   @JsonKey(name: 'unity_test_mode')
   final bool unityTestMode;
-  @override
-  @JsonKey(name: 'startio_banner_enabled')
-  final bool startioBannerEnabled;
-  @override
-  @JsonKey(name: 'startio_interstitial_enabled')
-  final bool startioInterstitialEnabled;
-  @override
-  @JsonKey(name: 'startio_interstitial_interval_seconds')
-  final int startioInterstitialIntervalSeconds;
-  @override
-  @JsonKey(name: 'startio_tv_interstitial_mode')
-  final String startioTvInterstitialMode;
 
   @override
   String toString() {
-    return 'AdsConfig(bannerAdNetwork: $bannerAdNetwork, hostedBannerMode: $hostedBannerMode, unityGameIdAndroid: $unityGameIdAndroid, unityBannerPlacementId: $unityBannerPlacementId, unityTestMode: $unityTestMode, startioBannerEnabled: $startioBannerEnabled, startioInterstitialEnabled: $startioInterstitialEnabled, startioInterstitialIntervalSeconds: $startioInterstitialIntervalSeconds, startioTvInterstitialMode: $startioTvInterstitialMode)';
+    return 'AdsConfig(bannerAdNetwork: $bannerAdNetwork, hostedBannerMode: $hostedBannerMode, unityGameIdAndroid: $unityGameIdAndroid, unityBannerPlacementId: $unityBannerPlacementId, unityTestMode: $unityTestMode)';
   }
 
   @override
@@ -1236,20 +1151,7 @@ class _$AdsConfigImpl implements _AdsConfig {
             (identical(other.unityBannerPlacementId, unityBannerPlacementId) ||
                 other.unityBannerPlacementId == unityBannerPlacementId) &&
             (identical(other.unityTestMode, unityTestMode) ||
-                other.unityTestMode == unityTestMode) &&
-            (identical(other.startioBannerEnabled, startioBannerEnabled) ||
-                other.startioBannerEnabled == startioBannerEnabled) &&
-            (identical(other.startioInterstitialEnabled,
-                    startioInterstitialEnabled) ||
-                other.startioInterstitialEnabled ==
-                    startioInterstitialEnabled) &&
-            (identical(other.startioInterstitialIntervalSeconds,
-                    startioInterstitialIntervalSeconds) ||
-                other.startioInterstitialIntervalSeconds ==
-                    startioInterstitialIntervalSeconds) &&
-            (identical(other.startioTvInterstitialMode,
-                    startioTvInterstitialMode) ||
-                other.startioTvInterstitialMode == startioTvInterstitialMode));
+                other.unityTestMode == unityTestMode));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1260,11 +1162,7 @@ class _$AdsConfigImpl implements _AdsConfig {
       hostedBannerMode,
       unityGameIdAndroid,
       unityBannerPlacementId,
-      unityTestMode,
-      startioBannerEnabled,
-      startioInterstitialEnabled,
-      startioInterstitialIntervalSeconds,
-      startioTvInterstitialMode);
+      unityTestMode);
 
   /// Create a copy of AdsConfig
   /// with the given fields replaced by the non-null parameter values.
@@ -1289,14 +1187,8 @@ abstract class _AdsConfig implements AdsConfig {
       @JsonKey(name: 'unity_game_id_android') final String unityGameIdAndroid,
       @JsonKey(name: 'unity_banner_placement_id')
       final String unityBannerPlacementId,
-      @JsonKey(name: 'unity_test_mode') final bool unityTestMode,
-      @JsonKey(name: 'startio_banner_enabled') final bool startioBannerEnabled,
-      @JsonKey(name: 'startio_interstitial_enabled')
-      final bool startioInterstitialEnabled,
-      @JsonKey(name: 'startio_interstitial_interval_seconds')
-      final int startioInterstitialIntervalSeconds,
-      @JsonKey(name: 'startio_tv_interstitial_mode')
-      final String startioTvInterstitialMode}) = _$AdsConfigImpl;
+      @JsonKey(name: 'unity_test_mode')
+      final bool unityTestMode}) = _$AdsConfigImpl;
 
   factory _AdsConfig.fromJson(Map<String, dynamic> json) =
       _$AdsConfigImpl.fromJson;
@@ -1316,18 +1208,6 @@ abstract class _AdsConfig implements AdsConfig {
   @override
   @JsonKey(name: 'unity_test_mode')
   bool get unityTestMode;
-  @override
-  @JsonKey(name: 'startio_banner_enabled')
-  bool get startioBannerEnabled;
-  @override
-  @JsonKey(name: 'startio_interstitial_enabled')
-  bool get startioInterstitialEnabled;
-  @override
-  @JsonKey(name: 'startio_interstitial_interval_seconds')
-  int get startioInterstitialIntervalSeconds;
-  @override
-  @JsonKey(name: 'startio_tv_interstitial_mode')
-  String get startioTvInterstitialMode;
 
   /// Create a copy of AdsConfig
   /// with the given fields replaced by the non-null parameter values.
@@ -2764,6 +2644,9 @@ mixin _$BootstrapConfig {
   UpdateConfig get updates => throw _privateConstructorUsedError;
   NetworkConfig get network => throw _privateConstructorUsedError;
   AdsConfig get ads => throw _privateConstructorUsedError;
+  @JsonKey(name: 'runtime_settings')
+  Map<String, dynamic> get runtimeSettings =>
+      throw _privateConstructorUsedError;
   List<BannerDisplayConfig> get banners => throw _privateConstructorUsedError;
   @JsonKey(name: 'occasional_theme')
   OccasionalThemeCatalog get occasionalTheme =>
@@ -2792,6 +2675,7 @@ abstract class $BootstrapConfigCopyWith<$Res> {
       UpdateConfig updates,
       NetworkConfig network,
       AdsConfig ads,
+      @JsonKey(name: 'runtime_settings') Map<String, dynamic> runtimeSettings,
       List<BannerDisplayConfig> banners,
       @JsonKey(name: 'occasional_theme')
       OccasionalThemeCatalog occasionalTheme});
@@ -2825,6 +2709,7 @@ class _$BootstrapConfigCopyWithImpl<$Res, $Val extends BootstrapConfig>
     Object? updates = null,
     Object? network = null,
     Object? ads = null,
+    Object? runtimeSettings = null,
     Object? banners = null,
     Object? occasionalTheme = null,
   }) {
@@ -2853,6 +2738,10 @@ class _$BootstrapConfigCopyWithImpl<$Res, $Val extends BootstrapConfig>
           ? _value.ads
           : ads // ignore: cast_nullable_to_non_nullable
               as AdsConfig,
+      runtimeSettings: null == runtimeSettings
+          ? _value.runtimeSettings
+          : runtimeSettings // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>,
       banners: null == banners
           ? _value.banners
           : banners // ignore: cast_nullable_to_non_nullable
@@ -2941,6 +2830,7 @@ abstract class _$$BootstrapConfigImplCopyWith<$Res>
       UpdateConfig updates,
       NetworkConfig network,
       AdsConfig ads,
+      @JsonKey(name: 'runtime_settings') Map<String, dynamic> runtimeSettings,
       List<BannerDisplayConfig> banners,
       @JsonKey(name: 'occasional_theme')
       OccasionalThemeCatalog occasionalTheme});
@@ -2978,6 +2868,7 @@ class __$$BootstrapConfigImplCopyWithImpl<$Res>
     Object? updates = null,
     Object? network = null,
     Object? ads = null,
+    Object? runtimeSettings = null,
     Object? banners = null,
     Object? occasionalTheme = null,
   }) {
@@ -3006,6 +2897,10 @@ class __$$BootstrapConfigImplCopyWithImpl<$Res>
           ? _value.ads
           : ads // ignore: cast_nullable_to_non_nullable
               as AdsConfig,
+      runtimeSettings: null == runtimeSettings
+          ? _value._runtimeSettings
+          : runtimeSettings // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>,
       banners: null == banners
           ? _value._banners
           : banners // ignore: cast_nullable_to_non_nullable
@@ -3028,10 +2923,13 @@ class _$BootstrapConfigImpl implements _BootstrapConfig {
       this.updates = const UpdateConfig(),
       this.network = const NetworkConfig(),
       this.ads = const AdsConfig(),
+      @JsonKey(name: 'runtime_settings')
+      final Map<String, dynamic> runtimeSettings = const {},
       final List<BannerDisplayConfig> banners = const [],
       @JsonKey(name: 'occasional_theme')
       this.occasionalTheme = const OccasionalThemeCatalog()})
-      : _banners = banners;
+      : _runtimeSettings = runtimeSettings,
+        _banners = banners;
 
   factory _$BootstrapConfigImpl.fromJson(Map<String, dynamic> json) =>
       _$$BootstrapConfigImplFromJson(json);
@@ -3054,6 +2952,15 @@ class _$BootstrapConfigImpl implements _BootstrapConfig {
   @override
   @JsonKey()
   final AdsConfig ads;
+  final Map<String, dynamic> _runtimeSettings;
+  @override
+  @JsonKey(name: 'runtime_settings')
+  Map<String, dynamic> get runtimeSettings {
+    if (_runtimeSettings is EqualUnmodifiableMapView) return _runtimeSettings;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_runtimeSettings);
+  }
+
   final List<BannerDisplayConfig> _banners;
   @override
   @JsonKey()
@@ -3069,7 +2976,7 @@ class _$BootstrapConfigImpl implements _BootstrapConfig {
 
   @override
   String toString() {
-    return 'BootstrapConfig(configSource: $configSource, features: $features, branding: $branding, updates: $updates, network: $network, ads: $ads, banners: $banners, occasionalTheme: $occasionalTheme)';
+    return 'BootstrapConfig(configSource: $configSource, features: $features, branding: $branding, updates: $updates, network: $network, ads: $ads, runtimeSettings: $runtimeSettings, banners: $banners, occasionalTheme: $occasionalTheme)';
   }
 
   @override
@@ -3086,6 +2993,8 @@ class _$BootstrapConfigImpl implements _BootstrapConfig {
             (identical(other.updates, updates) || other.updates == updates) &&
             (identical(other.network, network) || other.network == network) &&
             (identical(other.ads, ads) || other.ads == ads) &&
+            const DeepCollectionEquality()
+                .equals(other._runtimeSettings, _runtimeSettings) &&
             const DeepCollectionEquality().equals(other._banners, _banners) &&
             (identical(other.occasionalTheme, occasionalTheme) ||
                 other.occasionalTheme == occasionalTheme));
@@ -3101,6 +3010,7 @@ class _$BootstrapConfigImpl implements _BootstrapConfig {
       updates,
       network,
       ads,
+      const DeepCollectionEquality().hash(_runtimeSettings),
       const DeepCollectionEquality().hash(_banners),
       occasionalTheme);
 
@@ -3129,6 +3039,8 @@ abstract class _BootstrapConfig implements BootstrapConfig {
       final UpdateConfig updates,
       final NetworkConfig network,
       final AdsConfig ads,
+      @JsonKey(name: 'runtime_settings')
+      final Map<String, dynamic> runtimeSettings,
       final List<BannerDisplayConfig> banners,
       @JsonKey(name: 'occasional_theme')
       final OccasionalThemeCatalog occasionalTheme}) = _$BootstrapConfigImpl;
@@ -3149,6 +3061,9 @@ abstract class _BootstrapConfig implements BootstrapConfig {
   NetworkConfig get network;
   @override
   AdsConfig get ads;
+  @override
+  @JsonKey(name: 'runtime_settings')
+  Map<String, dynamic> get runtimeSettings;
   @override
   List<BannerDisplayConfig> get banners;
   @override

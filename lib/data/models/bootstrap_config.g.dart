@@ -77,20 +77,12 @@ Map<String, dynamic> _$$NetworkConfigImplToJson(_$NetworkConfigImpl instance) =>
 
 _$AdsConfigImpl _$$AdsConfigImplFromJson(Map<String, dynamic> json) =>
     _$AdsConfigImpl(
-      bannerAdNetwork: json['banner_ad_network'] as String? ?? 'native',
+      bannerAdNetwork: json['banner_ad_network'] as String? ?? 'adsterra',
       hostedBannerMode: json['hosted_banner_mode'] as String? ?? 'stack',
       unityGameIdAndroid: json['unity_game_id_android'] as String? ?? '5445375',
       unityBannerPlacementId:
           json['unity_banner_placement_id'] as String? ?? 'Banner_Android',
       unityTestMode: json['unity_test_mode'] as bool? ?? false,
-      startioBannerEnabled: json['startio_banner_enabled'] as bool? ?? false,
-      startioInterstitialEnabled:
-          json['startio_interstitial_enabled'] as bool? ?? false,
-      startioInterstitialIntervalSeconds:
-          (json['startio_interstitial_interval_seconds'] as num?)?.toInt() ??
-              600,
-      startioTvInterstitialMode:
-          json['startio_tv_interstitial_mode'] as String? ?? 'video',
     );
 
 Map<String, dynamic> _$$AdsConfigImplToJson(_$AdsConfigImpl instance) =>
@@ -100,11 +92,6 @@ Map<String, dynamic> _$$AdsConfigImplToJson(_$AdsConfigImpl instance) =>
       'unity_game_id_android': instance.unityGameIdAndroid,
       'unity_banner_placement_id': instance.unityBannerPlacementId,
       'unity_test_mode': instance.unityTestMode,
-      'startio_banner_enabled': instance.startioBannerEnabled,
-      'startio_interstitial_enabled': instance.startioInterstitialEnabled,
-      'startio_interstitial_interval_seconds':
-          instance.startioInterstitialIntervalSeconds,
-      'startio_tv_interstitial_mode': instance.startioTvInterstitialMode,
     };
 
 _$ThemeEffectImpl _$$ThemeEffectImplFromJson(Map<String, dynamic> json) =>
@@ -250,6 +237,8 @@ _$BootstrapConfigImpl _$$BootstrapConfigImplFromJson(
       ads: json['ads'] == null
           ? const AdsConfig()
           : AdsConfig.fromJson(json['ads'] as Map<String, dynamic>),
+      runtimeSettings:
+          json['runtime_settings'] as Map<String, dynamic>? ?? const {},
       banners: (json['banners'] as List<dynamic>?)
               ?.map((e) =>
                   BannerDisplayConfig.fromJson(e as Map<String, dynamic>))
@@ -270,6 +259,7 @@ Map<String, dynamic> _$$BootstrapConfigImplToJson(
       'updates': instance.updates.toJson(),
       'network': instance.network.toJson(),
       'ads': instance.ads.toJson(),
+      'runtime_settings': instance.runtimeSettings,
       'banners': instance.banners.map((e) => e.toJson()).toList(),
       'occasional_theme': instance.occasionalTheme.toJson(),
     };

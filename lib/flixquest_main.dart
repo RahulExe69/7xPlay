@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flixquest/models/app_colors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ import 'provider/recently_watched_provider.dart';
 import 'provider/settings_provider.dart';
 import 'screens/user/user_state.dart';
 import 'widgets/occasional_effect_overlay.dart';
+import 'widgets/app_presentation.dart';
 import 'provider/bookmark_provider.dart';
 import 'provider/offline_download_provider.dart';
 import 'provider/wellness_provider.dart';
@@ -27,6 +29,7 @@ import 'services/recently_watched_sync_service.dart';
 import 'legacy/firebase_config_controller.dart';
 import 'presentation/config/refresh_controller.dart';
 import 'mobile/app/mobile_shell.dart';
+import 'mobile/app/mobile_update_gate.dart';
 import 'tv/platform/device_presentation.dart';
 import 'tv/navigation/tv_back_key_guard.dart';
 import 'tv/widgets/tv_update_gate.dart';
@@ -68,11 +71,36 @@ class _FlixQuestState extends State<FlixQuest>
     } else {
       final legacy = FirebaseConfigController(widget.appDependencyProvider);
       _legacyConfig = legacy;
+      if (WidgetsBinding.instance.lifecycleState != null &&
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        legacy.pause();
+      }
       await legacy.start();
     }
     if (mounted) {
       await requestNotificationPermissions();
       if (mounted) await widget.notifications?.devices.onResume();
+    }
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    if (kDebugMode) unawaited(_refreshConfigAfterReload());
+  }
+
+  Future<void> _refreshConfigAfterReload() async {
+    try {
+      final controller = widget.configController;
+      if (controller != null) {
+        await controller.onResume();
+      } else {
+        await _legacyConfig?.refresh();
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[PlaybackAdConfig] reload refresh failed: $error');
+      }
     }
   }
 
@@ -85,8 +113,10 @@ class _FlixQuestState extends State<FlixQuest>
     _initConfig();
     unawaited(widget.adsController?.boot());
     fileDelete();
-    InAppMessagingService.initialize(onConfigHint: widget.configController?.onPushData,
-        messages: widget.notifications?.messages, messaging: widget.notifications?.messaging);
+    InAppMessagingService.initialize(
+        onConfigHint: widget.configController?.onPushData,
+        messages: widget.notifications?.messages,
+        messaging: widget.notifications?.messaging);
     unawaited(widget.notifications?.boot());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       DeepLinkDispatcher.onAppReady();
@@ -115,14 +145,18 @@ class _FlixQuestState extends State<FlixQuest>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
+      _legacyConfig?.pause();
       // Leaving the app is the last chance to hand off progress saved by the
       // player, so push it now instead of waiting out the debounce.
       unawaited(RecentlyWatchedSyncService.instance.flushPending());
-      if (SyncRuntime.enabled) unawaited(WellnessProvider.instance.flushPending());
+      if (SyncRuntime.enabled) {
+        unawaited(WellnessProvider.instance.flushPending());
+      }
       return;
     }
     DeepLinkDispatcher.onAppReady();
     unawaited(widget.configController?.onResume());
+    unawaited(_legacyConfig?.resume());
     unawaited(widget.adsController?.onResume());
     unawaited(widget.notifications?.onResume());
     unawaited(_refreshHomeWidgets());
@@ -177,83 +211,90 @@ class _FlixQuestState extends State<FlixQuest>
             Consumer3<SettingsProvider, RecentProvider, AppDependencyProvider>(
                 builder: (context, settingsProvider, recentProvider,
                     appDependencyProvider, snapshot) {
-          return DynamicColorBuilder(
-            builder: (lightDynamic, darkDynamic) {
-              final isDarkTheme = settingsProvider.appTheme == 'dark' ||
-                  settingsProvider.appTheme == 'amoled';
-              final palette = AppColorsList().appColors(
-                isDarkTheme,
-                customColor: settingsProvider.customAppColor > 0
-                    ? settingsProvider.customAppColor
-                    : null,
-              );
-              final selectedAppColor = palette.firstWhere(
-                (color) => color.index == settingsProvider.appColorIndex,
-                orElse: () => palette.first,
-              );
-              final appTheme = Styles.themeData(
-                appThemeMode: settingsProvider.appTheme,
-                isM3Enabled: settingsProvider.isMaterial3Enabled,
-                lightDynamicColor: lightDynamic,
-                darkDynamicColor: darkDynamic,
-                context: context,
-                appColor: selectedAppColor,
-                compactCorners: widget.devicePresentation !=
-                    DevicePresentation.television,
-                occasionalTheme: appDependencyProvider.activeOccasionalTheme,
-                ambientColor: appDependencyProvider.activeAmbientColor,
-              );
-              unawaited(
-                HomeWidgetService.instance.syncResolvedTheme(appTheme),
-              );
-              final app = MaterialApp(
-                restorationScopeId: 'flixquest',
-                navigatorKey: InAppMessagingService.navigatorKey,
-                localizationsDelegates: context.localizationDelegates,
-                supportedLocales: context.supportedLocales,
-                locale: context.locale,
-                debugShowCheckedModeBanner: false,
-                builder: (context, child) =>
-                    AnnotatedRegion<SystemUiOverlayStyle>(
-                  value: SystemUiOverlayStyle(
-                    systemNavigationBarColor: Colors.transparent,
-                    systemNavigationBarDividerColor: Colors.transparent,
-                    systemNavigationBarIconBrightness:
-                        isDarkTheme ? Brightness.light : Brightness.dark,
-                    systemNavigationBarContrastEnforced: false,
+          return AppPresentation(
+            settings: settingsProvider,
+            detectedPresentation: widget.devicePresentation,
+            navigatorKey: InAppMessagingService.navigatorKey,
+            builder: (context, devicePresentation) => DynamicColorBuilder(
+              builder: (lightDynamic, darkDynamic) {
+                final isDarkTheme = settingsProvider.appTheme == 'dark' ||
+                    settingsProvider.appTheme == 'amoled';
+                final palette = AppColorsList().appColors(
+                  isDarkTheme,
+                  customColor: settingsProvider.customAppColor > 0
+                      ? settingsProvider.customAppColor
+                      : null,
+                );
+                final selectedAppColor = palette.firstWhere(
+                  (color) => color.index == settingsProvider.appColorIndex,
+                  orElse: () => palette.first,
+                );
+                final appTheme = Styles.themeData(
+                  appThemeMode: settingsProvider.appTheme,
+                  isM3Enabled: settingsProvider.isMaterial3Enabled,
+                  lightDynamicColor: lightDynamic,
+                  darkDynamicColor: darkDynamic,
+                  context: context,
+                  appColor: selectedAppColor,
+                  compactCorners:
+                      devicePresentation != DevicePresentation.television,
+                  occasionalTheme: appDependencyProvider.activeOccasionalTheme,
+                  ambientColor: appDependencyProvider.activeAmbientColor,
+                );
+                unawaited(
+                  HomeWidgetService.instance.syncResolvedTheme(appTheme),
+                );
+                final app = MaterialApp(
+                  restorationScopeId: 'flixquest',
+                  navigatorKey: InAppMessagingService.navigatorKey,
+                  localizationsDelegates: context.localizationDelegates,
+                  supportedLocales: context.supportedLocales,
+                  locale: context.locale,
+                  debugShowCheckedModeBanner: false,
+                  builder: (context, child) =>
+                      AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: SystemUiOverlayStyle(
+                      systemNavigationBarColor: Colors.transparent,
+                      systemNavigationBarDividerColor: Colors.transparent,
+                      systemNavigationBarIconBrightness:
+                          isDarkTheme ? Brightness.light : Brightness.dark,
+                      systemNavigationBarContrastEnforced: false,
+                    ),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (devicePresentation == DevicePresentation.television)
+                          TvUpdateGate(child: child ?? const SizedBox.shrink())
+                        else
+                          MobileUpdateGate(
+                              child: child ?? const SizedBox.shrink()),
+                        if (devicePresentation != DevicePresentation.television)
+                          OccasionalEffectOverlay(
+                            theme: appDependencyProvider.activeOccasionalTheme,
+                            enabled: appDependencyProvider
+                                .shouldShowOccasionalEffects,
+                            visibilityListenable: appDependencyProvider,
+                            visibilityResolver: () => appDependencyProvider
+                                .shouldShowOccasionalEffects,
+                          ),
+                      ],
+                    ),
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (widget.devicePresentation ==
-                          DevicePresentation.television)
-                        TvUpdateGate(child: child ?? const SizedBox.shrink())
-                      else
-                        child ?? const SizedBox.shrink(),
-                      if (widget.devicePresentation !=
-                          DevicePresentation.television)
-                        OccasionalEffectOverlay(
-                          theme: appDependencyProvider.activeOccasionalTheme,
-                          enabled:
-                              appDependencyProvider.shouldShowOccasionalEffects,
-                          visibilityListenable: appDependencyProvider,
-                          visibilityResolver: () =>
-                              appDependencyProvider.shouldShowOccasionalEffects,
-                        ),
-                    ],
+                  theme: appTheme,
+                  home: UserState(
+                    key: ValueKey<DevicePresentation>(devicePresentation),
+                    devicePresentation: devicePresentation,
                   ),
-                ),
-                theme: appTheme,
-                home: UserState(
-                  devicePresentation: widget.devicePresentation,
-                ),
-              );
-              // Wraps the app itself: it has to hear about system Backs
-              // before the navigator does.
-              return widget.devicePresentation == DevicePresentation.television
-                  ? TvBackKeyGuard(child: app)
-                  : app;
-            },
+                );
+                // Wraps the app itself: it has to hear about system Backs
+                // before the navigator does. Keep the wrapper mounted in both
+                // modes so the navigator's home builder stays up to date.
+                return TvBackKeyGuard(
+                  enabled: devicePresentation == DevicePresentation.television,
+                  child: app,
+                );
+              },
+            ),
           );
         }));
   }

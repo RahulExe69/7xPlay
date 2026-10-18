@@ -1,6 +1,8 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/app_update_service.dart';
 import '../focus/tv_keymap.dart';
 
 import '../app/tv_design.dart';
@@ -23,6 +25,7 @@ class TvUpdateAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Localizations.localeOf(context);
     return TvPillButton(
       label: label,
       focusNode: focusNode,
@@ -46,11 +49,17 @@ class TvUpdateChangelog extends StatelessWidget {
   final VoidCallback onPressed;
   final FocusNode? focusNode;
 
+  /// Entries shown on the card; the rest are a press away.
+  static const _previewItems = 4;
+
   @override
   Widget build(BuildContext context) {
+    Localizations.localeOf(context);
     final palette = TvPalette.of(context);
+    final items = AppUpdateService.changelogItems(changeLog);
+    final more = items.length - _previewItems;
     return TvFocusable(
-      semanticLabel: 'What’s new',
+      semanticLabel: tr('tv_what_s_new'),
       focusNode: focusNode,
       onActivate: onPressed,
       focusScale: 1,
@@ -73,7 +82,7 @@ class TvUpdateChangelog extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'What’s new',
+                  tr('tv_what_s_new'),
                   style: TextStyle(
                     color: palette.foreground,
                     fontFamily: 'FigtreeBold',
@@ -84,14 +93,47 @@ class TvUpdateChangelog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              changeLog,
-              style: TextStyle(
-                color: palette.mutedText,
-                fontSize: 19,
-                height: 1.45,
+            for (final item in items.take(_previewItems))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(top: 11, right: 14),
+                      decoration: BoxDecoration(
+                        color: palette.mutedText,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        item,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.mutedText,
+                          fontSize: 19,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            if (more > 0) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                tr('tv_update_more_notes', namedArgs: {'count': '$more'}),
+                style: TextStyle(
+                  color: palette.foreground,
+                  fontFamily: 'FigtreeSB',
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -111,6 +153,7 @@ class TvUpdateLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     return Scaffold(
       backgroundColor: palette.page,
@@ -145,7 +188,7 @@ class TvUpdateLayout extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Text(
-                          'FLIXQUEST FOR TV',
+                          tr('tv_flixquest_for_tv'),
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.primary,
                             fontFamily: 'FigtreeBold',
@@ -239,6 +282,7 @@ class _TvChangelogViewState extends State<TvChangelogView> {
 
   @override
   Widget build(BuildContext context) {
+    Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     return TvKeymap(
       onBack: () => Navigator.of(context).pop(),
@@ -259,7 +303,7 @@ class _TvChangelogViewState extends State<TvChangelogView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'RELEASE NOTES',
+                        tr('tv_release_notes').toUpperCase(),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
                           fontFamily: 'FigtreeBold',
@@ -269,7 +313,7 @@ class _TvChangelogViewState extends State<TvChangelogView> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'What’s new',
+                        tr('tv_what_s_new'),
                         style: TextStyle(
                           color: palette.foreground,
                           fontFamily: 'FigtreeBold',
@@ -278,7 +322,7 @@ class _TvChangelogViewState extends State<TvChangelogView> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text('Use ↑ ↓ to scroll',
+                      Text(tr('tv_use_to_scroll'),
                           style: TextStyle(
                               color: palette.mutedText, fontSize: 16)),
                       const SizedBox(height: 24),
@@ -298,7 +342,7 @@ class _TvChangelogViewState extends State<TvChangelogView> {
                               ))),
                       const SizedBox(height: 16),
                       TvUpdateAction(
-                          label: 'Back',
+                          label: tr('player_back'),
                           focusNode: _backFocus,
                           onPressed: () => Navigator.of(context).pop()),
                     ]),

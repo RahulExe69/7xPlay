@@ -8,12 +8,14 @@ import '../../constants/app_constants.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../provider/settings_provider.dart';
+import '../../services/adsterra_playback_ads_service.dart';
 import '../../services/app_session_state_store.dart';
 import '../screens/discover_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/my_flixquest_screen.dart';
 import '../screens/new_and_hot_screen.dart';
 import '../screens/search_screen.dart';
+import '../widgets/telegram_channel_prompt.dart';
 import 'mobile_nav_bar.dart';
 import 'mobile_tabs.dart';
 
@@ -76,6 +78,9 @@ class _MobileShellState extends State<MobileShell>
             surface: 'standard',
             source: 'restored',
           );
+      // A player-exit popup owed by a session closed from the player.
+      unawaited(AdsterraPlaybackAdsService.instance
+          .showOwedPlayerExitOnLaunch(context));
     });
   }
 
@@ -213,7 +218,7 @@ class _AppTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (tab) {
-      MobileTab.home => const HomeScreen(),
+      MobileTab.home => const TelegramChannelPrompt(child: HomeScreen()),
       MobileTab.newAndHot => const NewAndHotScreen(),
       MobileTab.discover => const DiscoverScreen(),
       MobileTab.search => const SearchScreen(),

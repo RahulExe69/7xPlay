@@ -15,6 +15,7 @@ import '../../services/offline_download_service.dart';
 import '../../ui_components/app_ui_components.dart';
 import 'offline_player_screen.dart';
 import '../../widgets/hosted_ads_banner.dart';
+import '../../widgets/playback_action.dart';
 
 class DownloadsScreen extends StatelessWidget {
   const DownloadsScreen({super.key, this.embedded = false});
@@ -298,20 +299,21 @@ class _DownloadCard extends StatelessWidget {
     return '$downloaded downloaded';
   }
 
-  void _playOffline(BuildContext context) {
-    AnalyticsService.instance.trackDownload(
-      action: 'play_offline',
-      mediaType: download.mediaType,
-      outcome: 'started',
-      quality: download.quality,
-    );
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OfflinePlayerScreen(download: download),
-      ),
-    );
-  }
+  Future<void> _playOffline(BuildContext context) =>
+      PlaybackAction.run(context, () async {
+        AnalyticsService.instance.trackDownload(
+          action: 'play_offline',
+          mediaType: download.mediaType,
+          outcome: 'started',
+          quality: download.quality,
+        );
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OfflinePlayerScreen(download: download),
+          ),
+        );
+      });
 }
 
 class _DownloadMetadata extends StatelessWidget {
@@ -520,7 +522,15 @@ class _DownloadActions extends StatelessWidget {
       }
     } catch (error) {
       if (context.mounted) {
-        _track(context, analyticsAction, 'error', error: error);
+        _track(
+          context,
+          analyticsAction,
+          'error',
+          // Analytics truncates long errors; keep the code and the cause.
+          error: error is PlatformException
+              ? '${error.code}: ${error.details ?? error.message}'
+              : error,
+        );
       }
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)

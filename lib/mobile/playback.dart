@@ -1,3 +1,4 @@
+import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -75,12 +76,22 @@ abstract final class MobilePlayback {
   /// Plays [item] from where the viewer is: a movie part way through, a
   /// series at its episode in progress or the next one, else from the start.
   /// Opens the details page instead when playing is turned off.
-  static Future<void> play(BuildContext context, MediaItem item) async {
-    if (!canPlay(context)) return openDetails(context, item);
+  /// [onReady] dismisses an originating sheet once preparation is complete;
+  /// returning false cancels playback if that sheet has already been left.
+  static Future<void> play(
+    BuildContext context,
+    MediaItem item, {
+    bool Function()? onReady,
+  }) async {
+    if (!canPlay(context)) {
+      if (onReady?.call() == false) return;
+      return openDetails(context, item);
+    }
     final resume = resumeFor(context, item);
     if (!await _online(context) || !context.mounted) return;
     if (item.kind == MediaKind.movie) {
-      return _playMovie(context, item, elapsed: resume?.elapsed);
+      return _playMovie(context, item,
+          elapsed: resume?.elapsed, onReady: onReady);
     }
     final recent = context.read<RecentProvider?>();
     final next = upNextFor(
@@ -88,7 +99,8 @@ abstract final class MobilePlayback {
       episodes: recent?.episodes ?? const <RecentEpisode>[],
       upNext: recent?.upNext ?? const <UpNext>[],
     );
-    return _playSeries(context, item, next == null ? resume : null, next);
+    return _playSeries(context, item, next == null ? resume : null, next,
+        onReady: onReady);
   }
 
   static Future<bool> _online(BuildContext context) async {
@@ -105,7 +117,14 @@ abstract final class MobilePlayback {
     BuildContext context,
     MediaItem item, {
     int? elapsed,
-  }) {
+    bool Function()? onReady,
+  }) async {
+    // The host must be current before presenting a before-loader ad.
+    if (onReady?.call() == false) return;
+    if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context) ||
+        !context.mounted) {
+      return;
+    }
     final movie = item.movie;
     debugPrint(
       '[MovieRecommendationsDebug][MOBILE_PLAYBACK_PLAY] '
@@ -118,9 +137,8 @@ abstract final class MobilePlayback {
       movieId: item.id,
       movieName: item.title,
       posterPath: item.posterPath,
-      releaseYear: int.tryParse(item.year ?? '') ??
-          item.recentMovie?.releaseYear ??
-          0,
+      releaseYear:
+          int.tryParse(item.year ?? '') ?? item.recentMovie?.releaseYear ?? 0,
       isAdult: movie?.adult,
       releaseDate: item.releaseDate ?? movie?.releaseDate,
     );
@@ -138,8 +156,9 @@ abstract final class MobilePlayback {
     BuildContext context,
     MediaItem item,
     ResumePoint? resume,
-    UpNext? upNext,
-  ) async {
+    UpNext? upNext, {
+    bool Function()? onReady,
+  }) async {
     final settings = context.read<SettingsProvider>();
     final dependencies = context.read<AppDependencyProvider>();
     const controller = MediaDetailsController();
@@ -161,6 +180,11 @@ abstract final class MobilePlayback {
         ),
       );
       if (choice == null || !context.mounted) return;
+      if (onReady?.call() == false) return;
+      if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context) ||
+          !context.mounted) {
+        return;
+      }
       final episode = choice.episode;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(

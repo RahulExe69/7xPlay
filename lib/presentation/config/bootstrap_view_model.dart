@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flixquest/constants/api_constants.dart';
 import 'package:flixquest/data/models/bootstrap_config.dart';
 import 'package:flixquest/data/repositories/config_repository.dart';
-import 'package:flixquest/models/banner_ad.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
-import 'package:flixquest/services/start_io_ads_service.dart';
+import 'package:flixquest/services/app_remote_config.dart';
+import 'dart:convert';
 
 /// Maps bootstrap into the provider shared by phone, tablet and television.
 class BootstrapViewModel extends ChangeNotifier {
@@ -22,6 +22,16 @@ class BootstrapViewModel extends ChangeNotifier {
   void apply(BootstrapConfig value, {bool preserveThemeSelection = false}) {
     if (_disposed) return;
     _config = value;
+    AppRemoteConfig.applySnapshot({
+      ...value.runtimeSettings,
+      ...value.features.toJson(),
+      ...value.branding.toJson(),
+      ...value.updates.toJson(),
+      ...value.network.toJson(),
+      ...value.ads.toJson(),
+      'flixquest_api_instances':
+          jsonEncode(value.network.flixquestApiInstances),
+    }, dependencies);
     dependencies.displayWatchNowButton = value.features.enableStream;
     dependencies.displayDownloadButton = value.features.enableDownload;
     dependencies.displayLiveTV = value.features.enableLiveTv;
@@ -30,35 +40,11 @@ class BootstrapViewModel extends ChangeNotifier {
         logo.isNotEmpty ? logo : value.branding.cinemaxLogo;
     dependencies.setBannerConfigs(
         {for (final banner in value.banners) banner.key: banner.toDomain()});
-    dependencies.setBannerAdNetwork(value.ads.bannerAdNetwork);
-    dependencies.setHostedBannerMode(
-        HostedBannerMode.parse(value.ads.hostedBannerMode));
-    dependencies.setUnityAdsConfig(
-        gameIdAndroid: value.ads.unityGameIdAndroid,
-        bannerPlacementId: value.ads.unityBannerPlacementId,
-        testMode: value.ads.unityTestMode);
-    dependencies.setStartIoAdsConfig(
-      bannerEnabled: value.ads.startioBannerEnabled,
-      interstitialEnabled: value.ads.startioInterstitialEnabled,
-      interstitialInterval: Duration(
-          seconds:
-              value.ads.startioInterstitialIntervalSeconds.clamp(60, 86400)),
-      tvInterstitialMode:
-          StartIoInterstitialMode.parse(value.ads.startioTvInterstitialMode),
-    );
-    StartIoAdsService.instance.updateConfig(dependencies.startIoAds);
     dependencies.setFlixquestApiConfig(
         instances: value.network.flixquestApiInstances,
         url: value.network.flixquestApiUrlV2);
     dependencies.tmdbProxy = value.network.tmdbProxy;
     TMDB_API_KEY = value.network.tmdbApiKey;
-    dependencies.setUpdateConfiguration(
-        forced: value.updates.forcedUpdate,
-        latestVersion: value.updates.latestVersion,
-        latestBuild: value.updates.latestBuildNumber,
-        minimumBuild: value.updates.minBuildNumber,
-        downloadUrl: value.updates.appDownloadUrl,
-        changeLog: value.updates.changeLog);
     dependencies.applyOccasionalThemeCatalog(
         value.occasionalTheme.toDomain(resolvedAt: lastValidatedAt),
         preserveSelection: preserveThemeSelection);

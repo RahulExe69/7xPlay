@@ -8,7 +8,9 @@ import '../constants/api_constants.dart';
 import '../models/occasional_theme.dart';
 import '../models/banner_ad.dart';
 import '../preferences/app_dependency_preferences.dart';
-import '../services/start_io_ads_service.dart';
+import '../models/banner_ads_config.dart';
+import '../models/adsterra_playback_ads_config.dart';
+import '../models/vast_preroll_config.dart';
 
 class AppDependencyProvider extends ChangeNotifier {
   final AppDependencies _preferences = AppDependencies();
@@ -49,6 +51,10 @@ class AppDependencyProvider extends ChangeNotifier {
   bool _displayLiveTV = true;
   bool get displayLiveTV => _displayLiveTV;
 
+  /// Asks viewers to turn off their ad blocker when Play or Download starts.
+  bool _adBlockGateEnabled = false;
+  bool get adBlockGateEnabled => _adBlockGateEnabled;
+
   Map<String, BannerDisplayConfig> _bannerConfigs = const {};
 
   BannerDisplayConfig bannerConfigFor(String key) =>
@@ -64,17 +70,225 @@ class AppDependencyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _bannerAdNetwork = 'native';
+  String _bannerAdNetwork = 'adsterra';
   String get bannerAdNetwork => _bannerAdNetwork;
-  bool get isStartIoBannerActive =>
-      _startIoAds.bannerEnabled &&
-      const {'native', 'unity', 'startio'}.contains(_bannerAdNetwork);
+
+  Map<String, String> _bannerAdNetworkOverrides = const {};
+
+  void setBannerAdNetworkOverrides(Map<String, String> overrides) {
+    if (mapEquals(_bannerAdNetworkOverrides, overrides)) return;
+    _bannerAdNetworkOverrides = Map.unmodifiable(overrides);
+    notifyListeners();
+  }
+
+  /// A slot can migrate independently. TV uses only its own `_tv` override.
+  /// The global `none` value remains the emergency switch for every banner.
+  BannerAdsConfig? bannerAdsForPlacement(String placement,
+      {bool television = false}) {
+    if (_bannerAdNetwork == 'none') return null;
+    final name = television ? '${placement}_tv' : placement;
+    final override = _bannerAdNetworkOverrides[name];
+    final network =
+        override == null ? bannerNetwork : AdNetwork.parse(override);
+    if (network == null) return null;
+    final config = bannerAdsFor(network);
+    return config.enabled && (!television || config.tvEnabled) ? config : null;
+  }
+
+  /// The network `banner_ad_network` selects; null for `none` and unknown
+  /// values. Names published before Adsterra (`native`, `unity`, `startio`)
+  /// still select Adsterra.
+  AdNetwork? get bannerNetwork =>
+      const {'native', 'unity', 'startio'}.contains(_bannerAdNetwork)
+          ? AdNetwork.adsterra
+          : AdNetwork.parse(_bannerAdNetwork);
+
+  /// Every network's banner catalog, whichever one is selected.
+  Map<AdNetwork, BannerAdsConfig> _bannerAds = const {};
+
+  BannerAdsConfig bannerAdsFor(AdNetwork network) =>
+      _bannerAds[network] ?? BannerAdsConfig(network: network);
+
+  /// The selected network's catalog, once its own switch is on.
+  BannerAdsConfig? get activeBannerAds {
+    final network = bannerNetwork;
+    if (network == null) return null;
+    final config = bannerAdsFor(network);
+    return config.enabled ? config : null;
+  }
+
+  AdsterraPlaybackAdsConfig _adsterraPlaybackAds =
+      const AdsterraPlaybackAdsConfig();
+  AdsterraPlaybackAdsConfig get adsterraPlaybackAds => _adsterraPlaybackAds;
+
+  void setAdsterraPlaybackAdsConfig(AdsterraPlaybackAdsConfig config) {
+    _adsterraPlaybackAds = config;
+    notifyListeners();
+  }
+
+  /// Clickadu's, Monetag's and ExoClick's popup catalogs, whichever is selected.
+  Map<AdNetwork, PopunderAdsConfig> _popunderAds = const {};
+
+  PopunderAdsConfig popunderAdsFor(AdNetwork network) =>
+      _popunderAds[network] ?? PopunderAdsConfig(network);
+
+  void setPopunderAdsConfig(PopunderAdsConfig config) {
+    _popunderAds = Map.unmodifiable({..._popunderAds, config.network: config});
+    notifyListeners();
+  }
+
+  /// Which network serves the stream-found popup; null serves none. The
+  /// Social Bar before the loader stays with Adsterra.
+  AdNetwork? _playbackPopunderNetwork = AdNetwork.adsterra;
+  AdNetwork? get playbackPopunderNetwork => _playbackPopunderNetwork;
+
+  void setPlaybackPopunderNetwork(AdNetwork? network) {
+    if (_playbackPopunderNetwork == network) return;
+    _playbackPopunderNetwork = network;
+    notifyListeners();
+  }
+
+  /// Which network serves the popup on Android TV; null serves none. Follows
+  /// [playbackPopunderNetwork] until TV gets its own.
+  AdNetwork? _tvPlaybackPopunderNetwork;
+  bool _tvFollowsPlaybackPopunderNetwork = true;
+  AdNetwork? get tvPlaybackPopunderNetwork => _tvFollowsPlaybackPopunderNetwork
+      ? _playbackPopunderNetwork
+      : _tvPlaybackPopunderNetwork;
+
+  void setTvPlaybackPopunderNetwork(AdNetwork? network,
+      {bool followMobile = false}) {
+    if (_tvFollowsPlaybackPopunderNetwork == followMobile &&
+        _tvPlaybackPopunderNetwork == network) {
+      return;
+    }
+    _tvFollowsPlaybackPopunderNetwork = followMobile;
+    _tvPlaybackPopunderNetwork = network;
+    notifyListeners();
+  }
+
+  /// Minimum minutes between visible stream-found popups; zero allows every
+  /// playback. Shared by all popup networks on phones.
+  int _playbackPopupFrequencyMinutes = 0;
+  int get playbackPopupFrequencyMinutes => _playbackPopupFrequencyMinutes;
+
+  void setPlaybackPopupFrequencyMinutes(int minutes) {
+    final normalized = minutes < 0 ? 0 : minutes;
+    if (_playbackPopupFrequencyMinutes == normalized) return;
+    _playbackPopupFrequencyMinutes = normalized;
+    notifyListeners();
+  }
+
+  /// The interval on Android TV; null follows [playbackPopupFrequencyMinutes].
+  int? _tvPlaybackPopupFrequencyMinutes;
+  int get tvPlaybackPopupFrequencyMinutes =>
+      _tvPlaybackPopupFrequencyMinutes ?? _playbackPopupFrequencyMinutes;
+
+  void setTvPlaybackPopupFrequencyMinutes(int? minutes) {
+    final normalized = minutes == null || minutes >= 0 ? minutes : 0;
+    if (_tvPlaybackPopupFrequencyMinutes == normalized) return;
+    _tvPlaybackPopupFrequencyMinutes = normalized;
+    notifyListeners();
+  }
+
+  /// Each popup trigger's own switch and interval ([PlaybackAdStage.triggers]),
+  /// served on phones by the selected network. A missing trigger is
+  /// unpublished: switches then keep the stream-found popup, and the others
+  /// stay off.
+  Map<PlaybackAdStage, PopupTriggerConfig> _popupTriggers = const {};
+  PopupTriggerConfig? popupTrigger(PlaybackAdStage stage) =>
+      _popupTriggers[stage];
+
+  void setPopupTrigger(
+    PlaybackAdStage stage, {
+    required bool enabled,
+    required int frequencyMinutes,
+    int minWatchSeconds = 0,
+  }) {
+    final config = (
+      enabled: enabled,
+      frequencyMinutes: frequencyMinutes < 0 ? 0 : frequencyMinutes,
+      minWatch: Duration(seconds: minWatchSeconds < 0 ? 0 : minWatchSeconds),
+    );
+    if (_popupTriggers[stage] == config) return;
+    _popupTriggers = Map.unmodifiable({..._popupTriggers, stage: config});
+    notifyListeners();
+  }
+
+  /// Unpublishes [stage]; see [popupTrigger].
+  void clearPopupTrigger(PlaybackAdStage stage) {
+    if (!_popupTriggers.containsKey(stage)) return;
+    _popupTriggers = Map.unmodifiable({..._popupTriggers}..remove(stage));
+    notifyListeners();
+  }
+
+  /// Whether a player-exit popup earned in a session that ended without
+  /// leaving the player (the app was closed from the player) opens on the next
+  /// launch, and for how long such a popup stays owed.
+  ({bool enabled, Duration maxAge}) _playerExitRelaunch =
+      (enabled: false, maxAge: const Duration(hours: 24));
+  ({bool enabled, Duration maxAge}) get playerExitRelaunch =>
+      _playerExitRelaunch;
+
+  void setPlayerExitRelaunch({required bool enabled, required int maxHours}) {
+    final config = (
+      enabled: enabled,
+      maxAge: Duration(hours: maxHours < 0 ? 0 : maxHours),
+    );
+    if (_playerExitRelaunch == config) return;
+    _playerExitRelaunch = config;
+    notifyListeners();
+  }
+
+  /// Remote Config has been applied at least once this session, from the
+  /// values stored on the device or a fetch.
+  bool _remoteConfigApplied = false;
+  bool get remoteConfigApplied => _remoteConfigApplied;
+
+  void markRemoteConfigApplied() {
+    if (_remoteConfigApplied) return;
+    _remoteConfigApplied = true;
+    notifyListeners();
+  }
+
+  /// Everything that decides a playback ad. A change closes an active one.
+  ({
+    AdNetwork? network,
+    AdsterraPlaybackAdsConfig adsterra,
+    Map<AdNetwork, PopunderAdsConfig> popunders,
+    int popupFrequencyMinutes,
+    AdNetwork? tvNetwork,
+    int tvPopupFrequencyMinutes,
+  }) get playbackAdsSelection => (
+        network: _playbackPopunderNetwork,
+        adsterra: _adsterraPlaybackAds,
+        popunders: _popunderAds,
+        popupFrequencyMinutes: _playbackPopupFrequencyMinutes,
+        tvNetwork: tvPlaybackPopunderNetwork,
+        tvPopupFrequencyMinutes: tvPlaybackPopupFrequencyMinutes,
+      );
+
+  VastPrerollConfig _vastPreroll = const VastPrerollConfig();
+  VastPrerollConfig get vastPreroll => _vastPreroll;
+
+  void setVastPrerollConfig(VastPrerollConfig config) {
+    if (config == _vastPreroll) return;
+    _vastPreroll = config;
+    notifyListeners();
+  }
+
+  // Only the selected network's own switch and catalog can activate network
+  // requests.
+  bool get isNetworkBannerActive => activeBannerAds != null;
+
+  void setBannerAdsConfig(BannerAdsConfig config) {
+    if (bannerAdsFor(config.network) == config) return;
+    _bannerAds = Map.unmodifiable({..._bannerAds, config.network: config});
+    notifyListeners();
+  }
 
   HostedBannerMode _hostedBannerMode = HostedBannerMode.stack;
   HostedBannerMode get hostedBannerMode => _hostedBannerMode;
-
-  /// Hosted `/ads` banners run beside Start.io; `banner_ad_network=none`
-  /// still hides every banner.
   bool get isHostedBannerActive =>
       _hostedBannerMode != HostedBannerMode.off && _bannerAdNetwork != 'none';
 
@@ -84,78 +298,10 @@ class AppDependencyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // These legacy values remain readable so existing Remote Config payloads
-  // and older clients can coexist while Unity itself is no longer linked.
-  String _unityGameIdAndroid = '5445375';
-  String get unityGameIdAndroid => _unityGameIdAndroid;
-
-  String _unityBannerPlacementId = 'Banner_Android';
-  String get unityBannerPlacementId => _unityBannerPlacementId;
-
-  bool _unityTestMode = false;
-  bool get unityTestMode => _unityTestMode;
-
-  StartIoAdsConfig _startIoAds = const StartIoAdsConfig();
-
-  /// Start.io behaviour, with the shared test-mode flag folded in.
-  StartIoAdsConfig get startIoAds =>
-      _startIoAds.copyWith(testMode: _unityTestMode);
-
-  bool get startIoBannerEnabled => _startIoAds.bannerEnabled;
-  bool get startIoInterstitialEnabled => _startIoAds.interstitialEnabled;
-
   void setBannerAdNetwork(String network) {
     final sanitized = network.trim().toLowerCase();
-    if (_bannerAdNetwork != sanitized) {
-      _bannerAdNetwork = sanitized;
-      notifyListeners();
-    }
-  }
-
-  /// Retains the old Unity-named values as compatibility inputs. Start.io uses
-  /// the existing test-mode flag; its application ID is supplied at build time
-  /// through the Android manifest.
-  void setUnityAdsConfig({
-    String? gameIdAndroid,
-    String? bannerPlacementId,
-    bool? testMode,
-  }) {
-    bool changed = false;
-    if (gameIdAndroid != null && gameIdAndroid.trim().isNotEmpty) {
-      final trimmed = gameIdAndroid.trim();
-      if (_unityGameIdAndroid != trimmed) {
-        _unityGameIdAndroid = trimmed;
-        changed = true;
-      }
-    }
-    if (bannerPlacementId != null && bannerPlacementId.trim().isNotEmpty) {
-      final trimmed = bannerPlacementId.trim();
-      if (_unityBannerPlacementId != trimmed) {
-        _unityBannerPlacementId = trimmed;
-        changed = true;
-      }
-    }
-    if (testMode != null && _unityTestMode != testMode) {
-      _unityTestMode = testMode;
-      changed = true;
-    }
-    if (changed) notifyListeners();
-  }
-
-  void setStartIoAdsConfig({
-    required bool bannerEnabled,
-    required bool interstitialEnabled,
-    Duration? interstitialInterval,
-    StartIoInterstitialMode? tvInterstitialMode,
-  }) {
-    final next = _startIoAds.copyWith(
-      bannerEnabled: bannerEnabled,
-      interstitialEnabled: interstitialEnabled,
-      interstitialInterval: interstitialInterval,
-      tvInterstitialMode: tvInterstitialMode,
-    );
-    if (next == _startIoAds) return;
-    _startIoAds = next;
+    if (_bannerAdNetwork == sanitized) return;
+    _bannerAdNetwork = sanitized;
     notifyListeners();
   }
 
@@ -174,11 +320,33 @@ class AppDependencyProvider extends ChangeNotifier {
   String _appDownloadUrl = '';
   String get appDownloadUrl => _appDownloadUrl;
 
+  /// Split-APK links keyed by ABI; see [AppUpdateService.resolveDownloadUrl].
+  Map<String, String> _abiDownloadUrls = const {};
+  Map<String, String> get abiDownloadUrls => _abiDownloadUrls;
+
   String _changeLog = '';
   String get changeLog => _changeLog;
 
   String _tmdbProxy = '';
   String get tmdbProxy => _tmdbProxy;
+
+  /// The Telegram channel Home invites people to join; null hides the invite.
+  Uri? _telegramChannelUrl;
+  Uri? get telegramChannelUrl => _telegramChannelUrl;
+
+  /// Takes an `https://t.me/...` link (or a `tg:` one); anything else, empty
+  /// included, turns the invite off.
+  void setTelegramChannelUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    final valid = uri != null &&
+        (((uri.scheme == 'https' || uri.scheme == 'http') &&
+                uri.host.isNotEmpty) ||
+            uri.scheme == 'tg');
+    final url = valid ? uri : null;
+    if (_telegramChannelUrl == url) return;
+    _telegramChannelUrl = url;
+    notifyListeners();
+  }
 
   OccasionalThemeCatalog _occasionalThemeCatalog =
       const OccasionalThemeCatalog.disabled();
@@ -316,6 +484,12 @@ class AppDependencyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  set adBlockGateEnabled(bool value) {
+    if (_adBlockGateEnabled == value) return;
+    _adBlockGateEnabled = value;
+    notifyListeners();
+  }
+
   set isForcedUpdate(bool value) {
     _isForcedUpdate = value;
     notifyListeners();
@@ -328,6 +502,7 @@ class AppDependencyProvider extends ChangeNotifier {
     _latestBuildNumber = config['latestBuild'] as int;
     _minimumBuildNumber = config['minimumBuild'] as int;
     _appDownloadUrl = config['downloadUrl'] as String;
+    _abiDownloadUrls = config['abiDownloadUrls'] as Map<String, String>;
     _changeLog = config['changeLog'] as String;
     notifyListeners();
   }
@@ -338,15 +513,21 @@ class AppDependencyProvider extends ChangeNotifier {
     required int latestBuild,
     required int minimumBuild,
     required String downloadUrl,
+    Map<String, String> abiDownloadUrls = const {},
     required String changeLog,
   }) {
     final normalizedVersion = latestVersion.trim();
     final normalizedDownloadUrl = downloadUrl.trim();
+    final normalizedAbiUrls = Map<String, String>.unmodifiable({
+      for (final entry in abiDownloadUrls.entries)
+        if (entry.value.trim().isNotEmpty) entry.key: entry.value.trim(),
+    });
     if (_isForcedUpdate == forced &&
         _latestAppVersion == normalizedVersion &&
         _latestBuildNumber == latestBuild &&
         _minimumBuildNumber == minimumBuild &&
         _appDownloadUrl == normalizedDownloadUrl &&
+        mapEquals(_abiDownloadUrls, normalizedAbiUrls) &&
         _changeLog == changeLog) {
       return;
     }
@@ -355,6 +536,7 @@ class AppDependencyProvider extends ChangeNotifier {
     _latestBuildNumber = latestBuild;
     _minimumBuildNumber = minimumBuild;
     _appDownloadUrl = normalizedDownloadUrl;
+    _abiDownloadUrls = normalizedAbiUrls;
     _changeLog = changeLog;
     _preferences.setUpdateConfiguration(
       forced: forced,
@@ -362,6 +544,7 @@ class AppDependencyProvider extends ChangeNotifier {
       latestBuild: latestBuild,
       minimumBuild: minimumBuild,
       downloadUrl: normalizedDownloadUrl,
+      abiDownloadUrls: normalizedAbiUrls,
       changeLog: changeLog,
     );
     notifyListeners();

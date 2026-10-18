@@ -18,6 +18,7 @@ import '../../constants/app_constants.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../../provider/wellness_provider.dart';
+import 'player/player_feedback_ui.dart';
 import 'player/player_strings.dart';
 import 'player/player_external_subtitles.dart';
 
@@ -137,12 +138,8 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
           textStyle: settings.subtitleTextStyle,
         ),
         showPlaceholderUntilPlay: true,
-        errorBuilder: (_, __) => const Center(
-          child: Text(
-            'This downloaded video could not be played.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white),
-          ),
+        errorBuilder: (_, __) => _OfflinePlaybackError(
+          onClose: () => Navigator.pop(context),
         ),
       ),
     );
@@ -316,4 +313,28 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
       ),
     );
   }
+}
+
+/// What shows when a download won't play: the main player's error look over
+/// the black video area, with a way back to Downloads, since switching
+/// provider or retrying can't help a file on the device.
+class _OfflinePlaybackError extends StatelessWidget {
+  const _OfflinePlaybackError({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) => PlayerErrorView(
+        title: tr('offline_play_failed'),
+        message: tr('offline_play_failed_hint'),
+        icon: PhosphorIcons.fileX(),
+        actions: [
+          PlayerActionButton(
+            label: tr('go_back'),
+            icon: PhosphorIcons.arrowLeft(),
+            primary: true,
+            onPressed: onClose,
+          ),
+        ],
+      );
 }

@@ -13,7 +13,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/tv_localization.dart';
+
 void main() {
+  initializeTvTranslations();
   TestWidgetsFlutterBinding.ensureInitialized();
   late AppDependencyProvider config;
   const url = 'https://example.com/tv-update-test.apk';
@@ -89,7 +92,8 @@ void main() {
       Text('TV home'),
     ]))));
     await tester.pumpAndSettle();
-    expect(find.text('Update available • FlixQuest 4.2.0'), findsOneWidget);
+    expect(find.text('UPDATE AVAILABLE'), findsOneWidget);
+    expect(find.text('FlixQuest 4.2.0'), findsOneWidget);
     expect(find.text('Not now'), findsNothing);
     await select(tester, 'Update');
     expect(tester.widget<UpdateScreen>(find.byType(UpdateScreen)).television,

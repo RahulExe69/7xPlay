@@ -2,6 +2,7 @@ import '../../legacy/firebase_auth/tv/screens/tv_landing_screen.dart' as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -50,7 +51,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
       }
     } catch (_) {
       if (mounted) {
-        _showError('Unable to sign in with Google. Please try again.');
+        _showError(tr('tv_unable_to_sign_in_with_google_please_try_again'));
       }
     } finally {
       if (mounted) setState(() => _isGoogleSigningIn = false);
@@ -74,7 +75,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
       }
     } catch (_) {
       if (mounted) {
-        _showError('Unable to continue as guest. Check your connection.');
+        _showError(tr('tv_unable_to_continue_as_guest_check_your_connection'));
       }
     } finally {
       if (mounted) setState(() => _isEnteringAsGuest = false);
@@ -95,11 +96,12 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
 
   String _googleAuthMessage(AuthActionException error) {
     return switch (error.code) {
-      'account-exists-with-different-credential' =>
-        error.message,
-      'network-request-failed' => 'Check your internet connection and retry.',
-      'operation-not-allowed' => 'Google sign-in is currently unavailable.',
-      'invalid-credential' => 'Google sign-in failed. Please try again.',
+      'account-exists-with-different-credential' => error.message,
+      'network-request-failed' =>
+        tr('tv_check_your_internet_connection_and_retry'),
+      'operation-not-allowed' =>
+        tr('tv_google_sign_in_is_currently_unavailable'),
+      'invalid-credential' => tr('google_signin_failed'),
       _ => error.message,
     };
   }
@@ -116,25 +118,25 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
     final code = error.code.toLowerCase();
     if (code == 'network_error' ||
         error.message?.toLowerCase().contains('network') == true) {
-      return 'Check your internet connection and retry.';
+      return tr('tv_check_your_internet_connection_and_retry');
     }
     final detail =
         (error.message?.isNotEmpty ?? false) ? error.message! : error.code;
-    return 'Google sign-in is not available on this device '
-        '($detail). Make sure Google Play services is installed and a '
-        'Google account is set up, or sign in with your email and password.';
+    return tr('tv_google_unavailable_device', namedArgs: {'detail': detail});
   }
 
   String _authMessage(AuthActionException error) {
     return switch (error.code) {
-      'operation-not-allowed' => 'Guest access is currently unavailable.',
-      'network-request-failed' => 'Check your internet connection and retry.',
+      'operation-not-allowed' => tr('tv_guest_access_is_currently_unavailable'),
+      'network-request-failed' =>
+        tr('tv_check_your_internet_connection_and_retry'),
       _ => error.message,
     };
   }
 
   @override
   Widget build(BuildContext context) {
+    Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     return Scaffold(
       key: LaravelTvLandingScreen.screenKey,
@@ -220,7 +222,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: <Widget>[
                                   Text(
-                                    'Ready to watch?',
+                                    tr('tv_ready_to_watch'),
                                     style: TextStyle(
                                       color: palette.foreground,
                                       fontFamily: 'FigtreeBold',
@@ -230,7 +232,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   ),
                                   SizedBox(height: compact ? 8 : 12),
                                   Text(
-                                    'Use your remote to choose how you want to continue.',
+                                    tr('tv_use_your_remote_to_choose_how_you_want_to_continue'),
                                     style: TextStyle(
                                       color: palette.mutedText,
                                       fontSize: compact ? 16 : 19,
@@ -239,7 +241,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   ),
                                   SizedBox(height: compact ? 20 : 28),
                                   _TvLandingAction(
-                                    label: 'Sign in',
+                                    label: tr('tv_sign_in'),
                                     icon: PhosphorIcons.signIn(),
                                     autofocus: true,
                                     primary: true,
@@ -250,7 +252,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   _TvLandingAction(
-                                    label: 'Create account',
+                                    label: tr('tv_create_account'),
                                     icon: PhosphorIcons.userPlus(),
                                     enabled: !_isGoogleSigningIn &&
                                         !_isEnteringAsGuest,
@@ -261,8 +263,8 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   const SizedBox(height: 12),
                                   _TvLandingAction(
                                     label: _isGoogleSigningIn
-                                        ? 'Signing in with Google…'
-                                        : 'Continue with Google',
+                                        ? tr('tv_signing_in_with_google')
+                                        : tr('continue_with_google'),
                                     icon: PhosphorIcons.googleLogo(),
                                     enabled: !_isGoogleSigningIn &&
                                         !_isEnteringAsGuest,
@@ -271,8 +273,8 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   const SizedBox(height: 12),
                                   _TvLandingAction(
                                     label: _isEnteringAsGuest
-                                        ? 'Starting guest session…'
-                                        : 'Continue as guest',
+                                        ? tr('tv_starting_guest_session')
+                                        : tr('tv_continue_as_guest'),
                                     icon: PhosphorIcons.userCircle(),
                                     enabled: !_isEnteringAsGuest &&
                                         !_isGoogleSigningIn,
@@ -303,6 +305,7 @@ class _TvLandingIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -340,7 +343,7 @@ class _TvLandingIntro extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620),
           child: Text(
-            'Movies, series, and your watchlist—designed for the big screen.',
+            tr('tv_movies_series_and_your_watchlist_designed_for_the_big_screen'),
             style: TextStyle(
               color: palette.secondaryText,
               fontSize: compact ? 20 : 24,
@@ -381,6 +384,7 @@ class _TvLandingActionState extends State<_TvLandingAction> {
 
   @override
   Widget build(BuildContext context) {
+    Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     final foreground = _focused ? palette.onFocus : palette.foreground;
     return TvFocusable(
@@ -441,5 +445,6 @@ class TvLandingScreen extends StatelessWidget {
   static const screenKey = LaravelTvLandingScreen.screenKey;
   @override
   Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelTvLandingScreen() : const legacy.TvLandingScreen();
+      ? const LaravelTvLandingScreen()
+      : const legacy.TvLandingScreen();
 }

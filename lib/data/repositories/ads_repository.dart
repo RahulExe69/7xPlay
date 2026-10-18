@@ -47,7 +47,7 @@ class AdsRepository {
           } catch (_) {/* One malformed campaign must not hide the others. */}
         }
       }
-    } catch (_) {/* A missing catalog leaves Start.io available. */}
+    } catch (_) {/* A missing hosted catalog leaves network banners available. */}
     _expiresAt = _now().add(Duration(minutes: ads.isEmpty ? 1 : 5));
     return List.unmodifiable(ads);
   }

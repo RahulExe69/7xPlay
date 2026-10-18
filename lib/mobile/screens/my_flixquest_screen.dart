@@ -1,9 +1,9 @@
-import '../../legacy/firebase_auth/mobile/screens/my_flixquest_screen.dart' as legacy;
+import '../../legacy/firebase_auth/mobile/screens/my_flixquest_screen.dart'
+    as legacy;
 import 'package:flixquest/presentation/session/auth_runtime.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:flixquest/data/models/app_user.dart';
 import 'dart:async';
-
 
 import 'package:easy_localization/easy_localization.dart';
 
@@ -47,6 +47,10 @@ class LaravelMyFlixQuestScreen extends StatefulWidget {
 
 class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
   AppUser? _user;
+
+  /// Leaving the guest session waits on the network; the pill spins until
+  /// the sign-in page takes over.
+  bool _signingIn = false;
 
   @override
   void initState() {
@@ -143,6 +147,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 user: _user,
                 onProfile: () => _push(const ProfileEdit()),
                 onSignIn: _leaveGuestSession,
+                signingIn: _signingIn,
               ),
             ),
             if (continueWatching.isNotEmpty) ...<Widget>[
@@ -248,22 +253,13 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
   }
 
   Future<void> _confirmSignOut() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(tr('sign_out')),
-        content: Text(tr('want_to_sign_out')),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(tr('cancel')),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(tr('ok')),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      icon: PhosphorIcons.signOut(),
+      title: tr('sign_out'),
+      message: tr('want_to_sign_out'),
+      confirmLabel: tr('sign_out'),
+      destructive: true,
     );
     if (confirmed != true || !mounted) return;
     final analytics = context.read<SettingsProvider>().analytics;
@@ -272,8 +268,17 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
     await _signOut();
   }
 
-  /// Return local guests to the account landing page.
-  Future<void> _leaveGuestSession() => _signOut();
+  /// Guests sign in by discarding the anonymous account, as the old profile
+  /// page did.
+  Future<void> _leaveGuestSession() async {
+    if (_signingIn) return;
+    setState(() => _signingIn = true);
+    try {
+      await _signOut();
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
 
   Future<void> _signOut() async {
     await FlixQuestAuthService().signOut();
@@ -293,11 +298,13 @@ class _ProfileHeader extends StatelessWidget {
     required this.user,
     required this.onProfile,
     required this.onSignIn,
+    this.signingIn = false,
   });
 
   final AppUser? user;
   final VoidCallback onProfile;
   final VoidCallback onSignIn;
+  final bool signingIn;
 
   @override
   Widget build(BuildContext context) {
@@ -315,12 +322,18 @@ class _ProfileHeader extends StatelessWidget {
         actionLabel: tr('login_signup'),
         actionIcon: PhosphorIcons.signIn(),
         onAction: onSignIn,
+        busy: signingIn,
       );
     }
     return _ProfileHeaderContent(
-      profile: _ProfileSnapshot(name: user.name, photoUrl: user.photoUrl ?? '', profileId: user.profileId),
-      status: tr('signed_in'), actionLabel: tr('profile'),
-      actionIcon: PhosphorIcons.user(), onAction: onProfile,
+      profile: _ProfileSnapshot(
+          name: user.name,
+          photoUrl: user.photoUrl ?? '',
+          profileId: user.profileId),
+      status: tr('signed_in'),
+      actionLabel: tr('profile'),
+      actionIcon: PhosphorIcons.user(),
+      onAction: onProfile,
     );
   }
 
@@ -331,8 +344,6 @@ class _ProfileHeader extends StatelessWidget {
     final localPart = email.split('@').first.trim();
     return localPart.isEmpty ? tr('not_available') : localPart;
   }
-
-
 }
 
 class _ProfileHeaderContent extends StatelessWidget {
@@ -342,6 +353,7 @@ class _ProfileHeaderContent extends StatelessWidget {
     required this.actionLabel,
     required this.actionIcon,
     required this.onAction,
+    this.busy = false,
   });
 
   final _ProfileSnapshot profile;
@@ -349,6 +361,7 @@ class _ProfileHeaderContent extends StatelessWidget {
   final String actionLabel;
   final IconData actionIcon;
   final VoidCallback onAction;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -392,6 +405,7 @@ class _ProfileHeaderContent extends StatelessWidget {
               child: PillButton(
                 label: actionLabel,
                 icon: actionIcon,
+                busy: busy,
                 onPressed: onAction,
               ),
             ),
@@ -504,5 +518,6 @@ class MyFlixQuestScreen extends StatelessWidget {
   const MyFlixQuestScreen({super.key});
   @override
   Widget build(BuildContext context) => AuthRuntime.enabled
-      ? const LaravelMyFlixQuestScreen() : const legacy.MyFlixQuestScreen();
+      ? const LaravelMyFlixQuestScreen()
+      : const legacy.MyFlixQuestScreen();
 }

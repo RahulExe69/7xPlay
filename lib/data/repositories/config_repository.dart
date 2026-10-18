@@ -1,3 +1,5 @@
+import 'package:flixquest/services/app_remote_config.dart';
+import 'package:flixquest/services/app_update_service.dart';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flixquest/core/cache/cache_policy.dart';
@@ -26,7 +28,8 @@ class ConfigRepository {
     try {
       final config =
           BootstrapConfig.fromJson(value['data'] as Map<String, dynamic>);
-      if (requireSource && !{'firebase', 'laravel'}.contains(config.configSource)) {
+      if (requireSource &&
+          !{'firebase', 'laravel'}.contains(config.configSource)) {
         return null;
       }
       return value;
@@ -69,6 +72,9 @@ class ConfigRepository {
         'latest_build_number': update['latestBuild'],
         'min_build_number': update['minimumBuild'],
         'app_download_url': update['downloadUrl'],
+        for (final entry
+            in (update['abiDownloadUrls'] as Map<String, String>).entries)
+          AppRemoteConfig.abiDownloadUrlKey(entry.key): entry.value,
         'change_log': update['changeLog'],
       },
       if (catalog != null) 'occasional_theme': catalog,
@@ -115,7 +121,8 @@ class ConfigRepository {
         } catch (_) {
           data['occasional_theme'] =
               (await loadCached(requireSource: requireSource))
-                  .occasionalTheme.toJson();
+                  .occasionalTheme
+                  .toJson();
         }
       }
       final config = BootstrapConfig.fromJson(data);
@@ -166,6 +173,12 @@ class ConfigRepository {
       latestBuild: config.updates.latestBuildNumber,
       minimumBuild: config.updates.minBuildNumber,
       downloadUrl: config.updates.appDownloadUrl,
+      abiDownloadUrls: {
+        for (final abi in AppUpdateService.splitApkAbis)
+          if (config.runtimeSettings[AppRemoteConfig.abiDownloadUrlKey(abi)]
+              case final String url)
+            abi: url,
+      },
       changeLog: config.updates.changeLog,
     );
   }

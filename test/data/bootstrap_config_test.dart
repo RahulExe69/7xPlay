@@ -15,7 +15,7 @@ void main() {
     expect(config.updates.latestBuildNumber, 5);
     expect(config.network.flixquestApiInstances,
         ['https://scraper-1.flixquest.app']);
-    expect(config.ads.startioInterstitialIntervalSeconds, 600);
+    expect(config.ads.hostedBannerMode, 'stack');
     expect(config.occasionalTheme.activeThemeId, 'custom_campaign');
     final theme = config.occasionalTheme.themes.single;
     expect(theme.id, 'custom_campaign');
@@ -77,7 +77,7 @@ void main() {
     expect(defaults.features.enableStream, isTrue);
     expect(defaults.features.enableDownload, isTrue);
     expect(defaults.features.enableLiveTv, isTrue);
-    expect(defaults.ads.startioBannerEnabled, isFalse);
+    expect(defaults.ads.bannerAdNetwork, 'adsterra');
     final config = BootstrapConfig.fromJson({
       'features': {
         'enable_stream': 'false',
@@ -85,17 +85,13 @@ void main() {
         'enable_ott': false
       },
       'updates': {'latest_build_number': '27'},
-      'ads': {
-        'startio_banner_enabled': 'true',
-        'startio_interstitial_interval_seconds': 'invalid'
-      },
+      'ads': {'hosted_banner_mode': 'priority'},
     });
     expect(config.features.enableStream, isFalse);
     expect(config.features.enableDownload, isFalse);
     expect(config.features.enableLiveTv, isFalse);
     expect(config.updates.latestBuildNumber, 27);
-    expect(config.ads.startioBannerEnabled, isTrue);
-    expect(config.ads.startioInterstitialIntervalSeconds, 600);
+    expect(config.ads.hostedBannerMode, 'priority');
   });
   test('built-in aliases retain preset palettes and effect types', () {
     final aliases = {

@@ -14,14 +14,15 @@ import '../../design/skeleton.dart';
 import '../../functions/function.dart';
 import '../../functions/live_channel_letters.dart';
 import '../../functions/live_schedule_sports.dart';
+import '../../functions/live_sport_preferences.dart';
 import '../../models/live_tv.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../../services/daddylive_service.dart';
 import '../../services/media_link.dart';
-import '../../services/start_io_ads_service.dart';
 // EthioTV source (commented out - disabled):
 // import '../../services/ethio_sports_service.dart';
+import '../../services/adsterra_playback_ads_service.dart';
 import '../../services/analytics_service.dart';
 import '../../mobile/widgets/filter_chips.dart';
 import '../../mobile/widgets/page_kit.dart';
@@ -70,6 +71,7 @@ class _ChannelListState extends State<ChannelList> {
   String? _selectedCategory;
   String? _letter;
   String? _resolvingId;
+  PlaybackAdPreload? _adPreload;
   String _query = '';
   String? _error;
   bool _loading = true;
@@ -80,6 +82,9 @@ class _ChannelListState extends State<ChannelList> {
   // _LiveTvSource _source = _LiveTvSource.daddyLive;
   int _selectedDayIndex = 0;
   String? _sport;
+  // Sports the viewer follows, by [LiveSport.id]; their sections lead the
+  // schedule.
+  Set<String> _preferredSports = <String>{};
   // Schedule events start collapsed; keys come from [_eventKey].
   final Set<String> _expandedEvents = <String>{};
 
@@ -88,8 +93,40 @@ class _ChannelListState extends State<ChannelList> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _analytics.trackLiveTVScreenOpened(surface: _analyticsSurface);
-      _load().then((_) => _showInitialChannel());
+      _load().then((_) => _showInitialChannel()).then((_) => _askSports());
     });
+  }
+
+  /// Asks a first-time viewer which sports they follow, once the catalog is
+  /// in. A link to a channel is not interrupted, and a failed load leaves the
+  /// question for the next visit.
+  Future<void> _askSports() async {
+    if (!mounted || widget.initialChannelId != null || _error != null) return;
+    if (await _daddyDatabase.getPreferredSports() != null || !mounted) return;
+    await _editSports(firstTime: true);
+  }
+
+  /// Opens the sports picker. Dismissing it the first time counts as
+  /// skipping, so the viewer is not asked on every visit.
+  Future<void> _editSports({bool firstTime = false}) async {
+    final picked = await showAppSheet<Set<String>>(
+      context,
+      builder: (_) => _SportPickerSheet(
+        initial: _preferredSports,
+        firstTime: firstTime,
+      ),
+    );
+    if (!mounted || (picked == null && !firstTime)) return;
+    final sports = picked ?? const <String>{};
+    await _daddyDatabase.setPreferredSports(sports);
+    if (!mounted) return;
+    setState(() => _preferredSports = sports);
+    _analytics.trackLiveTVInteraction(
+      surface: _analyticsSurface,
+      action: 'preferred_sports_changed',
+      value: sports.isEmpty ? 'none' : (sports.toList()..sort()).join(','),
+      resultCount: sports.length,
+    );
   }
 
   /// Scrolls to the channel a link asked for and highlights it for a few seconds. A channel the
@@ -142,6 +179,7 @@ class _ChannelListState extends State<ChannelList> {
 
   @override
   void dispose() {
+    _adPreload?.dispose();
     _highlightTimer?.cancel();
     _scrollController.dispose();
     _searchAnalyticsDebounce?.cancel();
@@ -181,6 +219,7 @@ class _ChannelListState extends State<ChannelList> {
     try {
       final favorites = await _daddyDatabase.getFavoriteIds();
       final recent = await _daddyDatabase.getRecentIds();
+      final preferredSports = await _daddyDatabase.getPreferredSports();
       List<Channel> channels;
       DaddyLiveEpg? epg;
       if (!refresh && await _daddyDatabase.isCacheValid()) {
@@ -201,6 +240,7 @@ class _ChannelListState extends State<ChannelList> {
         _epg = epg;
         _favoriteIds = favorites;
         _recentIds = recent;
+        _preferredSports = preferredSports ?? <String>{};
         _loading = false;
       });
       _analytics.trackLiveTVCatalogLoad(
@@ -215,10 +255,12 @@ class _ChannelListState extends State<ChannelList> {
     } catch (error) {
       final cached = await _daddyDatabase.getCachedChannels();
       final cachedEpg = await _daddyDatabase.getCachedEpg();
+      final preferredSports = await _daddyDatabase.getPreferredSports();
       if (!mounted) return;
       setState(() {
         _channels = cached;
         _epg = cachedEpg;
+        _preferredSports = preferredSports ?? <String>{};
         _loading = false;
         _error = cached.isEmpty ? friendlyLiveTvError(error) : null;
       });
@@ -316,8 +358,11 @@ class _ChannelListState extends State<ChannelList> {
   List<LiveSportSection> get _sportSections {
     final epg = _epg;
     if (epg == null || epg.days.isEmpty) return const <LiveSportSection>[];
-    return groupScheduleBySport(
-      epg.days[_selectedDayIndex.clamp(0, epg.days.length - 1)],
+    return prioritizeSportSections(
+      groupScheduleBySport(
+        epg.days[_selectedDayIndex.clamp(0, epg.days.length - 1)],
+      ),
+      _preferredSports,
     );
   }
 
@@ -382,10 +427,10 @@ class _ChannelListState extends State<ChannelList> {
   }
 
   Future<void> _play(Channel channel) async {
+    if (_resolvingId != null) return;
     setState(() => _resolvingId = channel.id);
-    // The interstitial runs while the stream resolves; the player opens only
-    // once it is gone.
-    unawaited(StartIoAdsService.instance.showPlaybackInterstitial());
+    _adPreload =
+        AdsterraPlaybackAdsService.instance.preloadStreamFound(context);
     final stopwatch = Stopwatch()..start();
     try {
       final stream = await _api().getStream(channel.id);
@@ -403,8 +448,13 @@ class _ChannelListState extends State<ChannelList> {
         durationMs: stopwatch.elapsedMilliseconds,
         source: _mode.name,
       );
-      await StartIoAdsService.instance.whenFullScreenAdClosed();
       if (!mounted) return;
+      // The channel works: the same stream-found popup as movies, first.
+      final proceed = await AdsterraPlaybackAdsService.instance
+          .streamFound(context, preload: _adPreload);
+      _adPreload?.dispose();
+      _adPreload = null;
+      if (!proceed || !mounted) return;
       final autoFullScreen = context.read<SettingsProvider>().defaultViewMode;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
@@ -452,6 +502,8 @@ class _ChannelListState extends State<ChannelList> {
         );
       }
     } finally {
+      _adPreload?.dispose();
+      _adPreload = null;
       if (mounted) setState(() => _resolvingId = null);
     }
   }
@@ -631,8 +683,7 @@ class _ChannelListState extends State<ChannelList> {
     );
   }
 
-  /// Start.io ad tags must be letters only, so the slots are named, not
-  /// numbered.
+  /// Stable placement names for centrally configured Live TV banners.
   static const _headerPlacement = 'live_tv_top';
   static const _listPlacements = <String>[
     'live_tv_list_a',
@@ -640,13 +691,11 @@ class _ChannelListState extends State<ChannelList> {
     'live_tv_list_c',
   ];
 
-  /// Live TV ads use the larger MREC unit; it is the best-paying placement
-  /// the Start.io plugin exposes.
+  /// Live TV uses the larger rectangle variant by default.
   Widget _bannerSliver(String placement) => SliverToBoxAdapter(
         child: RemoteHostedAdsBanner(
           placement: placement,
           variant: HostedBannerVariant.tall,
-          keywords: StartIoAdsService.liveKeywords,
         ),
       );
 
@@ -882,6 +931,13 @@ class _ChannelListState extends State<ChannelList> {
               const SizedBox(height: AppSpace.sm),
               FilterChips(
                 chips: <FilterChipSpec>[
+                  FilterChipSpec(
+                    label: tr('my_sports'),
+                    icon: _preferredSports.isEmpty
+                        ? PhosphorIcons.star()
+                        : PhosphorIcons.star(PhosphorIconsStyle.fill),
+                    onTap: _editSports,
+                  ),
                   FilterChipSpec(
                     label: tr('all_sports'),
                     selected: _activeSport == null,
@@ -1445,6 +1501,113 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Which sports the viewer follows: every sport on [liveSports] as a pill
+/// to toggle, then Save. Pops the chosen ids on Save. The first time it
+/// offers Skip, which pops an empty set; after that Cancel, which pops null
+/// and keeps the saved sports.
+class _SportPickerSheet extends StatefulWidget {
+  const _SportPickerSheet({required this.initial, required this.firstTime});
+
+  final Set<String> initial;
+  final bool firstTime;
+
+  @override
+  State<_SportPickerSheet> createState() => _SportPickerSheetState();
+}
+
+class _SportPickerSheetState extends State<_SportPickerSheet> {
+  late final Set<String> _selected = <String>{...widget.initial};
+
+  void _toggle(String id) {
+    setState(() {
+      if (!_selected.remove(id)) _selected.add(id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final gutter = AppSpace.gutter(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .82,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Padding(
+            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, AppSpace.xs),
+            child: Text(
+              tr('live_sports_prompt_title'),
+              style: AppType.sectionHeader.copyWith(
+                fontFamily: AppType.bold,
+                color: palette.foreground,
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, AppSpace.md),
+            child: Text(
+              tr('live_sports_prompt_message'),
+              style: AppType.body.copyWith(color: palette.mutedText),
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: gutter),
+              child: Wrap(
+                spacing: AppSpace.sm,
+                children: <Widget>[
+                  for (final sport in liveSports)
+                    ChoicePill(
+                      spec: FilterChipSpec(
+                        label: '${sport.emoji} ${tr(sport.labelKey)}',
+                        selected: _selected.contains(sport.id),
+                        onTap: () => _toggle(sport.id),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              gutter,
+              AppSpace.md,
+              gutter,
+              AppSpace.lg,
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: PillButton(
+                    label: widget.firstTime
+                        ? tr('live_sports_skip')
+                        : tr('cancel'),
+                    onPressed: () => Navigator.pop(
+                      context,
+                      widget.firstTime ? const <String>{} : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: PillButton(
+                    label: tr('save'),
+                    primary: true,
+                    onPressed: () => Navigator.pop(context, _selected),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -68,6 +68,7 @@ BootstrapConfig firebaseConfigSnapshot(Map<String, dynamic> published) {
 
   return BootstrapConfig.fromJson({
     'config_source': 'firebase',
+    'runtime_settings': published,
     'features': section([
       'enable_stream',
       'enable_download',
@@ -95,10 +96,6 @@ BootstrapConfig firebaseConfigSnapshot(Map<String, dynamic> published) {
       'unity_game_id_android',
       'unity_banner_placement_id',
       'unity_test_mode',
-      'startio_banner_enabled',
-      'startio_interstitial_enabled',
-      'startio_interstitial_interval_seconds',
-      'startio_tv_interstitial_mode',
     ]),
     'banners': jsonValue('banners'),
     'occasional_theme': jsonValue('occasional_theme'),

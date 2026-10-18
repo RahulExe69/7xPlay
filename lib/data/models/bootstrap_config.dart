@@ -82,7 +82,7 @@ class NetworkConfig with _$NetworkConfig {
 class AdsConfig with _$AdsConfig {
   const factory AdsConfig({
     @JsonKey(name: 'banner_ad_network')
-    @Default('native')
+    @Default('adsterra')
     String bannerAdNetwork,
     @JsonKey(name: 'hosted_banner_mode')
     @Default('stack')
@@ -94,18 +94,6 @@ class AdsConfig with _$AdsConfig {
     @Default('Banner_Android')
     String unityBannerPlacementId,
     @JsonKey(name: 'unity_test_mode') @Default(false) bool unityTestMode,
-    @JsonKey(name: 'startio_banner_enabled')
-    @Default(false)
-    bool startioBannerEnabled,
-    @JsonKey(name: 'startio_interstitial_enabled')
-    @Default(false)
-    bool startioInterstitialEnabled,
-    @JsonKey(name: 'startio_interstitial_interval_seconds')
-    @Default(600)
-    int startioInterstitialIntervalSeconds,
-    @JsonKey(name: 'startio_tv_interstitial_mode')
-    @Default('video')
-    String startioTvInterstitialMode,
   }) = _AdsConfig;
   factory AdsConfig.fromJson(Map<String, dynamic> json) =>
       _$AdsConfigFromJson(_adsConfigJson(json));
@@ -249,6 +237,9 @@ class BootstrapConfig with _$BootstrapConfig {
     @Default(UpdateConfig()) UpdateConfig updates,
     @Default(NetworkConfig()) NetworkConfig network,
     @Default(AdsConfig()) AdsConfig ads,
+    @JsonKey(name: 'runtime_settings')
+    @Default({})
+    Map<String, dynamic> runtimeSettings,
     @Default([]) List<BannerDisplayConfig> banners,
     @JsonKey(name: 'occasional_theme')
     @Default(OccasionalThemeCatalog())
@@ -265,6 +256,7 @@ class BootstrapConfig with _$BootstrapConfig {
           'ads'
         ])
           name: _section(json[name]),
+        'runtime_settings': _runtimeSettings(json),
         'banners': _banners(json['banners']),
         'occasional_theme': json['occasional_theme'] ?? {'enabled': false},
       });
@@ -329,24 +321,16 @@ Map<String, dynamic> _networkConfigJson(Map<String, dynamic> json) {
   );
 }
 
-Map<String, dynamic> _adsConfigJson(Map<String, dynamic> json) {
-  return _normalize(
-    json,
-    booleans: {
-      'unity_test_mode': false,
-      'startio_banner_enabled': false,
-      'startio_interstitial_enabled': false
-    },
-    integers: {'startio_interstitial_interval_seconds': 600},
-    strings: {
-      'banner_ad_network': 'native',
-      'hosted_banner_mode': 'stack',
-      'unity_game_id_android': '5445375',
-      'unity_banner_placement_id': 'Banner_Android',
-      'startio_tv_interstitial_mode': 'video'
-    },
-  );
-}
+Map<String, dynamic> _adsConfigJson(Map<String, dynamic> json) => _normalize(
+      json,
+      booleans: {'unity_test_mode': false},
+      strings: {
+        'banner_ad_network': 'adsterra',
+        'hosted_banner_mode': 'stack',
+        'unity_game_id_android': '5445375',
+        'unity_banner_placement_id': 'Banner_Android',
+      },
+    );
 
 Map<String, dynamic> _catalogJson(Map<String, dynamic> json) {
   final empty = json['themes'] is List && (json['themes'] as List).isEmpty;
@@ -360,3 +344,34 @@ Map<String, dynamic> _catalogJson(Map<String, dynamic> json) {
         (json['active_theme_id'] ?? '').toString().trim().toLowerCase(),
   };
 }
+
+// Keep newer flat config keys across source switching, cached boots and ETags.
+// Typed sections still validate the original migration contract.
+Map<String, dynamic> _runtimeSettings(Map<String, dynamic> json) => {
+      ..._section(json['runtime_settings']),
+      for (final section in [
+        'features',
+        'branding',
+        'updates',
+        'network',
+        'ads'
+      ])
+        ..._section(json[section]),
+      for (final entry in json.entries)
+        if (!{
+              'config_source',
+              'features',
+              'branding',
+              'updates',
+              'network',
+              'ads',
+              'runtime_settings',
+              'banners',
+              'occasional_theme'
+            }.contains(entry.key) &&
+            !entry.key.startsWith('startio_'))
+          entry.key: entry.value,
+    }..removeWhere((key, _) =>
+        key.startsWith('startio_') ||
+        key == 'occasional_theme' ||
+        key == 'banners');

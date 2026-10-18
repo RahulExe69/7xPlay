@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../widgets/playback_action.dart';
+
 import '../focus/tv_focus_memory.dart';
 import '../focus/tv_focusable.dart';
 import '../app/tv_design.dart';
@@ -35,6 +37,8 @@ class TvContentRow<T> extends StatefulWidget {
     this.autofocus = false,
     this.itemSpacing = 14,
     this.itemFocusScale = 1.04,
+    this.itemFocusRadius = TvDesign.cardRadius + 2,
+    this.trailingInset = 0,
     this.controller,
     super.key,
   });
@@ -45,7 +49,7 @@ class TvContentRow<T> extends StatefulWidget {
   final String Function(T item) itemId;
   final String Function(T item) semanticLabel;
   final TvContentItemBuilder<T> itemBuilder;
-  final ValueChanged<T> onItemActivated;
+  final FutureOr<void> Function(T item) onItemActivated;
 
   /// Secondary action for an item, reached by holding OK or by the remote's menu
   /// key. A remote has no room for an on-card button the way touch does, so the
@@ -74,6 +78,13 @@ class TvContentRow<T> extends StatefulWidget {
   /// How much the focused item grows. A pinned row grows it from its leading
   /// edge, so the item stays lined up with the row title.
   final double itemFocusScale;
+
+  /// Corner radius of the focus outline around each item.
+  final double itemFocusRadius;
+
+  /// Clearance after the last item, such as the screen's overscan margin for
+  /// a row that runs to the edge.
+  final double trailingInset;
   final TvContentRowController? controller;
 
   @override
@@ -113,9 +124,27 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
   final GlobalKey _trackKey = GlobalKey();
   bool _scheduledInitialFocus = false;
   bool _rowHasFocus = false;
+
+  /// How far a pinned row's focused item grows past its trailing edge. The
+  /// last item cannot pin to the leading edge, so the track leaves this much
+  /// room after it rather than letting the screen edge cut it off.
+  double _trailingGrowth = 0;
   Timer? _holdTimer;
   String? _holdItemId;
   bool _holdReached = false;
+  String? _startingItemId;
+
+  Future<void> _activateItem(T item) async {
+    if (_startingItemId != null) return;
+    await PlaybackAction.run(context, () async {
+      setState(() => _startingItemId = widget.itemId(item));
+      try {
+        await widget.onItemActivated(item);
+      } finally {
+        if (mounted) setState(() => _startingItemId = null);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -308,7 +337,7 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
         _openMenu(id);
       } else {
         final item = _itemForId(id);
-        if (item != null) widget.onItemActivated(item);
+        if (item != null) unawaited(_activateItem(item));
       }
       return KeyEventResult.handled;
     }
@@ -374,6 +403,17 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
     ));
   }
 
+  void _measureTrailingGrowth() {
+    if (!mounted || !widget.pinFocusedItem || widget.items.isEmpty) return;
+    final lastId = widget.itemId(widget.items.last);
+    final box = _focusNodes[lastId]?.context?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return;
+    final growth = box.size.width * (widget.itemFocusScale - 1);
+    if ((growth - _trailingGrowth).abs() >= 0.5) {
+      setState(() => _trailingGrowth = growth);
+    }
+  }
+
   void _handleItemFocusChanged({required String id, required bool hasFocus}) {
     if (!hasFocus && _holdItemId == id) _cancelHold();
     final rowHasFocus = _focusNodes.values.any((node) => node.hasFocus);
@@ -388,6 +428,10 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
     final memory = TvFocusMemoryScope.maybeOf(context);
     final onItemMenu = widget.onItemMenu;
     final hint = onItemMenu == null ? null : widget.itemMenuHint;
+    if (widget.pinFocusedItem) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _measureTrailingGrowth());
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,9 +484,11 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
             // A pinned row scrolls earlier items clear of its leading edge, so
             // it can leave the grown focused item and its shadow unclipped.
             clipBehavior: widget.pinFocusedItem ? Clip.none : Clip.hardEdge,
-            padding: const EdgeInsets.symmetric(
-              vertical: 8,
-              horizontal: TvDesign.focusOutset,
+            padding: EdgeInsets.fromLTRB(
+              TvDesign.focusOutset,
+              8,
+              TvDesign.focusOutset + widget.trailingInset + _trailingGrowth,
+              8,
             ),
             child: Row(
               key: _trackKey,
@@ -475,7 +521,7 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
                           }
                           _handleItemFocusChanged(id: id, hasFocus: hasFocus);
                         },
-                        onActivate: () => widget.onItemActivated(item),
+                        onActivate: () => unawaited(_activateItem(item)),
                         onLongPress:
                             onItemMenu == null ? null : () => onItemMenu(item),
                         padding: const EdgeInsets.all(_itemFocusPadding),
@@ -485,9 +531,28 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
                             ? Alignment.centerLeft
                             : Alignment.center,
                         borderRadius: BorderRadius.circular(
-                          TvDesign.cardRadius + 2,
+                          widget.itemFocusRadius,
                         ),
-                        child: widget.itemBuilder(context, item),
+                        child: Stack(
+                          children: <Widget>[
+                            widget.itemBuilder(context, item),
+                            if (_startingItemId == id)
+                              const Positioned.fill(
+                                child: ColoredBox(
+                                  color: Color(0x66000000),
+                                  child: Center(
+                                    child: SizedBox.square(
+                                      dimension: 28,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       );
                     },
                   ),

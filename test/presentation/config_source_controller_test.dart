@@ -21,6 +21,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fake_dio.dart';
+import '../support/fake_adsterra_webview.dart';
+import 'package:flixquest/models/adsterra_playback_ads_config.dart';
 
 class FakeFirebaseConfigSource implements FirebaseConfigSource {
   final hints = StreamController<void>.broadcast(sync: true);
@@ -102,6 +104,88 @@ void main() {
     provider.dispose();
     await firebase.hints.close();
     dio.close();
+  });
+
+  test(
+      'new runtime settings survive source selection and offline cache, then reset on switch',
+      () async {
+    firebase.payload = firebaseConfigSnapshot({
+      'banner_ad_network': 'clickadu',
+      'clickadu_banner_enabled': 'true',
+      'clickadu_tv_enabled': 'true',
+      'clickadu_banners': testClickaduCatalog,
+      'ad_block_gate_enabled': 'true',
+      'download_popup_enabled': 'true',
+      'download_popup_frequency_minutes': '7',
+      'player_exit_popup_relaunch_enabled': 'true',
+      'player_exit_popup_relaunch_max_hours': '12',
+      'telegram_channel_url': 'https://t.me/flixquest',
+      'app_download_url_arm64_v8a': 'https://download.test/arm64.apk',
+    });
+    void expectModern() {
+      expect(provider.remoteConfigApplied, isTrue);
+      expect(provider.bannerAdNetwork, 'clickadu');
+      expect(provider.bannerAdsForPlacement('downloads')?.network,
+          AdNetwork.clickadu);
+      expect(
+          provider
+              .bannerAdsForPlacement('downloads', television: true)
+              ?.network,
+          AdNetwork.clickadu);
+      expect(provider.adBlockGateEnabled, isTrue);
+      expect(
+          provider.popupTrigger(PlaybackAdStage.download)?.frequencyMinutes, 7);
+      expect(provider.telegramChannelUrl.toString(), 'https://t.me/flixquest');
+      expect(provider.abiDownloadUrls['arm64-v8a'],
+          'https://download.test/arm64.apk');
+    }
+
+    respond('firebase');
+    await controller.boot();
+    expectModern();
+    controller.dispose();
+    provider.dispose();
+    provider = AppDependencyProvider();
+    controller = createController();
+    await controller.hydrate();
+    expectModern();
+
+    // A Laravel payload carries the same settings in its owned sections.
+    adapter.enqueueJson({
+      'success': true,
+      'data': {
+        'config_source': 'laravel',
+        'ads': {
+          'banner_ad_network': 'clickadu',
+          'clickadu_banner_enabled': true,
+          'clickadu_tv_enabled': true,
+          'clickadu_banners': jsonDecode(testClickaduCatalog),
+          'download_popup_enabled': true,
+          'download_popup_frequency_minutes': 7,
+        },
+        'features': {'ad_block_gate_enabled': true},
+        'network': {'telegram_channel_url': 'https://t.me/flixquest'},
+        'updates': {
+          'app_download_url_arm64_v8a': 'https://download.test/arm64.apk'
+        },
+      }
+    });
+    await controller.onResume();
+    expectModern();
+    controller.dispose();
+    provider.dispose();
+    provider = AppDependencyProvider();
+    controller = createController();
+    await controller.hydrate();
+    expectModern();
+
+    respond('laravel');
+    await controller.onResume();
+    expect(provider.bannerAdsForPlacement('downloads'), isNull);
+    expect(provider.adBlockGateEnabled, isFalse);
+    expect(provider.popupTrigger(PlaybackAdStage.download), isNull);
+    expect(provider.telegramChannelUrl, isNull);
+    expect(provider.abiDownloadUrls, isEmpty);
   });
 
   test('Laravel chooses Firebase without applying Laravel payload fields',
@@ -308,7 +392,9 @@ void main() {
             ? jsonEncode(entry.value)
             : entry.value.toString(),
     };
-    expect(firebaseConfigSnapshot(published), expected);
+    final actual = firebaseConfigSnapshot(published);
+    expect(actual.copyWith(runtimeSettings: const {}),
+        expected.copyWith(runtimeSettings: const {}));
   });
 
   test(
@@ -319,7 +405,7 @@ void main() {
     expect(config.features.enableLiveTv, isFalse);
     expect(config.features.enableStream, isTrue);
     expect(config.branding.cinemaxLogo, 'Legacy logo');
-    expect(config.ads.startioBannerEnabled, isFalse);
+    expect(config.ads.bannerAdNetwork, 'adsterra');
     expect(config.ads.unityGameIdAndroid, '5445375');
     expect(
         firebaseConfigSnapshot(
