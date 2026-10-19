@@ -173,7 +173,10 @@ void main() {
       await logos.resolve(_item(3));
       expect(requested.host, 'proxy.example');
       expect(requested.toString(), contains('destination='));
-      expect(requested.toString(), contains('/movie/3/images'));
+      final destination = Uri.parse(requested.queryParameters['destination']!);
+      expect(destination.path, '/3/movie/3/images');
+      expect(
+          destination.queryParameters['include_image_language'], 'en,en,null');
     });
 
     test('does not look up a title without an id', () async {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'tmdb_request.dart';
 import 'package:flixquest/models/custom_exceptions.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
@@ -25,9 +26,7 @@ Future<List<Movie>> fetchMovies(
   final startedAt = Stopwatch()..start();
   try {
     final originalUri = Uri.parse(api);
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     if (debugLabel != null) {
       final proxyHost = Uri.tryParse(proxyUrl)?.host;
       debugPrint(
@@ -41,7 +40,7 @@ Future<List<Movie>> fetchMovies(
       );
     }
     final res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     final decoded = jsonDecode(res.body);
@@ -91,11 +90,9 @@ Future<List<Movie>> fetchCollectionMovies(
     String api, bool isProxyEnabled, String proxyUrl) async {
   CollectionMovieList collectionMovieList;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -110,11 +107,9 @@ Future<CollectionDetails> fetchCollectionDetails(
     String api, bool isProxyEnabled, String proxyUrl) async {
   CollectionDetails collectionDetails;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -129,11 +124,9 @@ Future<List<Movie>> fetchPersonMovies(
     String api, bool isProxyEnabled, String proxyUrl) async {
   PersonMoviesList personMoviesList;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -148,11 +141,9 @@ Future<Images> fetchImages(
     String api, bool isProxyEnabled, String proxyUrl) async {
   Images images;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -167,11 +158,9 @@ Future<PersonImages> fetchPersonImages(
     String api, bool isProxyEnabled, String proxyUrl) async {
   PersonImages personImages;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -186,11 +175,9 @@ Future<Videos> fetchVideos(
     String api, bool isProxyEnabled, String proxyUrl) async {
   Videos videos;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -205,11 +192,9 @@ Future<Credits> fetchCredits(
     String api, bool isProxyEnabled, String proxyUrl) async {
   Credits credits;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -224,11 +209,9 @@ Future<List<Person>> fetchPerson(
     String api, bool isProxyEnabled, String proxyUrl) async {
   PersonList credits;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -243,11 +226,9 @@ Future<List<Genres>> fetchGenre(
     String api, bool isProxyEnabled, String proxyUrl) async {
   GenreList newGenreList;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -262,11 +243,9 @@ Future<ExternalLinks> fetchSocialLinks(
     String api, bool isProxyEnabled, String proxyUrl) async {
   ExternalLinks externalLinks;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -281,11 +260,9 @@ Future fetchBelongsToCollection(
     String api, bool isProxyEnabled, String proxyUrl) async {
   BelongsToCollection belongsToCollection;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -300,11 +277,9 @@ Future<MovieDetails> fetchMovieDetails(
     String api, bool isProxyEnabled, String proxyUrl) async {
   MovieDetails movieDetails;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -327,11 +302,9 @@ Future<PersonDetails> fetchPersonDetails(
     String api, bool isProxyEnabled, String proxyUrl) async {
   PersonDetails personDetails;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -346,11 +319,9 @@ Future<WatchProviders> fetchWatchProviders(
     String api, String country, bool isProxyEnabled, String proxyUrl) async {
   WatchProviders watchProviders;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -365,11 +336,9 @@ Future<List<TV>> fetchTV(
     String api, bool isProxyEnabled, String proxyUrl) async {
   TVList tvList;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -384,11 +353,9 @@ Future<TVDetails> fetchTVDetails(
     String api, bool isProxyEnabled, String proxyUrl) async {
   TVDetails tvDetails;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -403,11 +370,9 @@ Future<List<TV>> fetchPersonTV(
     String api, bool isProxyEnabled, String proxyUrl) async {
   PersonTVList personTVList;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      (() => http.get(Uri.parse(api)).timeout(timeOut)),
+      (() => http.get(request).timeout(timeOut)),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -421,11 +386,9 @@ Future<List<TV>> fetchPersonTV(
 Future<Movie> getMovie(String api, bool isProxyEnabled, String proxyUrl) async {
   Movie movie;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -439,11 +402,9 @@ Future<Movie> getMovie(String api, bool isProxyEnabled, String proxyUrl) async {
 Future<TV> getTV(String api, bool isProxyEnabled, String proxyUrl) async {
   TV tv;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -459,11 +420,9 @@ Future<EpisodeList> getEpisode(
     String api, bool isProxyEnabled, String proxyUrl) async {
   EpisodeList episode;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -479,11 +438,9 @@ Future<ExternalIdLookup> findByExternalId(
     String api, bool isProxyEnabled, String proxyUrl) async {
   ExternalIdLookup lookup;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
@@ -502,11 +459,9 @@ Future<BelongsToCollection> fetchCollectionSummary(
     String api, bool isProxyEnabled, String proxyUrl) async {
   BelongsToCollection collection;
   try {
-    if (isProxyEnabled && proxyUrl.isNotEmpty) {
-      api = '$proxyUrl?destination=$api';
-    }
+    final request = tmdbRequestUri(api, isProxyEnabled, proxyUrl);
     var res = await retryOptions.retry(
-      () => http.get(Uri.parse(api)).timeout(timeOut),
+      () => http.get(request).timeout(timeOut),
       retryIf: (e) => e is SocketException || e is TimeoutException,
     );
     var decodeRes = jsonDecode(res.body);
