@@ -451,7 +451,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                 ),
               ]
             // Subtitle timing, searching online and uploading live in the
-            // Audio & Subtitles panel.
+            // Subtitles panel.
             : [
                 BetterPlayerOverflowMenuItem(
                   PhosphorIcons.arrowSquareOut(),
@@ -4032,9 +4032,7 @@ class _TvSkipButton extends StatelessWidget {
       );
 }
 
-/// Audio and subtitles in one panel, as Netflix has it: soundtracks beside
-/// the subtitle languages when there is more than one soundtrack, and the
-/// subtitle tools (timing, searching online, a file) along the bottom.
+/// Subtitle languages with timing, online search and file upload tools.
 class _SubtitleSwitcherSheet extends StatefulWidget {
   const _SubtitleSwitcherSheet({
     required this.controller,
@@ -4154,55 +4152,8 @@ class _SubtitleSwitcherSheetState extends State<_SubtitleSwitcherSheet> {
     );
   }
 
-  List<Widget> _audioRows() {
-    final tracks = widget.controller.betterPlayerAsmsAudioTracks ??
-        const <BetterPlayerAsmsAudioTrack>[];
-    final selected = widget.controller.betterPlayerAsmsAudioTrack;
-    return [
-      for (final (index, track) in tracks.indexed)
-        BetterPlayerSelectionTile(
-          title: _audioTrackTitle(track, index),
-          subtitle: _audioTrackSubtitle(track),
-          selected: selected == track || (selected == null && track.isDefault),
-          onTap: () {
-            widget.controller.setAudioTrack(track);
-            widget.onClose();
-          },
-        ),
-    ];
-  }
-
-  /// The audio track's own label when it has one, its language in full
-  /// otherwise ("en" and "eng" both become "English").
-  String _audioTrackTitle(BetterPlayerAsmsAudioTrack track, int index) {
-    final label = languageDisplayName(
-      track.label?.trim().isNotEmpty == true ? track.label : track.language,
-    );
-    return label.isEmpty ? '${tr('player_audio')} ${index + 1}' : label;
-  }
-
-  String? _audioTrackSubtitle(BetterPlayerAsmsAudioTrack track) {
-    if (track.label?.trim().isEmpty != false) return null;
-    final language = languageDisplayName(track.language);
-    return language.isEmpty ? null : language;
-  }
-
-  Widget _heading(String text) => Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 10, 8),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: BetterPlayerPanelColors.of(context).foreground,
-            fontFamily: 'FigtreeBold',
-            fontSize: 16,
-          ),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
-    final audio = _audioRows();
-    final withAudio = audio.length > 1;
     final subtitles = [
       for (final option in widget.options) _subtitleRow(option)
     ];
@@ -4213,8 +4164,7 @@ class _SubtitleSwitcherSheetState extends State<_SubtitleSwitcherSheet> {
       expand: false,
       snap: true,
       builder: (context, scrollController) => PlayerSheetScaffold(
-        title:
-            withAudio ? tr('player_audio_subtitles') : tr('player_subtitles'),
+        title: tr('player_subtitles'),
         subtitle: tr('choose_subtitle_language'),
         actions: [
           PlayerSheetAction(
@@ -4228,44 +4178,10 @@ class _SubtitleSwitcherSheetState extends State<_SubtitleSwitcherSheet> {
           onSearchOnline: widget.onSearchOnline,
           onUpload: widget.onUpload,
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (withAudio && constraints.maxWidth >= 560) {
-              Widget column(String title, List<Widget> rows,
-                      {ScrollController? controller}) =>
-                  Expanded(
-                    child: ListView(
-                      controller: controller,
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-                      children: [_heading(title), ...rows],
-                    ),
-                  );
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  column(tr('player_audio'), audio),
-                  column(
-                    tr('player_subtitles'),
-                    subtitles,
-                    controller: scrollController,
-                  ),
-                ],
-              );
-            }
-            return ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-              children: [
-                if (withAudio) ...[
-                  _heading(tr('player_audio')),
-                  ...audio,
-                  const SizedBox(height: 16),
-                  _heading(tr('player_subtitles')),
-                ],
-                ...subtitles,
-              ],
-            );
-          },
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+          children: subtitles,
         ),
       ),
     );
