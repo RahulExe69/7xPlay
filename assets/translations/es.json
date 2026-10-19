@@ -1522,5 +1522,9 @@
   "ad_blocker_message": "FlixQuest es gratis gracias a los anuncios. Para reproducir o descargar, desactiva tu bloqueador de anuncios para FlixQuest y toca \"Ya lo desactivé\".",
   "ad_blocker_private_dns_hint": "¿Usas un DNS privado como AdGuard DNS o NextDNS? Configura el DNS privado en Automático o Desactivado en los ajustes de red.",
   "ad_blocker_still_detected": "Tu bloqueador de anuncios sigue activo. Desactívalo o configura el DNS privado en Automático o Desactivado y vuelve a intentarlo.",
-  "ad_blocker_retry": "Ya lo desactivé"
+  "ad_blocker_retry": "Ya lo desactivé",
+  "download_choose_audio": "Elegir idioma de audio",
+  "download_audio_description": "Selecciona la pista de audio que se guardará con este vídeo.",
+  "download_audio_loading": "Comprobando las pistas de audio…",
+  "download_audio_error": "No se pudieron comprobar las pistas de audio. Cierra e inténtalo de nuevo o elige otra fuente."
 }

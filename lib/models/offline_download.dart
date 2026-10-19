@@ -36,6 +36,7 @@ class OfflineDownload {
     this.episodeNumber,
     this.offlineSubtitlePath,
     this.offlineSubtitleName,
+    this.audioTrackName,
   });
 
   final String id;
@@ -56,6 +57,7 @@ class OfflineDownload {
   final int? episodeNumber;
   final String? offlineSubtitlePath;
   final String? offlineSubtitleName;
+  final String? audioTrackName;
 
   bool get isComplete => state == OfflineDownloadState.completed;
   bool get isActive =>
@@ -95,6 +97,7 @@ class OfflineDownload {
       episodeNumber: episodeNumber,
       offlineSubtitlePath: offlineSubtitlePath,
       offlineSubtitleName: offlineSubtitleName,
+      audioTrackName: audioTrackName,
     );
   }
 
@@ -127,8 +130,23 @@ class OfflineDownload {
       episodeNumber: value<num>('episodeNumber')?.toInt(),
       offlineSubtitlePath: value<String>('offlineSubtitlePath'),
       offlineSubtitleName: value<String>('offlineSubtitleName'),
+      audioTrackName: value<String>('audioTrackName'),
     );
   }
+}
+
+/// A native stream track, including its identity for an exact download override.
+class OfflineAudioTrack {
+  const OfflineAudioTrack({required this.name, required this.selection});
+
+  final String name;
+  final Map<String, Object?> selection;
+
+  factory OfflineAudioTrack.fromMap(Map<Object?, Object?> map) =>
+      OfflineAudioTrack(
+        name: map['name'] as String? ?? 'Audio',
+        selection: Map<String, Object?>.from(map['selection'] as Map),
+      );
 }
 
 class OfflineDownloadRequest {
@@ -149,6 +167,7 @@ class OfflineDownloadRequest {
     this.subtitleTrackUrl,
     this.subtitleTrackName,
     this.subtitleTrackHeaders = const {},
+    this.audioTrack,
   });
 
   final String id;
@@ -167,6 +186,7 @@ class OfflineDownloadRequest {
   final String? subtitleTrackUrl;
   final String? subtitleTrackName;
   final Map<String, String> subtitleTrackHeaders;
+  final OfflineAudioTrack? audioTrack;
 
   Map<String, Object?> toMap() => {
         'id': id,
@@ -179,6 +199,8 @@ class OfflineDownloadRequest {
         'posterUrl': posterUrl,
         'maxVideoHeight': maxVideoHeight,
         'headers': headers,
+        'audioTrack': audioTrack?.selection,
+        'audioTrackName': audioTrack?.name,
         'contentId': contentId,
         'seasonNumber': seasonNumber,
         'episodeNumber': episodeNumber,

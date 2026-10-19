@@ -3451,6 +3451,23 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final subtitleTrack = _originalSubtitleTrack();
 
     try {
+      final downloadHeaders = headers[resolution] ??
+          VideoUtils.inferVideoHeaders(url) ??
+          const <String, String>{};
+      final audioSelection = await DownloadSelectionSheets.chooseAudio(
+        context,
+        tracks: OfflineDownloadService.instance.getAudioTracks(
+          url: url,
+          format: format,
+          headers: downloadHeaders,
+          maxVideoHeight: _downloadResolutionHeight(resolution),
+        ),
+        inPlayer: true,
+      );
+      if (!mounted) return;
+      if (audioSelection == null) {
+        return;
+      }
       await context.read<OfflineDownloadProvider>().enqueue(
             OfflineDownloadRequest(
               id: isMovie
@@ -3472,9 +3489,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                   ? null
                   : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
               maxVideoHeight: _downloadResolutionHeight(resolution),
-              headers: headers[resolution] ??
-                  VideoUtils.inferVideoHeaders(url) ??
-                  const {},
+              headers: downloadHeaders,
+              audioTrack: audioSelection.track,
               contentId: isMovie ? movie?.movieId : episode?.tvId,
               seasonNumber: isMovie ? null : season,
               episodeNumber: isMovie ? null : episodeNumber,

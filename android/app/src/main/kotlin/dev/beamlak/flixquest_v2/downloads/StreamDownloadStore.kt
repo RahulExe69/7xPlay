@@ -68,41 +68,41 @@ class StreamDownloadStore private constructor(context: Context) {
             return
         }
 
-        val mimeType = when (format.lowercase()) {
-            "hls" -> MimeTypes.APPLICATION_M3U8
-            "dash" -> MimeTypes.APPLICATION_MPD
-            else -> {
-                callback(Result.failure(IllegalArgumentException("Unsupported stream format: $format")))
-                return
-            }
-        }
         val metadata = metadataJson(arguments)
-        val headers = metadataHeaders(metadata)
-        val httpFactory = httpFactory(headers)
-        val maxVideoHeight = (arguments["maxVideoHeight"] as? Number)?.toInt()
-            ?.takeIf { it > 0 }
-
-        val trackParameters = TrackSelectionParameters.Builder(appContext)
-            .setForceHighestSupportedBitrate(true)
-            .apply {
-                if (maxVideoHeight != null) {
-                    setMaxVideoSize(Int.MAX_VALUE, maxVideoHeight)
-                }
-            }
-            .build()
-        val mediaItem = MediaItem.Builder()
-            .setUri(Uri.parse(url))
-            .setMimeType(mimeType)
-            .setMediaId(id)
-            .build()
-        val helper = DownloadHelper.Factory()
-            .setRenderersFactory(DefaultRenderersFactory(appContext))
-            .setDataSourceFactory(httpFactory)
-            .setTrackSelectionParameters(trackParameters)
-            .create(mediaItem)
+        val helper = try {
+            createHelper(arguments, id, url, format)
+        } catch (error: Exception) {
+            callback(Result.failure(error))
+            return
+        }
 
         helper.prepare(object : DownloadHelper.Callback {
             override fun onPrepared(helper: DownloadHelper, tracksInfoAvailable: Boolean) {
+                try {
+                    val selection = arguments["audioTrack"] as? Map<*, *>
+                    if (selection != null) {
+                        check(tracksInfoAvailable) { "Audio track information is unavailable." }
+                        for (period in 0 until helper.periodCount) {
+                            val override = DownloadAudioTracks.findOverride(helper.getTracks(period), selection)
+                            // Never silently substitute the default language if a manifest changed.
+                            checkNotNull(override) { "The selected audio track is no longer available." }
+                            helper.replaceTrackSelections(
+                                period,
+                                trackParameters(arguments).buildUpon()
+                                    .setOverrideForType(override)
+                                    .build(),
+                            )
+                            check(helper.getTracks(period).groups.any { group ->
+                                group.mediaTrackGroup == override.mediaTrackGroup &&
+                                    override.trackIndices.all { group.isTrackSelected(it) }
+                            }) { "The selected audio track could not be selected for download." }
+                        }
+                    }
+                } catch (error: Exception) {
+                    helper.release()
+                    callback(Result.failure(error))
+                    return
+                }
                 // DownloadHelper (and its DefaultTrackSelector) is bound to the
                 // looper on which preparation completes. Subtitle I/O belongs
                 // on the worker pool, but getDownloadRequest() and release()
@@ -143,6 +143,89 @@ class StreamDownloadStore private constructor(context: Context) {
         })
     }
 
+    /** Media3 reads HLS EXT-X-MEDIA, DASH adaptation sets and in-band audio. */
+    fun getAudioTracks(arguments: Map<*, *>, callback: (Result<List<Map<String, Any?>>>) -> Unit) {
+        val helper = try {
+            createHelper(
+                arguments,
+                "audio_inspection",
+                requireNotNull(arguments["url"] as? String),
+                requireNotNull(arguments["format"] as? String),
+            )
+        } catch (error: Exception) {
+            callback(Result.failure(error))
+            return
+        }
+        val handler = Handler(Looper.getMainLooper())
+        var finished = false
+        val timeout = Runnable {
+            finished = true
+            helper.release()
+            callback(Result.failure(java.io.IOException("Audio inspection timed out.")))
+        }
+        handler.postDelayed(timeout, 30_000L)
+        helper.prepare(object : DownloadHelper.Callback {
+            override fun onPrepared(helper: DownloadHelper, tracksInfoAvailable: Boolean) {
+                if (finished) return
+                finished = true
+                handler.removeCallbacks(timeout)
+                val result = runCatching {
+                    if (tracksInfoAvailable && helper.periodCount > 0) {
+                        DownloadAudioTracks.choices(helper.getTracks(0))
+                    } else {
+                        emptyList()
+                    }
+                }
+                helper.release()
+                callback(result)
+            }
+
+            override fun onPrepareError(helper: DownloadHelper, error: java.io.IOException) {
+                if (finished) return
+                finished = true
+                handler.removeCallbacks(timeout)
+                helper.release()
+                callback(Result.failure(error))
+            }
+        })
+    }
+
+    private fun trackParameters(arguments: Map<*, *>): TrackSelectionParameters {
+        val maxVideoHeight = (arguments["maxVideoHeight"] as? Number)?.toInt()
+            ?.takeIf { it > 0 }
+
+        return TrackSelectionParameters.Builder(appContext)
+            .setForceHighestSupportedBitrate(true)
+            .apply {
+                if (maxVideoHeight != null) {
+                    setMaxVideoSize(Int.MAX_VALUE, maxVideoHeight)
+                }
+            }
+            .build()
+    }
+
+    private fun createHelper(arguments: Map<*, *>, id: String, url: String, format: String): DownloadHelper {
+        val mimeType = when (format.lowercase()) {
+            "hls" -> MimeTypes.APPLICATION_M3U8
+            "dash" -> MimeTypes.APPLICATION_MPD
+            else -> {
+                throw IllegalArgumentException("Unsupported stream format: $format")
+            }
+        }
+        val headers = metadataHeaders(metadataJson(arguments))
+        val httpFactory = httpFactory(headers)
+        val mediaItem = MediaItem.Builder()
+            .setUri(Uri.parse(url))
+            .setMimeType(mimeType)
+            .setMediaId(id)
+            .build()
+        return DownloadHelper.Factory()
+            .setRenderersFactory(DefaultRenderersFactory(appContext))
+            .setDataSourceFactory(httpFactory)
+            .setTrackSelectionParameters(trackParameters(arguments))
+            .create(mediaItem)
+    }
+
     fun getDownload(id: String): Download? = downloadIndex.getDownload(id)
 
     fun getDownloads(): List<Download> {
@@ -179,6 +262,7 @@ class StreamDownloadStore private constructor(context: Context) {
             "subtitle" to metadata.optString("subtitle").ifBlank { null },
             "mediaType" to metadata.optString("mediaType", "video"),
             "quality" to metadata.optString("quality", "Auto"),
+            "audioTrackName" to metadata.optString("audioTrackName").ifBlank { null },
             "posterUrl" to metadata.optString("posterUrl").ifBlank { null },
             "state" to state,
             "progress" to percent,
@@ -206,6 +290,8 @@ class StreamDownloadStore private constructor(context: Context) {
         put("quality", arguments["quality"] as? String ?: "Auto")
         put("posterUrl", arguments["posterUrl"] as? String ?: "")
         put("format", arguments["format"] as? String ?: "")
+        put("audioTrackName", arguments["audioTrackName"] as? String ?: "")
+        (arguments["audioTrack"] as? Map<*, *>)?.let { put("audioTrack", JSONObject(it)) }
         put("contentId", (arguments["contentId"] as? Number)?.toInt() ?: 0)
         put("seasonNumber", (arguments["seasonNumber"] as? Number)?.toInt() ?: -1)
         put("episodeNumber", (arguments["episodeNumber"] as? Number)?.toInt() ?: -1)

@@ -47,6 +47,9 @@ String offlineEnqueueErrorMessage(Object error, {required String title}) {
   if (isAlreadyDownloaded(error)) {
     return '$title is already downloaded. Watch it in Downloads.';
   }
+  if (error is PlatformException && error.code == 'DOWNLOAD_AUDIO_CONFLICT') {
+    return 'Remove the existing download in Downloads, then choose the new audio language.';
+  }
   if (error is PlatformException && error.code == 'PREPARE_FAILED') {
     return 'Could not reach this stream to download it. '
         'Try another quality or provider.';
@@ -82,6 +85,24 @@ class OfflineDownloadService implements OfflineDownloadGateway {
   @override
   Future<void> enqueue(OfflineDownloadRequest request) {
     return _methods.invokeMethod<void>('enqueue', request.toMap());
+  }
+
+  Future<List<OfflineAudioTrack>> getAudioTracks({
+    required String url,
+    required String format,
+    required Map<String, String> headers,
+    int? maxVideoHeight,
+  }) async {
+    final raw = await _methods.invokeListMethod<Object?>('getAudioTracks', {
+      'url': url,
+      'format': format,
+      'headers': headers,
+      'maxVideoHeight': maxVideoHeight,
+    });
+    return (raw ?? const [])
+        .whereType<Map>()
+        .map((item) => OfflineAudioTrack.fromMap(item.cast<Object?, Object?>()))
+        .toList(growable: false);
   }
 
   @override

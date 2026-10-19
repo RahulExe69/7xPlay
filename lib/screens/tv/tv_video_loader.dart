@@ -546,6 +546,23 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
     final episode = widget.metadata.episodeNumber ?? 0;
     final subtitleTrack = _preferredSubtitle(tvVideoSubs);
     try {
+      final downloadHeaders = videoHeaders[quality] ??
+          VideoUtils.inferVideoHeaders(url) ??
+          const <String, String>{};
+      final audioSelection = await DownloadSelectionSheets.chooseAudio(
+        context,
+        tracks: OfflineDownloadService.instance.getAudioTracks(
+          url: url,
+          format: format,
+          headers: downloadHeaders,
+          maxVideoHeight: _qualityHeight(quality),
+        ),
+      );
+      if (!mounted) return;
+      if (audioSelection == null) {
+        Navigator.pop(context, false);
+        return;
+      }
       await context.read<OfflineDownloadProvider>().enqueue(
             OfflineDownloadRequest(
               id: 'tv_${widget.metadata.tvId}_s${season}_e$episode',
@@ -562,9 +579,8 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
                   ? null
                   : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
               maxVideoHeight: _qualityHeight(quality),
-              headers: videoHeaders[quality] ??
-                  VideoUtils.inferVideoHeaders(url) ??
-                  const {},
+              headers: downloadHeaders,
+              audioTrack: audioSelection.track,
               contentId: widget.metadata.tvId,
               seasonNumber: season,
               episodeNumber: episode,

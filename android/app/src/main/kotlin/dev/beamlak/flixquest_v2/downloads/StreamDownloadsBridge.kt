@@ -43,6 +43,21 @@ class StreamDownloadsBridge(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "getDownloads" -> runResult(result) { downloadMaps() }
+            "getAudioTracks" -> {
+                val arguments = call.arguments as? Map<*, *>
+                if (arguments == null) {
+                    result.error("INVALID_ARGUMENTS", "Stream arguments are required.", null)
+                } else {
+                    store.getAudioTracks(arguments) { tracks ->
+                        mainHandler.post {
+                            tracks.fold(
+                                onSuccess = { result.success(it) },
+                                onFailure = { result.error("PREPARE_FAILED", it.message, null) },
+                            )
+                        }
+                    }
+                }
+            }
             "enqueue" -> enqueue(call, result)
             "pause" -> withId(call, result) { id ->
                 DownloadService.sendSetStopReason(
@@ -202,9 +217,23 @@ class StreamDownloadsBridge(
             return
         }
         val id = arguments["id"] as? String
-        if (!id.isNullOrBlank() && store.getDownload(id)?.state == Download.STATE_COMPLETED) {
+        val existing = id?.takeIf { it.isNotBlank() }?.let(store::getDownload)
+        if (existing?.state == Download.STATE_COMPLETED) {
             result.error("ALREADY_DOWNLOADED", "This title is already downloaded.", null)
             return
+        }
+        val audioTrack = arguments["audioTrack"] as? Map<*, *>
+        if (existing != null && audioTrack != null) {
+            val storedTrack = StreamDownloadStore.requestMetadata(existing.request)
+                .optJSONObject("audioTrack")
+            if (storedTrack == null || audioTrack.any { (key, value) ->
+                storedTrack.optString(key as String, "") != value?.toString().orEmpty()
+            }) {
+                // Media3 merges stream keys when an ID is enqueued again. Mixing
+                // the old English keys with Hindi would retain the wrong audio.
+                result.error("DOWNLOAD_AUDIO_CONFLICT", "Remove the existing download before changing its audio.", null)
+                return
+            }
         }
         store.prepareRequest(arguments) { prepared ->
             mainHandler.post {
