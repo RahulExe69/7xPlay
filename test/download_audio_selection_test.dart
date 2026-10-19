@@ -171,7 +171,7 @@ Future<void> _pumpPicker(
     }),
   ));
   await tester.tap(find.text('Download'));
-  // Inspection shows an animated spinner until the native result arrives.
+  // Inspection shows an animated progress bar until the native result arrives.
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
 }

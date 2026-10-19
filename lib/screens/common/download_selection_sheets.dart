@@ -165,6 +165,7 @@ class _AudioSelectionSheetState extends State<_AudioSelectionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     final tracks = _tracks;
     if (tracks != null) {
       return _ChoiceSheet<DownloadAudioSelection>(
@@ -186,7 +187,15 @@ class _AudioSelectionSheetState extends State<_AudioSelectionSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!_failed) const CircularProgressIndicator(),
+          if (!_failed)
+            SizedBox(
+              width: 120,
+              child: LinearProgressIndicator(
+                color: palette.foreground,
+                backgroundColor: palette.idleFill,
+                minHeight: 3,
+              ),
+            ),
           const SizedBox(height: AppSpace.md),
           Text(tr(_failed ? 'download_audio_error' : 'download_audio_loading')),
           TextButton(
