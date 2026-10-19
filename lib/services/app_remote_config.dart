@@ -45,6 +45,10 @@ class AppRemoteConfig {
   static const playbackPopunderNetworkKey = 'playback_popunder_network';
   static const playbackPopupFrequencyMinutesKey =
       'playback_popup_frequency_minutes';
+  static const playbackPopupAutoCloseEnabledKey =
+      'playback_popup_auto_close_enabled';
+  static const playbackPopupExternalBrowserOnTapKey =
+      'playback_popup_external_browser_on_tap';
   static const tvPlaybackPopunderNetworkKey = 'tv_playback_popunder_network';
   static const tvPlaybackPopupFrequencyMinutesKey =
       'tv_playback_popup_frequency_minutes';
@@ -132,6 +136,8 @@ class AppRemoteConfig {
       adsterraPlaybackAdsKey: '{}',
       playbackPopunderNetworkKey: 'adsterra',
       playbackPopupFrequencyMinutesKey: 0,
+      playbackPopupAutoCloseEnabledKey: false,
+      playbackPopupExternalBrowserOnTapKey: true,
       for (final stage in PlaybackAdStage.triggers) ...{
         popupEnabledKey(stage): false,
         popupFrequencyMinutesKey(stage): 0,
@@ -308,6 +314,11 @@ class AppRemoteConfig {
         AdNetwork.parse(remoteConfig.getString(playbackPopunderNetworkKey)));
     provider.setPlaybackPopupFrequencyMinutes(
         remoteConfig.getValue(playbackPopupFrequencyMinutesKey).asInt());
+    provider.setPlaybackPopupBrowserBehavior(
+      autoClose: remoteConfig.getBool(playbackPopupAutoCloseEnabledKey),
+      externalBrowserOnTap:
+          remoteConfig.getBool(playbackPopupExternalBrowserOnTapKey),
+    );
     for (final stage in PlaybackAdStage.triggers) {
       final enabled = remoteConfig.getValue(popupEnabledKey(stage));
       // Unpublished, episode and movie switches keep the stream-found popup;

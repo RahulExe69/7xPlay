@@ -806,7 +806,8 @@ its ad screen opens. Movie and episode scraping does not create an ad WebView
 or start advertiser requests. Experiment variants are also selected at
 stream-found, so an abandoned scrape consumes no variant.
 
-Ads never open an external browser. Script tags (Social Bar, or a Popunder
+Ads open in-app; body taps hand off to the external browser by default.
+Script tags (Social Bar, or a Popunder
 tag) run in one WebView whose main frame never navigates. Script-initiated
 navigations to `about:blank` or the app's base URL are dropped, and any other
 web URL is treated as the popup. Advertiser pages (Smartlinks, and the popup
@@ -834,8 +835,9 @@ WebView that follows the network's redirect chain:
   placeholder gives way to whatever the page shows. Google Play's
   [Better Ads Experiences policy](https://support.google.com/googleplay/android-developer/answer/12271244)
   allows a full-screen ad to stay unclosable for at most 15 seconds, so that is
-  also the upper limit. A page that shows no content at all ends sooner, at
-  `load_timeout_ms`.
+  also the upper limit. A page that shows no content at all exposes its close
+  control sooner, at `load_timeout_ms`. With automatic close enabled (below),
+  that timeout closes the popup instead.
 - A redirect chain that lands on a search engine's home page (`google.<tld>`,
   `bing.com`) is a tracker rejecting the visit: there is no ad, so playback
   continues at once (`closing reason=no_ad_fallback`). App store listings and
@@ -848,18 +850,40 @@ WebView that follows the network's redirect chain:
   Only a tap inside the ad in the previous two seconds, such as Install, hands
   the link to the Play Store app, using a launch mode that never opens a
   browser.
-- A main-frame load error, an HTTP error on the main page, or a page that shows
-  no content within `load_timeout_ms` continues playback.
+- A main-frame load error or an HTTP error on the main page continues playback.
+  Missing ads, failed tag setup and tag-loading timeouts also continue playback.
 
 The Social Bar page keeps its **Continue** control from the start. On a
 stream-found tag page, its own **Play now** button leads on; **Skip** in the
-top bar and system Back appear at the same `close_fallback_seconds`. Backgrounding
-FlixQuest closes any ad, including the hand-off to the Play Store. Playback is
+top bar and system Back appear at the same `close_fallback_seconds`. By default,
+the advertiser popup stays open until the viewer closes it, including when
+FlixQuest goes into the background or hands off to Chrome or the Play Store.
+Automatic close restores closing on backgrounding and on timeouts. The Social
+Bar and tag pages without an advertiser keep their existing cleanup. Playback is
 never handed to the player while FlixQuest is in the background; it continues
 when the app resumes. An Android/iOS app cannot place a page behind its own
 activity, so a Popunder's page opens in front, not as a literal pop-under.
 Scripts open only the popup URL they emit, never their JavaScript source URL.
 The tag's `window.open` is not replaced.
+
+### Popup browser controls
+
+These independent Firebase **Boolean** parameters apply to all popup networks
+and triggers, including Smartlinks, script-generated advertiser pages and
+video-ad click-through pages. Cached values apply offline. Automatic close
+defaults to `false` and external-browser body taps default to `true` when
+unpublished. Both update an open popup when remote config changes.
+
+| Parameter | Default | Purpose |
+| --- | --- | --- |
+| `playback_popup_auto_close_enabled` | `false` | When false, an advertiser popup stays open past `max_duration_seconds`, `load_timeout_ms` and app backgrounding; timeouts make the close control available. When true, those timeouts and backgrounding close it automatically. Manual close, failed requests, no-ad fallbacks and disabling/changing the selected ad configuration still work. Also applies on Android TV. |
+| `playback_popup_external_browser_on_tap` | `true` | On phones/tablets, tapping the revealed advertiser body opens its current HTTP(S) URL in external Chrome on Android, with the external default browser as fallback if Chrome is unavailable. Other platforms use their external browser (preferring Chrome on iOS when available). Redirects, query strings and fragments are preserved. The tap replaces in-page interaction while enabled; publish `false` to keep taps inside the page. The close bar and loading placeholder never launch a browser. TV remote controls stay in-app. |
+
+For example, publish `playback_popup_auto_close_enabled=false` and
+`playback_popup_external_browser_on_tap=true` to keep the popup open and let
+body taps carry its current page into Chrome. Returning to FlixQuest shows
+the same popup. With automatic close enabled, the Chrome handoff backgrounds
+FlixQuest and closes the popup.
 
 Per-stage fields:
 
@@ -870,8 +894,8 @@ Per-stage fields:
 | `script_url` | Empty | In script mode, exact generated HTTPS `src`; numeric dashboard IDs are not script URLs. |
 | `url` | Empty | In Smartlink mode, exact HTTPS direct link. |
 | `sub_id` | Empty | Smartlink tracking label: 1–64 letters, digits, underscores or hyphens. Appends `psid` to the URL while preserving other query parameters. Prefer alphanumeric labels per Adsterra's guide. |
-| `load_timeout_ms` | `5000` | 500–10,000 milliseconds (up to 30,000 for Monetag). Bounds script loading and each ad-page document until it shows content. Failure continues playback. |
-| `max_duration_seconds` | `30` | 5–120 seconds; upper bound for the whole ad, including the ad page. The viewer can leave sooner once **Play now** appears. |
+| `load_timeout_ms` | `5000` | 500–10,000 milliseconds (up to 30,000 for Monetag). Bounds script loading and each ad-page document until it shows content. Tag timeouts continue playback; advertiser-page timeouts expose close unless automatic close is enabled. |
+| `max_duration_seconds` | `30` | 5–120 seconds; upper bound for setup and tag pages. On an advertiser page, exposes close by default, or closes it if `playback_popup_auto_close_enabled=true`. The viewer can leave sooner once **Play now** appears. |
 | `close_fallback_seconds` | `15` | 5–15 seconds. When **Play now** appears if the final ad never finishes loading. |
 
 ### Playback ads on Android TV
@@ -1006,7 +1030,8 @@ opens in its own ad WebView; preparation never replaces the tag document.
 This avoids consuming offers or frequency caps during a cancelled source
 lookup. The full `load_timeout_ms` begins with the foreground document request,
 and the existing redirect completion checks and minimum visible view still
-apply. `max_duration_seconds` bounds the whole ad screen, including setup.
+apply. `max_duration_seconds` bounds setup and tag pages; advertiser pages stay
+open past it unless `playback_popup_auto_close_enabled=true`.
 Expired, failed or mismatched preparation falls back to a fresh foreground
 WebView rather than skipping an eligible ad. Downloads, disabled placements,
 configuration changes and backgrounding cancel unused preparation. Adsterra
@@ -1200,8 +1225,10 @@ both Android and iOS.
 
 The tag's loading window starts when the document is requested, after native
 WebView setup. Cold WebView initialization no longer consumes
-`load_timeout_ms`; `max_duration_seconds` still bounds the entire screen,
-including setup. Direct-link pages use the same timing rule. Timeout logs
+`load_timeout_ms`; `max_duration_seconds` still bounds setup and the tag page.
+Direct-link and advertiser pages close on timeout only when
+`playback_popup_auto_close_enabled=true`; otherwise their close control becomes
+available. Timeout logs
 include `scriptLoaded` and `waitingForAdRequest`, distinguishing an unloaded
 `on.js` from a loaded tag whose ad request has not completed.
 

@@ -15,12 +15,14 @@ import dev.beamlak.flixquest_v2.downloads.StreamDownloadsBridge
 import dev.beamlak.flixquest_v2.downloads.StreamOfflinePlayerFactory
 import dev.beamlak.flixquest_v2.links.MediaLinkBridge
 import dev.beamlak.flixquest_v2.ads.PlaybackAdInputBridge
+import dev.beamlak.flixquest_v2.ads.PlaybackAdBrowserBridge
 import io.flutter.plugins.webviewflutter.WebViewFlutterPlugin
 
 class MainActivity: FlutterActivity() {
     private var downloadsBridge: StreamDownloadsBridge? = null
     private var linkBridge: MediaLinkBridge? = null
     private var playbackAdInputBridge: PlaybackAdInputBridge? = null
+    private var playbackAdBrowserBridge: PlaybackAdBrowserBridge? = null
 
     // Starting an activity of our own (a file picker, an external player, a full-screen ad) also
     // reports the user as leaving, which would send a playing video into picture in picture.
@@ -28,6 +30,10 @@ class MainActivity: FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        playbackAdBrowserBridge = PlaybackAdBrowserBridge(
+            this, flutterEngine.dartExecutor.binaryMessenger,
+        )
 
         playbackAdInputBridge = PlaybackAdInputBridge(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -84,6 +90,8 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        playbackAdBrowserBridge?.dispose()
+        playbackAdBrowserBridge = null
         playbackAdInputBridge?.dispose()
         playbackAdInputBridge = null
         linkBridge?.dispose()

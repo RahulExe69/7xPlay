@@ -179,6 +179,26 @@ class AppDependencyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Popup browser behavior, shared by every network and trigger.
+  bool _playbackPopupAutoClose = false;
+  bool get playbackPopupAutoClose => _playbackPopupAutoClose;
+  bool _playbackPopupExternalBrowserOnTap = true;
+  bool get playbackPopupExternalBrowserOnTap =>
+      _playbackPopupExternalBrowserOnTap;
+
+  void setPlaybackPopupBrowserBehavior({
+    required bool autoClose,
+    required bool externalBrowserOnTap,
+  }) {
+    if (_playbackPopupAutoClose == autoClose &&
+        _playbackPopupExternalBrowserOnTap == externalBrowserOnTap) {
+      return;
+    }
+    _playbackPopupAutoClose = autoClose;
+    _playbackPopupExternalBrowserOnTap = externalBrowserOnTap;
+    notifyListeners();
+  }
+
   /// The interval on Android TV; null follows [playbackPopupFrequencyMinutes].
   int? _tvPlaybackPopupFrequencyMinutes;
   int get tvPlaybackPopupFrequencyMinutes =>
