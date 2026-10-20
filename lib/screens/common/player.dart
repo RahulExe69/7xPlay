@@ -56,6 +56,10 @@ import 'player/player_movie_recommendations.dart';
 import 'player/player_next_episode_policy.dart';
 import 'player/player_sheet_ui.dart';
 import 'player/player_feedback_ui.dart';
+import 'player/stream_feedback_prompt.dart';
+import '../../services/stream_feedback_session.dart';
+import '../../services/stream_feedback_service.dart';
+import '../../services/automatic_stream_report.dart';
 import '../../design/app_tokens.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
@@ -129,6 +133,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late final List<EpisodeMetadata> _contentMenuEpisodes;
   late final List<SeasonMetadata> _contentMenuSeasons;
   int duration = 0;
+  final _feedbackSession = StreamFeedbackSession();
+  final _automaticStreamReport = AutomaticStreamReport();
+  final _feedbackConnection = StreamFeedbackConnection();
+  bool _exitingPlayer = false;
+  String _automaticReportEndReason = 'route_disposed';
+  int _feedbackSourceSwitches = 0;
 
   final GlobalKey _betterPlayerKey = GlobalKey();
 
@@ -240,6 +250,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   @override
   void initState() {
+    _feedbackConnection.start();
     settings = Provider.of<SettingsProvider>(context, listen: false);
     _currentProviderCode = widget.currentProviderCode; // Initialize from widget
     _providerResults = Map.of(widget.prefetchedProviderResults);
@@ -610,6 +621,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     } catch (error) {
       _preRollActive = false;
       _prerollAd.finish('error');
+      _feedbackSession.recordFailure();
       debugPrint('[Player] Initial stream setup failed: $error');
     }
   }
@@ -655,6 +667,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       DateTime.now().difference(_analyticsSessionStartedAt).inMilliseconds;
 
   void _onAnalyticsPlayerEvent(BetterPlayerEvent event) {
+    final feedbackValue = _betterPlayerController.videoPlayerController?.value;
+    _feedbackSession.onEvent(
+      event,
+      isAd: _preRollActive,
+      isPlaying: feedbackValue?.isPlaying ?? false,
+      isBuffering: feedbackValue?.isBuffering ?? false,
+      totalBytes: _betterPlayerController.networkBytesTransferred,
+    );
     switch (event.betterPlayerEventType) {
       case BetterPlayerEventType.initialized:
         duration = _betterPlayerController
@@ -1490,7 +1510,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           if (key.contains(' · ')) key: key.split(' · ').skip(1).join(' · '),
       };
 
-
   String? _castArtworkUrl() {
     final path = widget.mediaType == MediaType.movie
         ? widget.movieMetadata?.backdropPath ?? widget.movieMetadata?.posterPath
@@ -1829,6 +1848,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       tvMetadata: widget.tvMetadata,
     );
 
+    _automaticReportEndReason = 'content_switch';
     // Reset playback duration timer for next content
     playbackDurationInSeconds = 0;
   }
@@ -1852,6 +1872,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _sendAutomaticStreamReport();
+    _feedbackConnection.dispose();
     _hideContentSwitchLoading();
     _betterPlayerControllerInitialized = false;
     _prerollAd.dispose();
@@ -2036,6 +2058,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     debugPrint('[Player] Playback completed via $source');
     _playbackCompletionHandled = true;
+    _feedbackSession.recordCompletion();
     _stopAnalyticsWatchClock();
     _wellnessTracker.pause();
     _trackPlaybackEvent('finished', value: source);
@@ -2600,6 +2623,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         (!reload && providerCode == _currentProviderCode)) {
       return false;
     }
+    if (!reload) _feedbackSourceSwitches++;
     final analyticsStopwatch = Stopwatch()..start();
     final providerName = _providerDisplayName(providerCode);
     final analyticsPurpose = reload ? 'source_refresh' : 'provider_switch';
@@ -3356,13 +3380,66 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     });
   }
 
+  StreamFeedbackContext get _streamFeedbackContext {
+    final value = _betterPlayerController.videoPlayerController?.value;
+    return StreamFeedbackContext(
+      mediaType: _analyticsMediaType,
+      surface: widget.useTvControls ? 'tv' : 'mobile',
+      tmdbId: widget.mediaType == MediaType.movie
+          ? widget.movieMetadata?.movieId
+          : widget.tvMetadata?.tvId,
+      seasonNumber: widget.tvMetadata?.seasonNumber,
+      episodeNumber: widget.tvMetadata?.episodeNumber,
+      provider: _currentProviderCode ?? 'unknown',
+      initialProvider: widget.currentProviderCode ?? 'unknown',
+      sourceSwitches: _feedbackSourceSwitches,
+      videoHeight: value?.size?.height.round(),
+      connectionType: _feedbackConnection.type,
+      networkChanges: _feedbackConnection.changes,
+    );
+  }
+
+  void _sendAutomaticStreamReport() {
+    if (!_automaticStreamReport.shouldReport) return;
+    unawaited(_automaticStreamReport.send(
+      measurement: _feedbackSession.freeze(),
+      context: _streamFeedbackContext,
+      endReason: _automaticReportEndReason,
+      fallbackNetworkBytes: _betterPlayerController.networkBytesTransferred,
+      flushNetworkUsage: _flushNetworkUsage,
+    ));
+  }
+
   void _exitPlayer() {
-    final playerRoute = ModalRoute.of(context);
-    final onTvPlayerExit = widget.onTvPlayerExit;
-    if (!widget.useTvControls) {
-      AdsterraPlaybackAdsService.instance.afterPlayerExit(context,
-          watched: Duration(milliseconds: _wellnessTracker.watchedMs()));
-    }
+    if (_exitingPlayer) return;
+    _exitingPlayer = true;
+    final measurement = _feedbackSession.freeze();
+    final reportContext = _streamFeedbackContext;
+    final metadata = reportContext.parameters;
+    // The platform flush is requested before dispose; it never holds Back.
+    final networkBytes = _flushNetworkUsage();
+    unawaited(_automaticStreamReport.send(
+      measurement: measurement,
+      context: reportContext,
+      endReason: 'user_exit',
+      fallbackNetworkBytes: _betterPlayerController.networkBytesTransferred,
+      flushNetworkUsage: () => networkBytes,
+    ));
+    final parameters = networkBytes.then((bytes) => <String, Object>{
+          ...metadata,
+          ...measurement.parameters(totalBytes: bytes),
+        });
+    final watched = Duration(milliseconds: _wellnessTracker.watchedMs());
+    scheduleStreamFeedbackAfterExit(
+      context,
+      measurement: measurement,
+      parameters: parameters,
+      onReturned: widget.onTvPlayerExit,
+      beforePrompt: widget.useTvControls
+          ? null
+          : (context) => AdsterraPlaybackAdsService.instance
+              .playerExit(context, watched: watched),
+    );
     Navigator.pop(
       context,
       _isVideoInitializedSafely()
@@ -3371,12 +3448,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               : insertRecentEpisodeData
           : null,
     );
-    if (onTvPlayerExit == null) return;
-    if (playerRoute == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => onTvPlayerExit());
-      return;
-    }
-    unawaited(playerRoute.completed.then((_) => onTvPlayerExit()));
   }
 
   void _showExternalPlayerSheet() {

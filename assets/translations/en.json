@@ -1526,5 +1526,20 @@
   "download_choose_audio": "Choose audio language",
   "download_audio_description": "Select the audio track to save with this video.",
   "download_audio_loading": "Checking available audio tracks…",
-  "download_audio_error": "Could not check audio tracks. Close and try again, or choose another source."
+  "download_audio_error": "Could not check audio tracks. Close and try again, or choose another source.",
+  "stream_feedback_title": "How was the streaming experience?",
+  "stream_feedback_description": "Your feedback helps us improve playback.",
+  "stream_feedback_good": "Good",
+  "stream_feedback_okay": "Okay",
+  "stream_feedback_bad": "Bad",
+  "stream_feedback_issue_question": "What was the main issue? (Optional)",
+  "stream_feedback_issue_buffering": "Buffering",
+  "stream_feedback_issue_did_not_play": "Did not play",
+  "stream_feedback_issue_quality": "Video quality",
+  "stream_feedback_issue_audio": "Audio",
+  "stream_feedback_issue_subtitles": "Subtitles",
+  "stream_feedback_issue_wrong_content": "Wrong content",
+  "stream_feedback_issue_other": "Other",
+  "stream_feedback_skip": "Skip",
+  "stream_feedback_submit": "Submit"
 }

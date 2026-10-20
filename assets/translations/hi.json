@@ -1526,5 +1526,20 @@
   "download_choose_audio": "ऑडियो भाषा चुनें",
   "download_audio_description": "इस वीडियो के साथ सहेजने के लिए ऑडियो ट्रैक चुनें।",
   "download_audio_loading": "उपलब्ध ऑडियो ट्रैक जाँचे जा रहे हैं…",
-  "download_audio_error": "ऑडियो ट्रैक जाँचे नहीं जा सके। बंद करके फिर से कोशिश करें या कोई अन्य स्रोत चुनें।"
+  "download_audio_error": "ऑडियो ट्रैक जाँचे नहीं जा सके। बंद करके फिर से कोशिश करें या कोई अन्य स्रोत चुनें।",
+  "stream_feedback_title": "स्ट्रीमिंग का अनुभव कैसा रहा?",
+  "stream_feedback_description": "आपकी प्रतिक्रिया हमें प्लेबैक बेहतर बनाने में मदद करती है।",
+  "stream_feedback_good": "अच्छा",
+  "stream_feedback_okay": "ठीक",
+  "stream_feedback_bad": "खराब",
+  "stream_feedback_issue_question": "मुख्य समस्या क्या थी? (वैकल्पिक)",
+  "stream_feedback_issue_buffering": "बफ़रिंग",
+  "stream_feedback_issue_did_not_play": "वीडियो नहीं चला",
+  "stream_feedback_issue_quality": "वीडियो की गुणवत्ता",
+  "stream_feedback_issue_audio": "ऑडियो",
+  "stream_feedback_issue_subtitles": "सबटाइटल",
+  "stream_feedback_issue_wrong_content": "गलत सामग्री",
+  "stream_feedback_issue_other": "अन्य",
+  "stream_feedback_skip": "छोड़ें",
+  "stream_feedback_submit": "भेजें"
 }

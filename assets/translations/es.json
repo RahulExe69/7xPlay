@@ -1526,5 +1526,20 @@
   "download_choose_audio": "Elegir idioma de audio",
   "download_audio_description": "Selecciona la pista de audio que se guardará con este vídeo.",
   "download_audio_loading": "Comprobando las pistas de audio…",
-  "download_audio_error": "No se pudieron comprobar las pistas de audio. Cierra e inténtalo de nuevo o elige otra fuente."
+  "download_audio_error": "No se pudieron comprobar las pistas de audio. Cierra e inténtalo de nuevo o elige otra fuente.",
+  "stream_feedback_title": "¿Cómo fue la experiencia de reproducción?",
+  "stream_feedback_description": "Tus comentarios nos ayudan a mejorar la reproducción.",
+  "stream_feedback_good": "Buena",
+  "stream_feedback_okay": "Regular",
+  "stream_feedback_bad": "Mala",
+  "stream_feedback_issue_question": "¿Cuál fue el problema principal? (Opcional)",
+  "stream_feedback_issue_buffering": "Interrupciones",
+  "stream_feedback_issue_did_not_play": "No se reprodujo",
+  "stream_feedback_issue_quality": "Calidad del vídeo",
+  "stream_feedback_issue_audio": "Audio",
+  "stream_feedback_issue_subtitles": "Subtítulos",
+  "stream_feedback_issue_wrong_content": "Contenido incorrecto",
+  "stream_feedback_issue_other": "Otro",
+  "stream_feedback_skip": "Omitir",
+  "stream_feedback_submit": "Enviar"
 }
