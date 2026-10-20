@@ -307,7 +307,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
         if (!mounted) return;
 
         // Navigate to player with provider list for lazy loading
-        handoffLoaderToPlayer<Function>(
+        handoffLoaderToPlayer<void>(
           context,
           (context) {
             final player = PlayerOne(
@@ -340,12 +340,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
             );
             return widget.useTvPlayer ? TvPlayerScreen(child: player) : player;
           },
-        ).then((value) async {
-          if (value != null) {
-            Function callback = value;
-            await callback.call();
-          }
-        });
+        );
       } else {
         if (mounted) {
           _showErrorSheet(tr('tv_vid_404'));

@@ -11,10 +11,16 @@ import '../../../models/recently_watched.dart';
 import '../../../provider/recently_watched_provider.dart';
 
 class PlayerDataManagement {
-  final RecentlyWatchedMoviesController recentlyWatchedMoviesController =
-      RecentlyWatchedMoviesController();
-  final RecentlyWatchedEpisodeController recentlyWatchedEpisodeController =
-      RecentlyWatchedEpisodeController();
+  PlayerDataManagement({
+    RecentlyWatchedMoviesController? recentlyWatchedMoviesController,
+    RecentlyWatchedEpisodeController? recentlyWatchedEpisodeController,
+  })  : recentlyWatchedMoviesController = recentlyWatchedMoviesController ??
+            RecentlyWatchedMoviesController(),
+        recentlyWatchedEpisodeController = recentlyWatchedEpisodeController ??
+            RecentlyWatchedEpisodeController();
+
+  final RecentlyWatchedMoviesController recentlyWatchedMoviesController;
+  final RecentlyWatchedEpisodeController recentlyWatchedEpisodeController;
 
   Future<void> insertRecentMovieData({
     required BuildContext context,
@@ -22,18 +28,17 @@ class PlayerDataManagement {
     required int duration,
     required MovieStreamMetadata movieMetadata,
   }) async {
-    int elapsed = await betterPlayerController.videoPlayerController!.position
-        .then((value) => value!.inSeconds);
+    if (!context.mounted || duration <= 0) return;
+    final video = betterPlayerController.videoPlayerController?.value;
+    if (video == null || !video.initialized) return;
+
+    // Capture everything before yielding: exiting can unmount the route and
+    // dispose the player while the database is still working.
+    final prv = context.read<RecentProvider>();
+    final elapsed = video.position.inSeconds;
 
     int remaining = duration - elapsed;
     String dt = DateTime.now().toString();
-
-    var isBookmarked =
-        await recentlyWatchedMoviesController.contain(movieMetadata.movieId!);
-    dynamic prv;
-    if (context.mounted) {
-      prv = Provider.of<RecentProvider>(context, listen: false);
-    }
 
     RecentMovie rMov = RecentMovie(
         dateTime: dt,
@@ -46,19 +51,21 @@ class PlayerDataManagement {
         backdropPath: movieMetadata.backdropPath!);
 
     double percentage = (elapsed / duration) * 100;
+    final isBookmarked =
+        await recentlyWatchedMoviesController.contain(rMov.id!);
 
     // If completion is > 85%, remove from recents (if exists) and don't add
     if (percentage > 85) {
       if (isBookmarked) {
-        prv.deleteMovie(movieMetadata.movieId!);
+        await prv.deleteMovie(rMov.id!);
       }
       // Don't add to recents if already completed
     } else {
       // If completion <= 85%, add or update
       if (!isBookmarked) {
-        prv.addMovie(rMov);
+        await prv.addMovie(rMov);
       } else {
-        prv.updateMovie(rMov, movieMetadata.movieId!);
+        await prv.updateMovie(rMov, rMov.id!);
       }
     }
   }
@@ -69,19 +76,15 @@ class PlayerDataManagement {
     required int duration,
     required TVStreamMetadata tvMetadata,
   }) async {
-    int elapsed = await betterPlayerController.videoPlayerController!.position
-        .then((value) => value!.inSeconds);
+    if (!context.mounted || duration <= 0) return;
+    final video = betterPlayerController.videoPlayerController?.value;
+    if (video == null || !video.initialized) return;
+
+    final prv = context.read<RecentProvider>();
+    final elapsed = video.position.inSeconds;
 
     int remaining = duration - elapsed;
     String dt = DateTime.now().toString();
-
-    var isBookmarked =
-        await recentlyWatchedEpisodeController.contain(tvMetadata.episodeId!);
-
-    dynamic prv;
-    if (context.mounted) {
-      prv = Provider.of<RecentProvider>(context, listen: false);
-    }
 
     String? backdropPath = tvMetadata.backdropPath;
     if (backdropPath == null) {
@@ -108,29 +111,29 @@ class PlayerDataManagement {
         seriesId: tvMetadata.tvId!);
 
     double percentage = (elapsed / duration) * 100;
+    final next = percentage > 85 ? UpNext.after(tvMetadata) : null;
+    final isBookmarked =
+        await recentlyWatchedEpisodeController.contain(rEpisode.id!);
 
     // If completion is > 85%, remove from recents (if exists) and don't add
     if (percentage > 85) {
       if (isBookmarked) {
-        prv.deleteEpisode(tvMetadata.episodeId!, tvMetadata.episodeNumber!,
-            tvMetadata.seasonNumber!);
+        await prv.deleteEpisode(
+            rEpisode.id!, rEpisode.episodeNum!, rEpisode.seasonNum!);
       }
       // Keep the series in Continue Watching, one episode on; a series with
       // nothing more to watch leaves it.
-      if (prv is RecentProvider) {
-        final next = UpNext.after(tvMetadata);
-        next == null
-            ? await prv.clearUpNext(tvMetadata.tvId!)
-            : await prv.recordUpNext(next);
-      }
+      next == null
+          ? await prv.clearUpNext(rEpisode.seriesId!)
+          : await prv.recordUpNext(next);
       // Don't add to recents if already completed
     } else {
       // If completion <= 85%, add or update
       if (!isBookmarked) {
-        prv.addEpisode(rEpisode);
+        await prv.addEpisode(rEpisode);
       } else {
-        prv.updateEpisode(rEpisode, tvMetadata.episodeId!,
-            tvMetadata.episodeNumber!, tvMetadata.seasonNumber!);
+        await prv.updateEpisode(
+            rEpisode, rEpisode.id!, rEpisode.episodeNum!, rEpisode.seasonNum!);
       }
     }
   }

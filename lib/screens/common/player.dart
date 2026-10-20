@@ -45,6 +45,7 @@ import '../../services/stream_size_estimator.dart';
 import '../movie/movie_video_loader.dart';
 import '../tv/tv_video_loader.dart';
 import 'player/player_data_management.dart';
+import 'player/player_background_save.dart';
 import 'player/player_preroll_ad.dart';
 import 'player/player_completion_detector.dart';
 import 'player/tv_subtitle_timing_panel.dart';
@@ -334,11 +335,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           brightnessSwipeSensitivity: 0.5,
           seekSwipeSensitivity: 1.0,
         ),
-        onFullScreenChange: () {
-          widget.mediaType == MediaType.movie
-              ? insertRecentMovieData()
-              : insertRecentEpisodeData();
-        },
+        onFullScreenChange: _saveRecentProgress,
         enableFullscreen: true,
         enableEpisodeSelection: hasEpisodeSelection,
         // Open immediately: addPostFrameCallback does not request a frame and
@@ -694,9 +691,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           _trackPlaybackEvent('content_initialized');
           if (_recentInsertPending) {
             _recentInsertPending = false;
-            widget.mediaType == MediaType.movie
-                ? unawaited(insertRecentMovieData())
-                : unawaited(insertRecentEpisodeData());
+            _saveRecentProgress();
           }
           break;
         }
@@ -732,6 +727,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _analyticsPlayingStartedAt ??= DateTime.now();
         if (!_preRollActive) _wellnessTracker.play();
         _trackPlaybackEvent('play');
+        _saveRecentProgress();
+        _saveWellnessSession();
         break;
       case BetterPlayerEventType.pause:
         if (_preRollActive) _prerollAd.onPause();
@@ -739,6 +736,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _stopAnalyticsWatchClock();
         _wellnessTracker.pause();
         _trackPlaybackEvent('pause');
+        _saveRecentProgress();
+        _saveWellnessSession();
         break;
       case BetterPlayerEventType.bufferingStart:
         _analyticsWasPlayingBeforeBuffering =
@@ -916,7 +915,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             (_lastWellnessCheckpointAt == null ||
                 now.difference(_lastWellnessCheckpointAt!).inSeconds >= 30)) {
           _lastWellnessCheckpointAt = now;
-          unawaited(_persistWellnessSession());
+          _saveWellnessSession();
         }
 
         if (duration != null && duration.inMilliseconds > 0) {
@@ -1597,6 +1596,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> insertRecentMovieData() async {
+    if (!mounted) return;
     if (_deferRecentInsertDuringPreRoll()) return;
     await _dataManagement.insertRecentMovieData(
       context: context,
@@ -1607,12 +1607,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> insertRecentEpisodeData() async {
+    if (!mounted) return;
     if (_deferRecentInsertDuringPreRoll()) return;
     await _dataManagement.insertRecentEpisodeData(
       context: context,
       betterPlayerController: _betterPlayerController,
       duration: duration,
       tvMetadata: widget.tvMetadata!,
+    );
+  }
+
+  void _saveRecentProgress() {
+    savePlayerDataInBackground(
+      widget.mediaType == MediaType.movie
+          ? insertRecentMovieData
+          : insertRecentEpisodeData,
+      operation: 'playback progress',
     );
   }
 
@@ -1765,11 +1775,24 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     );
   }
 
+  void _saveWellnessSession({
+    bool completed = false,
+    bool syncImmediately = false,
+  }) {
+    savePlayerDataInBackground(
+      () => _persistWellnessSession(
+        completed: completed,
+        syncImmediately: syncImmediately,
+      ),
+      operation: 'wellness session',
+    );
+  }
+
   Future<void> _persistWellnessSession({
     bool completed = false,
     bool syncImmediately = false,
   }) async {
-    if (_preRollActive) return;
+    if (_preRollActive || _awaitingContentAfterPreRoll) return;
     // Requested before the first await so it reaches the player ahead of a
     // dispose that follows this call.
     final networkBytes = _flushNetworkUsage();
@@ -1831,21 +1854,24 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
   }
 
-  /// Handles saving progress and analytics before switching to a new episode/movie
-  Future<void> _handleContentSwitch() async {
-    await _persistWellnessSession(
+  /// Captures the outgoing content now; persistence must not hold navigation.
+  void _handleContentSwitch() {
+    if (!mounted) return;
+    savePlayerDataInBackground(
+      () => _dataManagement.handleContentSwitch(
+        context: context,
+        mediaType: widget.mediaType!,
+        betterPlayerController: _betterPlayerController,
+        duration: duration,
+        playbackDurationInSeconds: playbackDurationInSeconds,
+        movieMetadata: widget.movieMetadata,
+        tvMetadata: widget.tvMetadata,
+      ),
+      operation: 'playback progress on content switch',
+    );
+    _saveWellnessSession(
       completed: _playbackCompletionHandled,
       syncImmediately: true,
-    );
-    if (!mounted) return;
-    await _dataManagement.handleContentSwitch(
-      context: context,
-      mediaType: widget.mediaType!,
-      betterPlayerController: _betterPlayerController,
-      duration: duration,
-      playbackDurationInSeconds: playbackDurationInSeconds,
-      movieMetadata: widget.movieMetadata,
-      tvMetadata: widget.tvMetadata,
     );
 
     _automaticReportEndReason = 'content_switch';
@@ -1858,14 +1884,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final isInBackground = (state == AppLifecycleState.paused) ||
         (state == AppLifecycleState.inactive);
     if (isInBackground) {
-      unawaited(_persistWellnessSession(
+      _saveWellnessSession(
         completed: _playbackCompletionHandled,
         syncImmediately: true,
-      ));
+      );
       if (_isVideoInitializedSafely()) {
-        widget.mediaType == MediaType.movie
-            ? insertRecentMovieData()
-            : insertRecentEpisodeData();
+        _saveRecentProgress();
       }
     }
   }
@@ -1918,10 +1942,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       providerSwitchCount: _analyticsProviderSwitchCount,
       provider: _analyticsProviderName,
     );
-    unawaited(_persistWellnessSession(
+    _saveWellnessSession(
       completed: _playbackCompletionHandled,
       syncImmediately: true,
-    ));
+    );
 
     // Dispose the BetterPlayer controller to clean up resources
     _betterPlayerController.dispose();
@@ -2062,10 +2086,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _stopAnalyticsWatchClock();
     _wellnessTracker.pause();
     _trackPlaybackEvent('finished', value: source);
-    unawaited(_persistWellnessSession(
+    _saveWellnessSession(
       completed: true,
       syncImmediately: true,
-    ));
+    );
 
     // Remove the near-end teaser before presenting the definitive completion
     // action. Native and fallback completion can arrive close together.
@@ -2393,7 +2417,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     setState(() => _startingContent = true);
     _nextEpisodeOverlay?.markNeedsBuild();
     // Fullscreen controls live on a separate route. Show feedback above that
-    // route too while saving the current watch progress before navigation.
+    // route too while preparing the next content for navigation.
     _contentSwitchLoading = OverlayEntry(
       builder: (_) => const Positioned.fill(
         child: AbsorbPointer(
@@ -2435,7 +2459,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             _tvSubtitleTimingOpen = false;
           });
         }
-        await _handleContentSwitch();
+        _handleContentSwitch();
         if (!mounted) return;
         _hideContentSwitchLoading();
         _hideNextEpisodeOverlay();
@@ -2461,7 +2485,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   Future<void> _playTvMovie(MovieRecommendation movie) =>
       _startContent(() async {
         if (mounted) setState(() => _tvMenu = null);
-        await _handleContentSwitch();
+        _handleContentSwitch();
         if (!mounted) return;
         _hideContentSwitchLoading();
         _hideNextEpisodeOverlay();
@@ -3360,7 +3384,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       return;
     }
     await _startContent(() async {
-      await _handleContentSwitch();
+      _handleContentSwitch();
       if (!mounted) return;
       _hideContentSwitchLoading();
       _hideNextEpisodeOverlay();
@@ -3413,6 +3437,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   void _exitPlayer() {
     if (_exitingPlayer) return;
     _exitingPlayer = true;
+    // Start saving while the context and video position are still available.
+    // The save captures them synchronously and can finish after this route pops.
+    if (_isVideoInitializedSafely()) {
+      _saveRecentProgress();
+    }
     final measurement = _feedbackSession.freeze();
     final reportContext = _streamFeedbackContext;
     final metadata = reportContext.parameters;
@@ -3440,14 +3469,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           : (context) => AdsterraPlaybackAdsService.instance
               .playerExit(context, watched: watched),
     );
-    Navigator.pop(
-      context,
-      _isVideoInitializedSafely()
-          ? widget.mediaType == MediaType.movie
-              ? insertRecentMovieData
-              : insertRecentEpisodeData
-          : null,
-    );
+    Navigator.pop(context);
   }
 
   void _showExternalPlayerSheet() {

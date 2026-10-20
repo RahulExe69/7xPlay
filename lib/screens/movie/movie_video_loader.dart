@@ -327,7 +327,7 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
           'recommendations=${_metadata.recommendations?.length ?? 0} '
           'recommendationIds=${_metadata.recommendations?.map((movie) => movie.movieId).join(',') ?? 'none'}',
         );
-        handoffLoaderToPlayer<Function>(
+        handoffLoaderToPlayer<void>(
           context,
           (context) {
             debugPrint(
@@ -363,12 +363,7 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
             );
             return widget.useTvPlayer ? TvPlayerScreen(child: player) : player;
           },
-        ).then((value) async {
-          if (value != null) {
-            Function callback = value;
-            await callback.call();
-          }
-        });
+        );
       } else {
         if (mounted) {
           _showErrorSheet(tr('movie_vid_404'));
