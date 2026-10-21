@@ -149,6 +149,22 @@ class SettingsProvider with ChangeNotifier {
   bool _autoPipOnLeave = true;
   bool get autoPipOnLeave => _autoPipOnLeave;
 
+  bool _doNotDisturbWhileStreaming = false;
+  bool get doNotDisturbWhileStreaming => _doNotDisturbWhileStreaming;
+
+  Future<void> getStreamingDnd() async {
+    _doNotDisturbWhileStreaming = await _settingsPreferences.getStreamingDnd();
+    notifyListeners();
+  }
+
+  set doNotDisturbWhileStreaming(bool value) {
+    if (_doNotDisturbWhileStreaming == value) return;
+    _doNotDisturbWhileStreaming = value;
+    _settingsPreferences.setStreamingDnd(value);
+    _trackSetting('Do Not Disturb While Streaming', value);
+    notifyListeners();
+  }
+
   bool _autoLoadSources = true;
   bool get autoLoadSources => _autoLoadSources;
 

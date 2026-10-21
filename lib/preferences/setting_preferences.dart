@@ -292,6 +292,15 @@ class SettingsPreferences {
     return sharedPrefsSingleton.getBool(PLAYER_AMBIENT_GLOW_ENABLED) ?? false;
   }
 
+  static const STREAMING_DND = 'do_not_disturb_while_streaming';
+
+  Future<void> setStreamingDnd(bool value) async {
+    await sharedPrefsSingleton.setBool(STREAMING_DND, value);
+  }
+
+  Future<bool> getStreamingDnd() async =>
+      sharedPrefsSingleton.getBool(STREAMING_DND) ?? false;
+
   static const AUTO_PIP_ON_LEAVE = 'auto_pip_on_leave';
 
   setAutoPipOnLeave(bool value) {

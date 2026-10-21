@@ -32,6 +32,7 @@ import 'player/stream_feedback_prompt.dart';
 import '../../services/stream_feedback_session.dart';
 import '../../services/stream_feedback_service.dart';
 import '../../services/automatic_stream_report.dart';
+import '../../services/streaming_dnd_service.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
 
@@ -159,6 +160,7 @@ class _LivePlayerState extends State<LivePlayer> {
       ValueNotifier<_LivePlaybackFailure?>(null);
   late final AppDependencyProvider _appDependencies;
   late final SettingsProvider _settings;
+  late final StreamingDndSession _streamingDnd;
   int? _occasionalEffectsSuppressionId;
   Orientation? _lastScreenOrientation;
   bool _landscapeFullscreenRequestPending = false;
@@ -170,6 +172,8 @@ class _LivePlayerState extends State<LivePlayer> {
     _appDependencies =
         Provider.of<AppDependencyProvider>(context, listen: false);
     _settings = Provider.of<SettingsProvider>(context, listen: false);
+    _streamingDnd =
+        StreamingDndSession(_settings, television: widget.useTvControls);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _occasionalEffectsSuppressionId != null) return;
       _occasionalEffectsSuppressionId =
@@ -1245,6 +1249,7 @@ class _LivePlayerState extends State<LivePlayer> {
 
   @override
   void dispose() {
+    _streamingDnd.dispose();
     _sendAutomaticStreamReport();
     _feedbackConnection.dispose();
     _settings.removeListener(_syncAmbientGlowSetting);

@@ -61,6 +61,7 @@ import 'player/stream_feedback_prompt.dart';
 import '../../services/stream_feedback_session.dart';
 import '../../services/stream_feedback_service.dart';
 import '../../services/automatic_stream_report.dart';
+import '../../services/streaming_dnd_service.dart';
 import '../../design/app_tokens.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
@@ -117,6 +118,7 @@ class PlayerOne extends StatefulWidget {
 }
 
 class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
+  late final StreamingDndSession _streamingDnd;
   late BetterPlayerController _betterPlayerController;
   bool _betterPlayerControllerInitialized = false;
   final StreamIntroService _introService = StreamIntroService();
@@ -253,6 +255,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   void initState() {
     _feedbackConnection.start();
     settings = Provider.of<SettingsProvider>(context, listen: false);
+    _streamingDnd =
+        StreamingDndSession(settings, television: widget.useTvControls);
     _currentProviderCode = widget.currentProviderCode; // Initialize from widget
     _providerResults = Map.of(widget.prefetchedProviderResults);
     _activeSources = Map.of(widget.sources);
@@ -1896,6 +1900,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _streamingDnd.dispose();
     _sendAutomaticStreamReport();
     _feedbackConnection.dispose();
     _hideContentSwitchLoading();

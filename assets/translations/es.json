@@ -1544,5 +1544,11 @@
   "stream_feedback_submit": "Enviar",
   "tmdb_proxy_automatic": "Se activa automáticamente cuando no se puede acceder a TMDB. Puedes desactivarlo durante esta sesión.",
   "tmdb_proxy_turn_off": "Activado · Desactivar",
-  "tmdb_proxy_auto_off": "Desactivado · Automático"
+  "tmdb_proxy_auto_off": "Desactivado · Automático",
+  "streaming_dnd": "No molestar durante la reproducción",
+  "streaming_dnd_description": "Silencia notificaciones y oculta avisos de llamadas mientras el reproductor está abierto. Se desactiva al salir o pasar a segundo plano. El contenido y las alarmas siguen sonando; pueden intervenir excepciones del sistema.",
+  "streaming_dnd_access_required": "Requiere acceso a No molestar. Disponible en los reproductores móviles de vídeo y TV en directo con Android 10 o posterior.",
+  "streaming_dnd_permission_description": "Permite el acceso de FlixQuest a No molestar en los ajustes de Android. Con el reproductor en primer plano, FlixQuest silencia temporalmente las notificaciones y oculta los avisos de notificaciones y llamadas del dispositivo. Tus modos actuales se mantienen y la regla de reproducción termina al salir. El contenido y las alarmas siguen permitidos. Las alertas de emergencia y algunas pantallas del sistema o de llamadas pueden aparecer.",
+  "streaming_dnd_open_settings": "Abrir ajustes",
+  "streaming_dnd_unavailable": "No se pudieron abrir los ajustes de acceso a No molestar en este dispositivo."
 }

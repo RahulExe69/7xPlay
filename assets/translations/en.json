@@ -1544,5 +1544,11 @@
   "stream_feedback_submit": "Submit",
   "tmdb_proxy_automatic": "Automatically enabled when TMDB is unreachable. You can turn it off for this app session.",
   "tmdb_proxy_turn_off": "On · Turn off",
-  "tmdb_proxy_auto_off": "Off · Automatic"
+  "tmdb_proxy_auto_off": "Off · Automatic",
+  "streaming_dnd": "Do not disturb while streaming",
+  "streaming_dnd_description": "Silence notifications and hide call pop-ups while the player is open. Restores on exit or in the background. Media and alarms stay on; system exceptions may still interrupt.",
+  "streaming_dnd_access_required": "Requires Do Not Disturb access. Applies to the mobile video and live TV players on Android 10 or later.",
+  "streaming_dnd_permission_description": "Allow FlixQuest in Android’s Do Not Disturb access settings. While the player is in the foreground, FlixQuest temporarily silences notifications and hides notification and call pop-ups across the device. Your existing Do Not Disturb modes stay in place and the streaming rule ends when you leave. Media and alarms remain allowed. Emergency alerts and some system or calling-app screens may still appear.",
+  "streaming_dnd_open_settings": "Open settings",
+  "streaming_dnd_unavailable": "Could not open Do Not Disturb access settings on this device."
 }
