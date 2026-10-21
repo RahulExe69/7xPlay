@@ -1541,5 +1541,8 @@
   "stream_feedback_issue_wrong_content": "Contenido incorrecto",
   "stream_feedback_issue_other": "Otro",
   "stream_feedback_skip": "Omitir",
-  "stream_feedback_submit": "Enviar"
+  "stream_feedback_submit": "Enviar",
+  "tmdb_proxy_automatic": "Se activa automáticamente cuando no se puede acceder a TMDB. Puedes desactivarlo durante esta sesión.",
+  "tmdb_proxy_turn_off": "Activado · Desactivar",
+  "tmdb_proxy_auto_off": "Desactivado · Automático"
 }

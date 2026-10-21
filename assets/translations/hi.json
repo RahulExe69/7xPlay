@@ -1541,5 +1541,8 @@
   "stream_feedback_issue_wrong_content": "गलत सामग्री",
   "stream_feedback_issue_other": "अन्य",
   "stream_feedback_skip": "छोड़ें",
-  "stream_feedback_submit": "भेजें"
+  "stream_feedback_submit": "भेजें",
+  "tmdb_proxy_automatic": "TMDB उपलब्ध न होने पर अपने आप चालू होता है। आप इसे इस ऐप सत्र के लिए बंद कर सकते हैं।",
+  "tmdb_proxy_turn_off": "चालू · बंद करें",
+  "tmdb_proxy_auto_off": "बंद · स्वचालित"
 }

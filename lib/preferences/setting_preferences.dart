@@ -246,8 +246,8 @@ class SettingsPreferences {
 
   static const USE_PROXY = 'use_proxy';
 
-  setUseProxy(bool useProxy) {
-    sharedPrefsSingleton.setBool(USE_PROXY, useProxy);
+  Future<void> setUseProxy(bool useProxy) async {
+    await sharedPrefsSingleton.setBool(USE_PROXY, useProxy);
   }
 
   Future<bool> getUseProxy() async {

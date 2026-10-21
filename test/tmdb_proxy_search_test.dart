@@ -3,11 +3,17 @@ import 'dart:io';
 
 import 'package:flixquest/catalog/catalog_controller.dart';
 import 'package:flixquest/catalog/media_search.dart';
+import 'package:flixquest/catalog/home_feed_controller.dart';
+import 'package:flixquest/catalog/media_item.dart';
+import 'package:flixquest/tv/controllers/tv_home_controller.dart';
 import 'package:flixquest/constants/api_constants.dart';
 import 'package:flixquest/constants/app_constants.dart';
 import 'package:flixquest/functions/tmdb_request.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
 import 'package:flixquest/provider/settings_provider.dart';
+import 'package:flixquest/services/tmdb_connectivity.dart';
+
+import 'support/tmdb_routing_client.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -62,8 +68,14 @@ void main() {
         final destination = request.uri.queryParameters['destination'];
         final target = destination == null ? null : Uri.tryParse(destination);
         if (target == null) {
-          request.response.statusCode = 400;
+          request.response.statusCode = 451;
+          request.response.write('<html>Blocked</html>');
         } else {
+          if (target.path.endsWith('/configuration')) {
+            request.response.write('{"images": {}}');
+            await request.response.close();
+            return;
+          }
           requests.add(target);
           if (target.queryParameters['api_key'] != 'proxy-search-test-key') {
             request.response.statusCode = 401;
@@ -82,13 +94,27 @@ void main() {
         await request.response.close();
       });
 
+      final originalConnectivity = TmdbConnectivity.instance;
+      final simulation = Platform.environment['TMDB_SIMULATION_URL'];
+      final routingClient = TmdbRoutingClient(Uri.parse(
+        simulation == null
+            ? 'http://127.0.0.1:${server.port}/direct'
+            : '$simulation/direct',
+      ));
+      TmdbConnectivity.instance =
+          TmdbConnectivity(client: routingClient, hasNetwork: () async => true);
+      addTearDown(() {
+        TmdbConnectivity.instance.dispose();
+        TmdbConnectivity.instance = originalConnectivity;
+        routingClient.close();
+      });
       final settings = SettingsProvider()
-        ..enableProxy = true
         ..isAdult = true
         ..appLanguage = 'fr-FR';
       final dependencies = AppDependencyProvider()
-        ..tmdbProxy = Platform.environment['TMDB_PROXY_TEST_URL'] ??
-            'http://127.0.0.1:${server.port}/';
+        ..tmdbProxy = simulation == null
+            ? 'http://127.0.0.1:${server.port}/proxy'
+            : '$simulation/proxy';
       addTearDown(settings.dispose);
       addTearDown(dependencies.dispose);
 
@@ -108,7 +134,8 @@ void main() {
       expect(tv, hasLength(2));
       expect(tv.map((item) => item.title), everyElement(query.trim()));
 
-      if (!Platform.environment.containsKey('TMDB_PROXY_TEST_URL')) {
+      expect(settings.enableProxy, isTrue);
+      if (simulation == null) {
         expect(requests, hasLength(5));
         expect(
             requests.map((uri) => uri.path),
@@ -123,6 +150,25 @@ void main() {
           expect(request.queryParameters['include_adult'], 'true');
           expect(request.queryParameters['language'], 'fr-FR');
         }
+      }
+
+      if (query == 'Dune') {
+        final homeSource = CatalogHomeFeedSource(
+          settings: settings,
+          dependencies: dependencies,
+        );
+        final mobileRows = await Future.wait([
+          homeSource.list(MediaKind.movie, HomeList.popular),
+          homeSource.list(MediaKind.series, HomeList.trendingToday),
+        ]);
+        expect(mobileRows.every((row) => row.isNotEmpty), isTrue);
+        final tvHome = await const TvHomeController().load(
+          settings: settings,
+          dependencies: dependencies,
+        );
+        expect(tvHome.isEmpty, isFalse);
+        expect(tvHome.popularMovies.single.id, 1);
+        expect(tvHome.trendingSeries.single.id, 1);
       }
     });
   }

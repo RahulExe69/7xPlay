@@ -1588,5 +1588,8 @@
   "stream_feedback_issue_wrong_content": "محتوى غير صحيح",
   "stream_feedback_issue_other": "أخرى",
   "stream_feedback_skip": "تخطي",
-  "stream_feedback_submit": "إرسال"
+  "stream_feedback_submit": "إرسال",
+  "tmdb_proxy_automatic": "يتم تفعيله تلقائيًا عندما يتعذر الوصول إلى TMDB. يمكنك إيقافه خلال جلسة التطبيق الحالية.",
+  "tmdb_proxy_turn_off": "مفعّل · إيقاف",
+  "tmdb_proxy_auto_off": "متوقف · تلقائي"
 }

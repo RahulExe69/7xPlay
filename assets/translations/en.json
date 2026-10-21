@@ -1541,5 +1541,8 @@
   "stream_feedback_issue_wrong_content": "Wrong content",
   "stream_feedback_issue_other": "Other",
   "stream_feedback_skip": "Skip",
-  "stream_feedback_submit": "Submit"
+  "stream_feedback_submit": "Submit",
+  "tmdb_proxy_automatic": "Automatically enabled when TMDB is unreachable. You can turn it off for this app session.",
+  "tmdb_proxy_turn_off": "On · Turn off",
+  "tmdb_proxy_auto_off": "Off · Automatic"
 }
