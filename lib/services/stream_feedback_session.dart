@@ -220,8 +220,8 @@ class StreamFeedbackMeasurement {
   }
 }
 
-/// Bounded GA4 context. The largest payload (an episode plus all measurements
-/// and the two answer fields) uses exactly 25 custom parameters.
+/// Content and provider properties shared by Mixpanel surveys and reports.
+/// Existing property values are preserved so saved filters remain consistent.
 class StreamFeedbackContext {
   const StreamFeedbackContext({
     required this.mediaType,
@@ -251,7 +251,7 @@ class StreamFeedbackContext {
         if (mediaType != 'live_tv' && tmdbId != null)
           'tmdb_id': tmdbId.toString(),
         if (mediaType == 'tv') ...{
-          // Prefixes preserve these as app categorical dimensions in GA4.
+          // Preserve the existing season/episode values across analytics providers.
           if (seasonNumber != null) 'season_number': 's$seasonNumber',
           if (episodeNumber != null) 'episode_number': 'e$episodeNumber',
         },

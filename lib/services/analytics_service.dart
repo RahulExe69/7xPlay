@@ -63,13 +63,28 @@ class AnalyticsService {
   // ---------------------------------------------------------------------------
 
   void _track(String event, [Map<String, dynamic>? properties]) {
+    unawaited(_trackEvent(event, properties));
+  }
+
+  Future<void> _trackEvent(
+      String event, Map<String, dynamic>? properties) async {
     final mixpanel = _mixpanel;
     if (mixpanel == null) return;
-    unawaited(
-      mixpanel.track(event, properties: properties).catchError((Object error) {
-        debugPrint('[AnalyticsService] Failed to track $event: $error');
-      }),
-    );
+    try {
+      await mixpanel.track(event, properties: properties);
+    } catch (error) {
+      debugPrint('[AnalyticsService] Failed to track $event: $error');
+    }
+  }
+
+  /// Survey and sampled playback reports use the same Mixpanel identity,
+  /// project and registered properties as the app's other analytics events.
+  Future<void> trackStreamDiagnostics(
+          String event, Map<String, Object> properties) =>
+      _trackEvent(event, properties);
+
+  void trackStreamingDuration(int totalSeconds) {
+    _track('total_streaming_duration', {'duration_seconds': totalSeconds});
   }
 
   // ---------------------------------------------------------------------------

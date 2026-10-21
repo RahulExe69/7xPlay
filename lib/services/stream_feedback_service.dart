@@ -2,16 +2,16 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'stream_feedback_session.dart';
+import 'analytics_service.dart';
 
 typedef FeedbackEventWriter = Future<void> Function(
     String name, Map<String, Object> parameters);
 
-/// Google Analytics only; no Firestore documents or additional backend.
+/// Uses the app's Mixpanel service; no Firestore documents or extra backend.
 /// Debug and release builds share the same sampling, watch-time eligibility
 /// and cooldown rules. Tests may explicitly override those rules.
 class StreamFeedbackService {
@@ -22,7 +22,7 @@ class StreamFeedbackService {
     int Function(int)? draw,
     bool debugAlwaysReport = false,
   })  : _preferences = preferences ?? SharedPreferences.getInstance,
-        _writeEvent = writeEvent ?? _firebaseEvent,
+        _writeEvent = writeEvent ?? _mixpanelEvent,
         _now = now ?? DateTime.now,
         _draw = draw ?? Random().nextInt,
         _debugAlwaysReport = debugAlwaysReport;
@@ -37,8 +37,8 @@ class StreamFeedbackService {
   final bool _debugAlwaysReport;
   bool _reserved = false;
 
-  static Future<void> _firebaseEvent(String name, Map<String, Object> params) =>
-      FirebaseAnalytics.instance.logEvent(name: name, parameters: params);
+  static Future<void> _mixpanelEvent(String name, Map<String, Object> params) =>
+      AnalyticsService.instance.trackStreamDiagnostics(name, params);
 
   Future<bool> reserve(StreamFeedbackMeasurement measurement) async {
     if (_reserved) return false;

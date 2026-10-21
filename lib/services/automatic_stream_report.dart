@@ -1,12 +1,12 @@
 import 'dart:math';
 
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 
 import 'stream_feedback_service.dart';
 import 'stream_feedback_session.dart';
+import 'analytics_service.dart';
 
-/// One silent GA4 report for sampled sessions with at least five minutes of
+/// One silent Mixpanel report for sampled sessions with at least five minutes of
 /// observed content playback. It never opens UI or reads survey cooldowns.
 /// Debug and release builds use the same sampling and watch-time rules.
 class AutomaticStreamReport {
@@ -16,7 +16,7 @@ class AutomaticStreamReport {
     FeedbackEventWriter? writeEvent,
     Duration networkTimeout = const Duration(seconds: 2),
   })  : selected = debugAlwaysReport || (draw ?? Random().nextInt)(5) == 0,
-        _writeEvent = writeEvent ?? _firebaseEvent,
+        _writeEvent = writeEvent ?? _mixpanelEvent,
         _networkTimeout = networkTimeout;
 
   static const eventName = 'stream_playback_report';
@@ -28,8 +28,8 @@ class AutomaticStreamReport {
 
   bool get shouldReport => selected && !_reported;
 
-  static Future<void> _firebaseEvent(String name, Map<String, Object> params) =>
-      FirebaseAnalytics.instance.logEvent(name: name, parameters: params);
+  static Future<void> _mixpanelEvent(String name, Map<String, Object> params) =>
+      AnalyticsService.instance.trackStreamDiagnostics(name, params);
 
   /// Reserves the report synchronously, before the first await. Call before
   /// disposing the native player; [flushNetworkUsage] is requested immediately.

@@ -1,8 +1,11 @@
-# Stream feedback in Google Analytics
+# Stream feedback and playback reports in Mixpanel
 
 The movie/episode and live TV players share an optional exit survey and a
-separate automatic report. Both use the existing Firebase Analytics SDK, never
-Firestore or a new backend. The existing Mixpanel analytics are unchanged.
+separate automatic report. Both use the existing `AnalyticsService` and Mixpanel
+SDK, sharing the app’s project, identity and registered properties. The legacy
+`total_streaming_duration` event also goes to Mixpanel. These custom stream events
+are no longer written to Google Analytics. Event names, property names and value
+types are preserved; historical Google Analytics data is not migrated.
 
 ## Testing on Android mobile or TV
 
@@ -19,8 +22,8 @@ Debug, profile and release builds now use the same normal frequencies:
 
 The temporary debug frequency overrides are disabled. Hot restart an
 already running app to recreate player/service instances with normal defaults.
-Enabling Firebase Analytics DebugView changes upload/debug visibility, not these
-sampling rates or the watch-time requirements.
+Mixpanel upload timing does not change these sampling rates or watch-time
+requirements.
 
 ## When the survey appears
 
@@ -52,7 +55,7 @@ All carry the same frozen playback context; submitted adds `rating` and `issue`.
 | `media_type` | `movie`, `tv`, `live_tv` |
 | `surface` | `mobile`, `tv` (player controls surface) |
 | `tmdb_id` | Movie or series TMDB ID, as a string; omitted for live TV |
-| `season_number`, `episode_number` | Series only; `s2`, `e3` so GA4 treats them as app categorical dimensions |
+| `season_number`, `episode_number` | Series only; `s2`, `e3` (existing string values retained) |
 | `channel_id`, `initial_channel_id` | Live TV only; last requested and initial channel IDs |
 | `provider`, `initial_provider` | Final and initial provider codes; `dlhd` for live TV |
 | `source_switches` | User provider/channel switch attempts, including unsuccessful attempts; `switches_0`, `switches_1`, etc. for event-level filtering |
@@ -72,9 +75,9 @@ All carry the same frozen playback context; submitted adds `rating` and `issue`.
 | `rating` | Submitted only: `good`, `okay`, `bad` |
 | `issue` | Submitted only: `none`, `buffering`, `did_not_play`, `quality`, `audio`, `subtitles`, `wrong_content`, `other` |
 
-The largest submitted payload (series plus all measurements) has exactly 25
-custom parameters. Do not add fields without revisiting the GA4 limit test.
-App version, OS, device model and geography can use GA4's built-in dimensions.
+The SDK adds its standard metadata alongside the app’s registered `Platform`
+and `OS Version` properties. Diagnostic properties remain structured strings
+and numbers; Mixpanel does not require GA4 custom dimension registration.
 No written comments, stream URLs, headers, tokens or raw error strings are sent.
 
 ### Reading the measurements correctly
@@ -145,8 +148,7 @@ therefore describes sustained watches, not the failure rate of all attempts.
 These are initial diagnostic thresholds, not a user satisfaction score or proof
 that the stream was correct. Audio sync, subtitle accuracy and wrong content
 still require user feedback. Raw measurements remain available when several
-issues occurred together. The largest automatic episode payload also fits the
-25-parameter limit. SDK collection settings/consent still apply.
+issues occurred together. Existing Mixpanel collection settings/consent still apply.
 
 A Back handler and subsequent dispose share the same report reservation and
 immutable measurement snapshot, so they cannot double-report or resample.
@@ -158,75 +160,67 @@ To use this in another player, create one `AutomaticStreamReport` with its state
 collect the shared `StreamFeedbackSession` measurements, then call `send` before
 disposing the native controller. Pass a `StreamFeedbackContext`, a frozen
 measurement, the end reason, and the native counter/flush callback. Production
-writers send only to Google Analytics; tests inject their writer and random draw.
+writers send through `AnalyticsService` to Mixpanel; tests inject a writer/random
+draw or mock the SDK transport.
 
-## One-time GA4 setup
+## Reading the reports in Mixpanel
 
-1. In Firebase project settings, confirm Google Analytics is enabled/linked.
-   Open that same property in Google Analytics.
-2. In **Admin → Data display → Custom definitions**, create event-scoped
-   dimensions for `rating`, `issue`, `media_type`, `surface`, `provider`,
-   `initial_provider`, `quality`, `connection_type`, `outcome`, `source_switches`,
-   `playback_health`, `end_reason`. Add `tmdb_id`,
-   `season_number`, `episode_number`, `channel_id`, `initial_channel_id` if you
-   need content-level inspection. IDs can cause high-cardinality reports.
-3. Create custom metrics for `watched_ms`, `startup_ms`, `buffering_ms`,
-   `buffer_count`, `rebuffer_ratio`, `error_count`,
-   `network_changes`, `network_bytes`, `transfer_sample_ms`, `stream_mbps`.
-   For millisecond values choose the milliseconds unit if offered; otherwise
-   use Standard and keep the `_ms` suffix. Use Standard for the ratio and Mbps.
-4. Wait 24–48 hours for custom definitions to become usable in reports.
-5. Under **Explore → Free form**, filter Event name to
-   `stream_feedback_submitted`, put Provider in Rows, Rating in Columns,
-   and Event count in Values. Add filters for app version, media type, issue,
-   connection type, and `source_switches = switches_0` where relevant.
+Use the same Mixpanel project as the app’s other events. No new token, SDK or
+backend is required. After an updated build sends events:
 
-For automatic reports, create a separate free-form exploration filtered to
-Event name = `stream_playback_report`. Put Provider in Rows, Playback health in
-Columns, and Event count in Values. Filter on media type, app version, network
-type and source switches. Inspect startup, buffering and watch metrics alongside
-the labels. Keep automatic and survey events separate in counts and rates.
+1. Open **Events**, filter by `stream_playback_report` or one of the survey event
+   names, and expand an individual event to inspect its properties.
+2. In **Insights**, select `stream_playback_report` and count Total Events.
+   Break down by `provider` or `playback_health`. Filter by `media_type`,
+   `surface`, `connection_type` and `source_switches = switches_0` as needed.
+3. Add numeric property aggregations, such as average or P90 `startup_ms` and
+   `rebuffer_ratio`, to compare playback measurements.
+4. For survey results, select `stream_feedback_submitted`, break down by `rating`
+   or `issue`, and filter to the provider/content of interest. Compare shown,
+   submitted and dismissed counts separately to assess response rate.
 
 Useful investigations:
 
 - Bad-rating share per provider, with response counts alongside percentages.
 - `wrong_content` by TMDB ID and season/episode to identify bad source matches.
-- `failed_to_start` and `did_not_play` by provider and app version.
+- Survey `failed_to_start` outcomes and `did_not_play` issues by provider/version.
 - Buffering complaints alongside rebuffer ratio and connection type.
-- Shown versus submitted/dismissed counts to measure survey response rate.
+- Automatic `playback_errors` and `heavy_buffering` among sustained watches.
 
-The SDK collects events asynchronously; logging is not a server acknowledgement.
-Collection settings/consent still apply. Nothing enables collection against an
-existing disabled Analytics setting. Analytics failures never block Back.
+Keep automatic and survey events separate in counts and rates. The legacy
+`total_streaming_duration` event carries the existing rolling in-memory
+`duration_seconds` counter and retains its previous call sites; it is separate
+from the sampled, five-minute-gated diagnostic report. Do not sum its rolling
+values to estimate total watch time.
 
 ## Verify before release
 
-On Android:
+Use an updated Android mobile or TV build and inspect the project’s **Events**.
+The Flutter SDK batches events, normally uploading about every 60 seconds while
+the app runs and when it enters the background. Awaiting event logging means
+SDK enqueue completion, not server acknowledgement. Existing Mixpanel opt-out
+settings remain effective; tracking failures never block Back.
 
-```sh
-adb shell setprop debug.firebase.analytics.app dev.beamlak.flixquest_v2
-```
+Normal sampling and the survey cooldown apply in debug builds too. Verify movie,
+episode and live playback, failed starts, provider/channel switches, exit ads,
+remote Back/Select, and network changes. Survey events should include the same
+playback context, with rating/issue added only on submission.
 
-Use Firebase Analytics **DebugView** with a debug app build. Normal sampling
-and the survey cooldown apply in debug builds too. Verify movie, episode and live playback, failed starts,
-provider/channel switches, exit ads, remote Back/Select, and network changes.
 For automatic reports, watch content for at least five minutes, then exit or
-advance to another episode. Each qualifying session should produce one
-`stream_playback_report`; exit followed by dispose must not duplicate it.
-A watch shorter than five minutes (including a failed start) must not send an
-automatic report, even in debug builds. Hot restart after changing build/debug settings.
+advance to another episode. Only selected qualifying sessions produce a
+`stream_playback_report`; exit followed by dispose must not duplicate it. A watch
+shorter than five minutes, including a failed start, must not send an automatic
+report. Hot restart after changing build/debug settings. A missing individual
+event can be expected from sampling; it does not by itself show an upload failure.
 
-Automated tests check default sampling and cooldown behavior in debug test
-builds, alongside explicit deterministic overrides and minimum watch time.
-Injected writers prevent tests from sending live Analytics events.
-
-Disable debug mode after testing:
-
-```sh
-adb shell setprop debug.firebase.analytics.app .none.
-```
+Automated tests check normal sampling, cooldown, minimum watch time, complete
+payloads, duplicate suppression and failure handling. SDK transport tests verify
+that the default production writers route all four stream diagnostic events and
+the legacy duration event to the existing Mixpanel instance. Injected writers
+and mocked platform transport prevent tests from sending live events.
 
 References:
-- https://firebase.google.com/docs/analytics/flutter/events
-- https://support.google.com/analytics/answer/14239696
-- https://firebase.google.com/docs/analytics/debugview
+
+- [Mixpanel Flutter SDK](https://docs.mixpanel.com/docs/tracking-methods/sdks/flutter)
+- [Mixpanel Insights](https://docs.mixpanel.com/docs/reports/insights)
+- [Inspecting raw events in Events View](https://mixpanel.com/blog/updated-live-view-a-more-powerful-tool-to-help-you-debug-and-integrate-mixpanel/)

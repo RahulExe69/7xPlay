@@ -218,7 +218,7 @@ void main() {
     expect(second.errorCount, 0);
   });
 
-  test('complete episode payload fits GA4 25-parameter limit', () {
+  test('complete episode payload preserves the stream event properties', () {
     const context = StreamFeedbackContext(
       mediaType: 'tv',
       surface: 'tv',
@@ -238,18 +238,13 @@ void main() {
       'rating': 'bad',
       'issue': 'wrong_content',
     };
-    expect(parameters.length, 25);
     expect(parameters['tmdb_id'], '1399');
     expect(parameters['season_number'], 's2');
     expect(parameters['episode_number'], 'e3');
     expect(parameters['source_switches'], 'switches_1');
     expect(parameters.containsKey('channel_id'), isFalse);
     for (final entry in parameters.entries) {
-      expect(entry.key.length, lessThanOrEqualTo(40));
       expect(entry.value, anyOf(isA<String>(), isA<num>()));
-      if (entry.value is String) {
-        expect((entry.value as String).length, lessThanOrEqualTo(100));
-      }
     }
   });
 
