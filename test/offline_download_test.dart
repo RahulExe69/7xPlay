@@ -7,6 +7,7 @@ import 'package:flixquest/screens/common/downloads_screen.dart';
 import 'package:flixquest/screens/common/download_selection_sheets.dart';
 import 'package:flixquest/services/offline_download_service.dart';
 import 'package:flixquest/video_providers/names.dart';
+import 'package:flixquest/video_providers/common.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +36,61 @@ void main() {
 
       expect(message, isNot(contains('PlatformException')));
       expect(isAlreadyDownloaded(StateError('boom')), isFalse);
+    });
+  });
+
+  group('download source identity', () {
+    final provider = VideoProvider.scraper(id: 'original', name: 'Provider');
+    final links = [
+      RegularVideoLinks(
+          url: 'https://example.test/one', quality: '720p', server: 'one'),
+      RegularVideoLinks(
+          url: 'https://example.test/two', quality: '720p', server: 'two'),
+    ];
+    test(
+        'saves API quality and server independently of duplicate display labels',
+        () {
+      final source = OfflineDownloadSource.forSelection(
+        provider: provider,
+        apiBaseUrl: 'https://api.test/api/v2',
+        links: links,
+        url: 'https://example.test/two',
+      )!;
+      expect(source.toMap(), containsPair('providerId', 'original'));
+      expect(source.toMap(), containsPair('server', 'two'));
+      expect(source.toMap(), containsPair('quality', '720p'));
+      final request = OfflineDownloadRequest(
+        id: 'movie_42',
+        url: links.last.url!,
+        format: 'hls',
+        title: 'Movie',
+        mediaType: 'movie',
+        quality: '720p · two',
+        source: source,
+      );
+      expect(request.toMap()['source'], source.toMap());
+    });
+    test('does not invent recovery metadata for missing or ambiguous sources',
+        () {
+      for (final candidates in [
+        <RegularVideoLinks>[],
+        [links.first, links.first]
+      ]) {
+        expect(
+            OfflineDownloadSource.forSelection(
+                provider: provider,
+                apiBaseUrl: 'https://api.test',
+                links: candidates,
+                url: links.first.url!),
+            isNull);
+      }
+      expect(
+          OfflineDownloadSource.forSelection(
+              provider: VideoProvider.directVixSrc,
+              apiBaseUrl: 'https://api.test',
+              links: links,
+              url: links.first.url!),
+          isNull);
     });
   });
 

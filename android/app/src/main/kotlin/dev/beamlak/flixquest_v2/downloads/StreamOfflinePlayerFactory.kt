@@ -58,7 +58,7 @@ private class StreamOfflinePlayerView(
         }
         val mediaSource = DownloadHelper.createMediaSource(
             download.request,
-            store.readOnlyCacheFactory(),
+            store.readOnlyCacheFactory(download.request),
         )
         playerView.player = player
         player.setMediaSource(mediaSource)

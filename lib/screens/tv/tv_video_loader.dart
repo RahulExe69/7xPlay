@@ -288,6 +288,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
             videoHeaders: videoHeaders,
             videoSizeTokens: videoSizeTokens,
             providerName: selection?.provider.displayName,
+            downloadProvider: selection?.provider,
           );
           return;
         }
@@ -487,6 +488,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
     required Map<String, Map<String, String>> videoHeaders,
     required Map<String, String> videoSizeTokens,
     String? providerName,
+    VideoProvider? downloadProvider,
   }) async {
     final estimatedSizes = ValueNotifier<Map<String, int?>>({
       for (final entry in videoSizeTokens.entries)
@@ -576,6 +578,12 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
               maxVideoHeight: _qualityHeight(quality),
               headers: downloadHeaders,
               audioTrack: audioSelection.track,
+              source: OfflineDownloadSource.forSelection(
+                provider: downloadProvider,
+                apiBaseUrl: _scraperApiUrl,
+                links: tvVideoLinks ?? const [],
+                url: url,
+              ),
               contentId: widget.metadata.tvId,
               seasonNumber: season,
               episodeNumber: episode,
@@ -616,10 +624,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
     }
   }
 
-  int? _qualityHeight(String quality) {
-    final match = RegExp(r'(\d{3,4})').firstMatch(quality);
-    return int.tryParse(match?.group(1) ?? '');
-  }
+  int? _qualityHeight(String quality) => VideoUtils.videoQualityHeight(quality);
 
   RegularSubtitleLinks? _preferredSubtitle(
     List<RegularSubtitleLinks>? subtitles,

@@ -117,6 +117,20 @@ class AppDependencyProvider extends ChangeNotifier {
     return config.enabled ? config : null;
   }
 
+  /// Selected catalogs, including networks serving individual slot overrides.
+  Iterable<BannerAdsConfig> get activeBannerCatalogs sync* {
+    if (_bannerAdNetwork == 'none') return;
+    final networks = {
+      bannerNetwork,
+      ..._bannerAdNetworkOverrides.values.map(AdNetwork.parse),
+    };
+    for (final network in networks) {
+      if (network == null) continue;
+      final catalog = bannerAdsFor(network);
+      if (catalog.enabled) yield catalog;
+    }
+  }
+
   AdsterraPlaybackAdsConfig _adsterraPlaybackAds =
       const AdsterraPlaybackAdsConfig();
   AdsterraPlaybackAdsConfig get adsterraPlaybackAds => _adsterraPlaybackAds;

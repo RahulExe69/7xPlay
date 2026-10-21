@@ -1,3 +1,57 @@
+import '../video_providers/common.dart';
+import '../video_providers/names.dart';
+
+/// The original API source, independent of its short-lived signed URL.
+class OfflineDownloadSource {
+  const OfflineDownloadSource({
+    required this.apiBaseUrl,
+    required this.providerId,
+    required this.providerName,
+    required this.server,
+    required this.quality,
+  });
+
+  final String apiBaseUrl;
+  final String providerId;
+  final String providerName;
+  final String? server;
+  final String quality;
+
+  static OfflineDownloadSource? forSelection({
+    required VideoProvider? provider,
+    required String apiBaseUrl,
+    required Iterable<RegularVideoLinks> links,
+    required String url,
+  }) {
+    if (provider?.type != VideoProviderType.scraperApi ||
+        provider?.apiId?.isNotEmpty != true ||
+        apiBaseUrl.trim().isEmpty) {
+      return null;
+    }
+    final matches = links.where((link) => link.url == url).toList();
+    // Display labels can contain server names or occurrence numbers. Save the
+    // actual API quality and server instead, and never guess an ambiguous link.
+    if (matches.length != 1) return null;
+    final link = matches.single;
+    return OfflineDownloadSource(
+      apiBaseUrl: apiBaseUrl,
+      providerId: provider!.apiId!,
+      providerName: provider.displayName,
+      server: link.server,
+      quality: link.quality ?? 'unknown quality',
+    );
+  }
+
+  Map<String, Object?> toMap() => {
+        'version': 1,
+        'apiBaseUrl': apiBaseUrl,
+        'providerId': providerId,
+        'providerName': providerName,
+        'server': server ?? '',
+        'quality': quality,
+      };
+}
+
 enum OfflineDownloadState {
   queued,
   stopped,
@@ -168,6 +222,7 @@ class OfflineDownloadRequest {
     this.subtitleTrackName,
     this.subtitleTrackHeaders = const {},
     this.audioTrack,
+    this.source,
   });
 
   final String id;
@@ -187,6 +242,7 @@ class OfflineDownloadRequest {
   final String? subtitleTrackName;
   final Map<String, String> subtitleTrackHeaders;
   final OfflineAudioTrack? audioTrack;
+  final OfflineDownloadSource? source;
 
   Map<String, Object?> toMap() => {
         'id': id,
@@ -201,6 +257,7 @@ class OfflineDownloadRequest {
         'headers': headers,
         'audioTrack': audioTrack?.selection,
         'audioTrackName': audioTrack?.name,
+        'source': source?.toMap(),
         'contentId': contentId,
         'seasonNumber': seasonNumber,
         'episodeNumber': episodeNumber,

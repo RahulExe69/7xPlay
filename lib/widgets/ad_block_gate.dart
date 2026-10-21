@@ -9,6 +9,9 @@ import '../mobile/widgets/pill_button.dart';
 import '../provider/app_dependency_provider.dart';
 import '../provider/settings_provider.dart';
 import '../services/ad_block_detector.dart';
+import '../services/ad_block_check_cache.dart';
+import '../services/ad_block_network_probe.dart';
+import '../services/ad_block_webview_probe.dart';
 import '../services/device_presentation_service.dart';
 import '../tv/widgets/tv_dialog.dart';
 
@@ -16,34 +19,78 @@ import '../tv/widgets/tv_dialog.dart';
 /// blocker hides FlixQuest's ads to turn it off first. Every loader calls
 /// [allowPlayback] before it looks for sources, so all entry points share it.
 class AdBlockGate {
-  AdBlockGate({AdBlockDetector? detector, DateTime Function()? now})
-      : _detector = detector ?? AdBlockDetector(),
-        _now = now ?? DateTime.now;
+  AdBlockGate({
+    AdBlockDetector? detector,
+    List<Future<bool> Function(BuildContext)>? additionalChecks,
+    AdBlockCheckCache? cache,
+  })  : _detector = detector ?? AdBlockDetector(),
+        _cache = cache ?? AdBlockCheckCache(),
+        _additionalChecks = additionalChecks ??
+            [
+              (_) => AdBlockNetworkProbe().isBlocking(),
+              AdBlockWebViewProbe.isBlocking,
+            ];
 
   static final instance = AdBlockGate();
 
   final AdBlockDetector _detector;
-  final DateTime Function() _now;
+  final AdBlockCheckCache _cache;
+  final List<Future<bool> Function(BuildContext)> _additionalChecks;
 
-  /// A passed check covers the next few starts, such as an episode switch.
-  static const _passValidFor = Duration(minutes: 5);
-  DateTime? _passedAt;
+  void invalidate() => _cache.invalidate();
+  void addListener(VoidCallback listener) => _cache.addListener(listener);
+  void removeListener(VoidCallback listener) => _cache.removeListener(listener);
+  bool blocksPlayback(AppDependencyProvider provider) =>
+      provider.adBlockGateEnabled &&
+      _cache.isBlocked(_key(provider, _hosts(provider)));
+
+  Set<String> _hosts(AppDependencyProvider provider) => {
+        ...AdBlockDetector.dnsProbeHosts,
+        ...AdBlockDetector.adHosts(provider),
+      };
+
+  Object _key(AppDependencyProvider provider, Set<String> hosts) => (
+        provider,
+        provider.adBlockGateEnabled,
+        (hosts.toList()..sort()).join(',')
+      );
+
+  Future<bool> _scan(BuildContext context, Set<String> hosts) =>
+      _detector.isBlocking(hosts, additionalChecks: [
+        for (final check in _additionalChecks) () => check(context),
+      ]);
+
+  Future<void> warmUp(BuildContext context) async {
+    final provider = context.read<AppDependencyProvider?>();
+    if (provider == null || !provider.adBlockGateEnabled) {
+      invalidate();
+      return;
+    }
+    final hosts = _hosts(provider);
+    await _cache.warm(_key(provider, hosts), () => _scan(context, hosts));
+  }
 
   /// False when the viewer backs out; the loader then closes.
   Future<bool> allowPlayback(BuildContext context,
       {bool download = false, bool television = false}) async {
     final provider = context.read<AppDependencyProvider?>();
-    if (provider == null || !provider.adBlockGateEnabled) return true;
-    final passedAt = _passedAt;
-    if (passedAt != null && _now().difference(passedAt) < _passValidFor) {
+    if (provider == null || !provider.adBlockGateEnabled) {
+      invalidate();
+      debugPrint('[AdBlockGate] skipped: gate disabled or provider missing');
       return true;
     }
-    final hosts = AdBlockDetector.adHosts(provider);
     final tv = television || DevicePresentationService.instance.isTelevision;
     final analytics = context.read<SettingsProvider?>()?.analytics;
     var asked = false;
-    while (await _detector.isBlocking(hosts)) {
+    while (provider.adBlockGateEnabled) {
+      final hosts = _hosts(provider);
+      final watch = Stopwatch()..start();
+      final blocked = await _cache.check(
+          _key(provider, hosts), () => _scan(context, hosts));
+      debugPrint('[AdBlockGate] wait=${watch.elapsedMilliseconds}ms '
+          'result=${blocked == null ? 'pending; allow' : blocked ? 'blocked' : 'allow'}');
       if (!context.mounted) return false;
+      if (!provider.adBlockGateEnabled || blocked != true) break;
       analytics?.trackAdBlockerGate(
           outcome: 'detected', download: download, television: tv);
       final retry = await _ask(context, television: tv, again: asked);
@@ -54,12 +101,12 @@ class AdBlockGate {
         return false;
       }
       asked = true;
+      invalidate();
     }
     if (asked) {
       analytics?.trackAdBlockerGate(
           outcome: 'cleared', download: download, television: tv);
     }
-    _passedAt = _now();
     return context.mounted;
   }
 

@@ -85,6 +85,44 @@ class DownloadAudioStreamKeysTest {
             val override = DownloadAudioTracks.findOverride(helper.getTracks(0), hindi["selection"] as Map<*, *>)!!
             helper.replaceTrackSelections(0, parameters.buildUpon().setOverrideForType(override).build())
             assertEquals(listOf(StreamKey(0, 0, 1), StreamKey(0, 2, 0)), helper.getDownloadRequest(null).streamKeys)
+            // Serialize exactly as a persisted request does (JSON normalizes numeric types).
+            val originalTracks = org.json.JSONArray(DownloadTrackIdentity.capture(helper).toString())
+            val changedDefaults = parameters.buildUpon().setMaxVideoSize(Int.MAX_VALUE, 1080).build()
+            helper.replaceTrackSelections(0, changedDefaults)
+            DownloadTrackIdentity.restore(helper, originalTracks, changedDefaults)
+            assertEquals(listOf(StreamKey(0, 0, 1), StreamKey(0, 2, 0)), helper.getDownloadRequest(null).streamKeys)
+            val englishBlock = Regex("<AdaptationSet id=\"1\".*?</AdaptationSet>", RegexOption.DOT_MATCHES_ALL).find(manifest)!!.value
+            val hindiBlock = Regex("<AdaptationSet id=\"2\".*?</AdaptationSet>", RegexOption.DOT_MATCHES_ALL).find(manifest)!!.value
+            val reordered = manifest.replace(englishBlock, "ENGLISH_PLACEHOLDER")
+                .replace(hindiBlock, englishBlock).replace("ENGLISH_PLACEHOLDER", hindiBlock)
+                .replace("id=\"v720\"", "id=\"renewed-v720\"")
+            val refreshed = DownloadHelper.Factory()
+                .setRenderersFactory(RenderersFactory { _, _, _, _, _ ->
+                    arrayOf(SupportedRenderer(C.TRACK_TYPE_VIDEO), SupportedRenderer(C.TRACK_TYPE_AUDIO))
+                }).setTrackSelectionParameters(changedDefaults)
+                .create(DashMediaSource.Factory(DataSource.Factory { ByteArrayDataSource(reordered.toByteArray()) })
+                    .createMediaSource(MediaItem.fromUri("https://example.test/renewed.mpd")))
+            var refreshedReady = false
+            var refreshedError: IOException? = null
+            refreshed.prepare(object : DownloadHelper.Callback {
+                override fun onPrepared(helper: DownloadHelper, tracksInfoAvailable: Boolean) { refreshedReady = tracksInfoAvailable }
+                override fun onPrepareError(helper: DownloadHelper, error: IOException) { refreshedError = error }
+            })
+            try {
+                val refreshedDeadline = System.nanoTime() + 5_000_000_000L
+                while (!refreshedReady && refreshedError == null && System.nanoTime() < refreshedDeadline) {
+                    shadowOf(Looper.getMainLooper()).idle()
+                    Thread.sleep(10)
+                }
+                assertNull(refreshedError)
+                assertTrue(refreshedReady)
+                DownloadTrackIdentity.restore(refreshed, originalTracks, changedDefaults)
+                assertEquals(listOf(StreamKey(0, 0, 1), StreamKey(0, 1, 0)), refreshed.getDownloadRequest(null).streamKeys)
+            } finally { refreshed.release() }
+            val missingQuality = org.json.JSONArray(originalTracks.toString())
+            val savedVideo = missingQuality.getJSONArray(0).getJSONObject(0)
+            savedVideo.put("height", 2160)
+            assertTrue(runCatching { DownloadTrackIdentity.restore(helper, missingQuality, parameters) }.exceptionOrNull() is IllegalStateException)
         } finally {
             helper.release()
         }

@@ -62,6 +62,7 @@ import '../../services/stream_feedback_session.dart';
 import '../../services/stream_feedback_service.dart';
 import '../../services/automatic_stream_report.dart';
 import '../../services/streaming_dnd_service.dart';
+import '../../widgets/ad_block_playback_guard.dart';
 import '../../design/app_tokens.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
@@ -140,6 +141,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   final _automaticStreamReport = AutomaticStreamReport();
   final _feedbackConnection = StreamFeedbackConnection();
   bool _exitingPlayer = false;
+  bool _adBlockStopped = false;
   String _automaticReportEndReason = 'route_disposed';
   int _feedbackSourceSwitches = 0;
 
@@ -575,7 +577,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // The ad request runs alongside the intro lookup; neither waits on the
       // other, and a missing ad never delays the content.
       final adFuture = _prerollAd.load(_appDependencies.vastPreroll,
-          cancelled: () => !mounted);
+          cancelled: () => !mounted || _adBlockStopped);
       StreamIntroConfig intro = const StreamIntroConfig.disabled();
       try {
         intro = await _introService.fetch(_resolveScraperApiUrl());
@@ -583,7 +585,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         debugPrint('[Player] Branded intro unavailable: $error');
       }
       final prerollAd = await adFuture;
-      if (!mounted) return;
+      if (!mounted || _adBlockStopped) return;
 
       if (prerollAd != null) {
         // The ad replaces the branded intro for this session: one pre-roll
@@ -609,7 +611,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           initialPosition: initialPosition,
         );
       }
-      if (!mounted) return;
+      if (!mounted || _adBlockStopped) return;
       _applyPreferredAdaptiveQuality();
       duration = _betterPlayerController
               .videoPlayerController?.value.duration?.inSeconds ??
@@ -620,6 +622,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!_preRollActive) unawaited(_loadIntroDbTimings());
     } catch (error) {
+      if (_adBlockStopped) return;
       _preRollActive = false;
       _prerollAd.finish('error');
       _feedbackSession.recordFailure();
@@ -668,6 +671,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       DateTime.now().difference(_analyticsSessionStartedAt).inMilliseconds;
 
   void _onAnalyticsPlayerEvent(BetterPlayerEvent event) {
+    if (_adBlockStopped) return;
     final feedbackValue = _betterPlayerController.videoPlayerController?.value;
     _feedbackSession.onEvent(
       event,
@@ -1968,6 +1972,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  void _stopForAdBlocker() {
+    if (_adBlockStopped) return;
+    if (_isVideoInitializedSafely()) _saveRecentProgress();
+    _adBlockStopped = true;
+    _exitingPlayer = true;
+    _automaticReportEndReason = 'ad_blocked';
+    _durationTimer?.cancel();
+    _progressCheckTimer?.cancel();
+    _phoneNextEpisodeTimer?.cancel();
+    _tvNextEpisodeTimer?.cancel();
+    _hideNextEpisodeOverlay();
+    _prerollAd.dispose();
+    // Force native teardown now, before any route transition or message.
+    _betterPlayerController.dispose(forceDispose: true);
+  }
+
   void _handleVideoFinished() {
     if (widget.mediaType == MediaType.tvShow) {
       _restoreEpisodeSnapshotIfNeeded('video_finished');
@@ -2418,7 +2438,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> _startContent(Future<void> Function() action) async {
-    if (_startingContent || !mounted) return;
+    if (_startingContent || !mounted || _adBlockStopped) return;
     setState(() => _startingContent = true);
     _nextEpisodeOverlay?.markNeedsBuild();
     // Fullscreen controls live on a separate route. Show feedback above that
@@ -2648,7 +2668,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     bool reload = false,
     Duration? resumeAt,
   }) async {
-    if (_isSwitchingProvider ||
+    if (_adBlockStopped ||
+        _isSwitchingProvider ||
         (!reload && providerCode == _currentProviderCode)) {
       return false;
     }
@@ -2737,7 +2758,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _rawVideoLinksByProvider[providerCode] = List.of(result.videoLinks!);
       }
 
-      if (!mounted) return false;
+      if (!mounted || _adBlockStopped) return false;
       final nextSource = source;
       replacementStarted = true;
       _preRollActive = false;
@@ -2750,6 +2771,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         ),
         initialPosition: position,
       );
+      if (!mounted || _adBlockStopped) return false;
       _applyPreferredAdaptiveQuality();
       if (!wasPlaying) await _betterPlayerController.pause();
       unawaited(_loadIntroDbTimings());
@@ -2813,7 +2835,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         '[Player] Provider ${reload ? 'refresh' : 'switch'} failed for '
         '$providerCode: $error',
       );
-      if (!mounted) return false;
+      if (!mounted || _adBlockStopped) return false;
       // A refresh has nothing to restore: the previous source is the one
       // that failed.
       if (!reload && replacementStarted && previousDataSource != null) {
@@ -2863,7 +2885,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AdBlockPlaybackGuard(
+        stopPlayback: _stopForAdBlocker,
+        television: widget.useTvControls,
+        child: _buildPlayback(context),
+      );
+
+  Widget _buildPlayback(BuildContext context) {
     _handleScreenOrientation(context);
     if (_isPortraitInlineLayout(context)) {
       return PopScope(
@@ -3495,6 +3523,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (_activeSources.isEmpty) return;
     if (!mounted || _activeSources.isEmpty) return;
     final providerName = _currentProviderName();
+    final downloadApiBaseUrl = _resolveScraperApiUrl();
+    final providerCode = _currentProviderCode;
+    final downloadProvider = widget.availableProviders
+        ?.where((provider) => provider.codeName == providerCode)
+        .firstOrNull;
+    final rawDownloadLinks = List<RegularVideoLinks>.of(
+      _rawVideoLinksByProvider[providerCode] ?? const [],
+    );
     final sources = Map<String, String>.of(_activeSources);
     final formats = _activeVideoFormats == null
         ? <String, BetterPlayerVideoFormat?>{}
@@ -3589,6 +3625,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               maxVideoHeight: _downloadResolutionHeight(resolution),
               headers: downloadHeaders,
               audioTrack: audioSelection.track,
+              source: OfflineDownloadSource.forSelection(
+                provider: downloadProvider,
+                apiBaseUrl: downloadApiBaseUrl,
+                links: rawDownloadLinks,
+                url: url,
+              ),
               contentId: isMovie ? movie?.movieId : episode?.tvId,
               seasonNumber: isMovie ? null : season,
               episodeNumber: isMovie ? null : episodeNumber,
@@ -3647,10 +3689,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   String _currentProviderName() => _providerDisplayName(_currentProviderCode);
 
-  int? _downloadResolutionHeight(String resolution) {
-    final match = RegExp(r'(\d{3,4})').firstMatch(resolution);
-    return int.tryParse(match?.group(1) ?? '');
-  }
+  int? _downloadResolutionHeight(String resolution) =>
+      VideoUtils.videoQualityHeight(resolution);
 
   BetterPlayerSubtitlesSource? _originalSubtitleTrack() {
     BetterPlayerSubtitlesSource? fallback;

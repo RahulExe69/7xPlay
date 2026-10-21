@@ -15,6 +15,7 @@ import 'provider/app_dependency_provider.dart';
 import 'provider/recently_watched_provider.dart';
 import 'provider/settings_provider.dart';
 import 'screens/user/user_state.dart';
+import 'widgets/ad_block_warmup.dart';
 import 'widgets/occasional_effect_overlay.dart';
 import 'widgets/app_presentation.dart';
 import 'provider/bookmark_provider.dart';
@@ -347,9 +348,11 @@ class _FlixQuestState extends State<FlixQuest>
                     ),
                   ),
                   theme: appTheme,
-                  home: UserState(
-                    key: ValueKey<DevicePresentation>(devicePresentation),
-                    devicePresentation: devicePresentation,
+                  home: AdBlockWarmup(
+                    child: UserState(
+                      key: ValueKey<DevicePresentation>(devicePresentation),
+                      devicePresentation: devicePresentation,
+                    ),
                   ),
                 );
                 // Wraps the app itself: it has to hear about system Backs

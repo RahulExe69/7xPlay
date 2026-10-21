@@ -50,6 +50,10 @@ String offlineEnqueueErrorMessage(Object error, {required String title}) {
   if (error is PlatformException && error.code == 'DOWNLOAD_AUDIO_CONFLICT') {
     return 'Remove the existing download in Downloads, then choose the new audio language.';
   }
+  if (error is PlatformException && error.code == 'DOWNLOAD_SOURCE_CONFLICT') {
+    return 'This title already has a download with a different source or quality. '
+        'Manage it in Downloads.';
+  }
   if (error is PlatformException && error.code == 'PREPARE_FAILED') {
     return 'Could not reach this stream to download it. '
         'Try another quality or provider.';

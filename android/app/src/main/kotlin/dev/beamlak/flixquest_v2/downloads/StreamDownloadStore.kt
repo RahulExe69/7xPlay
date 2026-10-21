@@ -22,12 +22,18 @@ import androidx.media3.exoplayer.offline.DefaultDownloadIndex
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadHelper
 import androidx.media3.exoplayer.offline.DownloadManager
+import androidx.media3.exoplayer.offline.DownloadProgress
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.Downloader
 import androidx.media3.exoplayer.offline.DownloaderFactory
 import androidx.media3.exoplayer.offline.ProgressiveDownloader
 import androidx.media3.exoplayer.scheduler.Requirements
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
@@ -41,6 +47,9 @@ class StreamDownloadStore private constructor(context: Context) {
     private val downloadExecutor: ExecutorService = Executors.newFixedThreadPool(4)
     private val subtitleDirectory = File(appContext.filesDir, "offline_subtitles")
 
+    private val recovery = DownloadRecoveryState(File(appContext.filesDir, "offline_requests"))
+    private val sourceResolver = DownloadSourceResolver()
+
     val cache = SimpleCache(
         File(appContext.filesDir, "offline_streams"),
         NoOpCacheEvictor(),
@@ -50,7 +59,18 @@ class StreamDownloadStore private constructor(context: Context) {
     val downloadManager = DownloadManager(
         appContext,
         downloadIndex,
-        HeaderAwareDownloaderFactory(cache, downloadExecutor),
+        DownloaderFactory { request ->
+            RecoveringDownloader(request, recovery,
+                create = { current, previous -> createDownloader(current, previous) },
+                refresh = ::refreshRequest,
+                clearCache = { current ->
+                    val namespace = DownloadRecoveryState.namespace(current)
+                    if (namespace.isNotEmpty()) {
+                        cache.keys.filter { it.startsWith(namespace) }.forEach(cache::removeResource)
+                    }
+                },
+            )
+        },
     ).apply {
         maxParallelDownloads = 2
         requirements = Requirements(Requirements.NETWORK)
@@ -76,8 +96,22 @@ class StreamDownloadStore private constructor(context: Context) {
             return
         }
 
+        val handler = Handler(Looper.getMainLooper())
+        val finished = AtomicBoolean(false)
+        fun complete(result: Result<DownloadRequest>) {
+            if (!finished.compareAndSet(false, true)) return
+            handler.removeCallbacksAndMessages(helper)
+            helper.release()
+            callback(result)
+        }
+        handler.postAtTime(
+            { complete(Result.failure(IOException("Download preparation timed out."))) },
+            helper,
+            android.os.SystemClock.uptimeMillis() + 60_000L,
+        )
         helper.prepare(object : DownloadHelper.Callback {
             override fun onPrepared(helper: DownloadHelper, tracksInfoAvailable: Boolean) {
+                if (finished.get()) return
                 try {
                     val selection = arguments["audioTrack"] as? Map<*, *>
                     if (selection != null) {
@@ -98,9 +132,14 @@ class StreamDownloadStore private constructor(context: Context) {
                             }) { "The selected audio track could not be selected for download." }
                         }
                     }
+                    if (metadata.optJSONObject("source") != null) {
+                        check(tracksInfoAvailable) { "The original download tracks are unavailable." }
+                        val expected = metadata.optJSONArray("selectedTracks")
+                        if (expected != null) DownloadTrackIdentity.restore(helper, expected, trackParameters(arguments))
+                        metadata.put("selectedTracks", DownloadTrackIdentity.capture(helper))
+                    }
                 } catch (error: Exception) {
-                    helper.release()
-                    callback(Result.failure(error))
+                    complete(Result.failure(error))
                     return
                 }
                 // DownloadHelper (and its DefaultTrackSelector) is bound to the
@@ -118,27 +157,25 @@ class StreamDownloadStore private constructor(context: Context) {
                         downloadSubtitle(arguments, id, metadata)
                     } catch (error: Exception) {
                         helperHandler.post {
-                            helper.release()
-                            callback(Result.failure(error))
+                            complete(Result.failure(error))
                         }
                         return@execute
                     }
                     helperHandler.post {
+                        if (finished.get()) return@post
                         val preparedRequest = runCatching {
                             helper.getDownloadRequest(
                                 id,
                                 metadata.toString().toByteArray(StandardCharsets.UTF_8),
                             )
                         }
-                        helper.release()
-                        callback(preparedRequest)
+                        complete(preparedRequest)
                     }
                 }
             }
 
             override fun onPrepareError(helper: DownloadHelper, error: java.io.IOException) {
-                helper.release()
-                callback(Result.failure(error))
+                complete(Result.failure(error))
             }
         })
     }
@@ -226,18 +263,34 @@ class StreamDownloadStore private constructor(context: Context) {
             .create(mediaItem)
     }
 
-    fun getDownload(id: String): Download? = downloadIndex.getDownload(id)
+    fun originalRequest(id: String): DownloadRequest? = downloadIndex.getDownload(id)?.request
+
+    fun getDownload(id: String): Download? = downloadIndex.getDownload(id)?.let(::effectiveDownload)
+
+    private fun effectiveDownload(download: Download): Download {
+        val resolved = runCatching { recovery.current(download.request) }
+        val current = resolved.getOrDefault(download.request)
+        if (current == download.request && resolved.isSuccess) return download
+        return Download(current, if (resolved.isSuccess) download.state else Download.STATE_FAILED, download.startTimeMs, download.updateTimeMs,
+            download.contentLength, download.stopReason,
+            if (resolved.isSuccess) download.failureReason else Download.FAILURE_REASON_UNKNOWN,
+            DownloadProgress().apply {
+                bytesDownloaded = download.bytesDownloaded
+                percentDownloaded = download.percentDownloaded
+            })
+    }
 
     fun getDownloads(): List<Download> {
         val result = mutableListOf<Download>()
         downloadIndex.getDownloads().use { cursor ->
-            while (cursor.moveToNext()) result.add(cursor.download)
+            while (cursor.moveToNext()) result.add(effectiveDownload(cursor.download))
         }
         return result
     }
 
-    fun readOnlyCacheFactory(): CacheDataSource.Factory = CacheDataSource.Factory()
+    fun readOnlyCacheFactory(request: DownloadRequest): CacheDataSource.Factory = CacheDataSource.Factory()
         .setCache(cache)
+        .setCacheKeyFactory(DownloadCacheReuse.keyFactory(DownloadRecoveryState.namespace(request)))
         .setUpstreamDataSourceFactory(null)
         .setCacheWriteDataSinkFactory(null)
 
@@ -290,6 +343,15 @@ class StreamDownloadStore private constructor(context: Context) {
         put("quality", arguments["quality"] as? String ?: "Auto")
         put("posterUrl", arguments["posterUrl"] as? String ?: "")
         put("format", arguments["format"] as? String ?: "")
+        put("maxVideoHeight", arguments["maxVideoHeight"] ?: JSONObject.NULL)
+        (arguments["source"] as? Map<*, *>)?.let {
+            put("source", JSONObject(it))
+            put("cacheNamespace", arguments["cacheNamespace"] as? String ?: DownloadRecoveryState.newNamespace())
+        }
+        (arguments["selectedTracks"] as? List<*>)?.let { put("selectedTracks", JSONArray(it)) }
+        for (key in listOf("offlineSubtitlePath", "offlineSubtitleName")) {
+            (arguments[key] as? String)?.let { put(key, it) }
+        }
         put("audioTrackName", arguments["audioTrackName"] as? String ?: "")
         (arguments["audioTrack"] as? Map<*, *>)?.let { put("audioTrack", JSONObject(it)) }
         put("contentId", (arguments["contentId"] as? Number)?.toInt() ?: 0)
@@ -342,6 +404,44 @@ class StreamDownloadStore private constructor(context: Context) {
         return File(subtitleDirectory, "$safeId.$extension")
     }
 
+    private fun createDownloader(request: DownloadRequest, previous: List<DownloadRequest>): Downloader {
+        val namespace = DownloadRecoveryState.namespace(request)
+        val upstream = DownloadCacheReuse.upstream(cache, namespace,
+            previous.map(DownloadRecoveryState::namespace).filter { it.isNotEmpty() },
+            httpFactory(metadataHeaders(requestMetadata(request))))
+        val factory = CacheDataSource.Factory().setCache(cache)
+            .setCacheKeyFactory(DownloadCacheReuse.keyFactory(namespace))
+            .setUpstreamDataSourceFactory(upstream)
+        val item = request.toMediaItem()
+        return when (request.mimeType) {
+            MimeTypes.APPLICATION_M3U8 -> HlsDownloader(item, factory, downloadExecutor)
+            MimeTypes.APPLICATION_MPD -> DashDownloader(item, factory, downloadExecutor)
+            else -> ProgressiveDownloader(item, factory, downloadExecutor)
+        }
+    }
+
+    /** Runs on Media3's download thread while the service remains active. */
+    private fun refreshRequest(request: DownloadRequest, cancelled: () -> Boolean): DownloadRequest {
+        val arguments = sourceResolver.resolve(request).toMutableMap().apply {
+            put("cacheNamespace", DownloadRecoveryState.newNamespace())
+        }
+        if (cancelled()) throw InterruptedException("Download cancelled")
+        val completed = CountDownLatch(1)
+        var prepared: Result<DownloadRequest>? = null
+        Handler(Looper.getMainLooper()).post {
+            if (cancelled()) completed.countDown() else {
+                prepareRequest(arguments) { result -> prepared = result; completed.countDown() }
+            }
+        }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(65)
+        while (!completed.await(100, TimeUnit.MILLISECONDS)) {
+            if (cancelled()) throw InterruptedException("Download cancelled")
+            if (System.nanoTime() > deadline) throw IOException("Download renewal timed out. Retry later.")
+        }
+        if (cancelled()) throw InterruptedException("Download cancelled")
+        return prepared?.getOrThrow() ?: throw IOException("Download renewal was interrupted.")
+    }
+
     companion object {
         @Volatile
         private var instance: StreamDownloadStore? = null
@@ -368,27 +468,5 @@ class StreamDownloadStore private constructor(context: Context) {
                 .setAllowCrossProtocolRedirects(true)
                 .setUserAgent("FlixQuest/4.0")
                 .setDefaultRequestProperties(headers)
-    }
-}
-
-@UnstableApi
-private class HeaderAwareDownloaderFactory(
-    private val cache: SimpleCache,
-    private val executor: ExecutorService,
-) : DownloaderFactory {
-    override fun createDownloader(request: DownloadRequest): Downloader {
-        val metadata = StreamDownloadStore.requestMetadata(request)
-        val upstream = StreamDownloadStore.httpFactory(
-            StreamDownloadStore.metadataHeaders(metadata),
-        )
-        val cacheFactory = CacheDataSource.Factory()
-            .setCache(cache)
-            .setUpstreamDataSourceFactory(upstream)
-        val mediaItem = request.toMediaItem()
-        return when (request.mimeType) {
-            MimeTypes.APPLICATION_M3U8 -> HlsDownloader(mediaItem, cacheFactory, executor)
-            MimeTypes.APPLICATION_MPD -> DashDownloader(mediaItem, cacheFactory, executor)
-            else -> ProgressiveDownloader(mediaItem, cacheFactory, executor)
-        }
     }
 }

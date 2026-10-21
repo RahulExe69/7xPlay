@@ -727,22 +727,75 @@ overlaps, selection, priorities, and global effect controls.
 Android apps have no browser extensions: ads are blocked through DNS, by
 Private DNS (AdGuard DNS, NextDNS), local VPN blockers (AdGuard, Blokada,
 RethinkDNS), hosts files (AdAway) or a network filter such as Pi-hole. When
-Play or Download starts, FlixQuest resolves the hosts of the ads it currently
-shows: the live banner catalog and the Adsterra playback placements.
+The app warms the checks while viewers browse, then Play or Download uses
+that result. Three layers run in parallel under a six-second background
+deadline:
 
-A blocker is reported only on positive evidence:
+- **DNS:** `doubleclick.net`, `pagead2.googlesyndication.com`,
+  `ads.pubmatic.com`, plus the live banner catalogs (including slot overrides),
+  Adsterra placements, selected mobile/TV popup networks and enabled VAST tags.
+  Sinkholes (including IPv4-mapped IPv6) count only when a neutral DNS control
+  resolves normally. Failed ad lookups must fail again while an independent
+  public DNS resolver confirms an A or AAAA record. Cloudflare and Google are
+  queried in parallel; unreadable or negative replies do not override a
+  positive answer from another resolver.
+- **HTTPS:** HEAD requests to static `robots.txt` files on two independent
+  ad hosts. Both must repeatedly refuse, reset or close connections while two
+  independent non-ad controls respond normally. HTTP responses, including
+  404/405/5xx, prove connectivity; TLS errors, redirects and timeouts are
+  inconclusive. No publisher tag or smartlink is fetched.
+- **WebView:** an invisible, non-interactive system WebView loads local bait
+  elements and the same static HEAD probes. Healthy controls plus explicit
+  `ERR_BLOCKED_BY_CLIENT` errors, two selectively hidden bait elements, or
+  repeated failures on two ad hosts that native HTTPS can reach count as
+  filtering. Missing WebView support, malformed reports and a 4.5-second
+  timeout allow playback; the temporary view is removed after the check.
 
-- an ad host answers with a sinkhole address (`0.0.0.0`, `::` or loopback); or
-- the device cannot resolve an ad host, twice, while Cloudflare or Google DNS
-  over HTTPS can. A retired ad domain fails publicly too, so it never counts.
-
-Anything else, including a slow or offline network or a check that takes over
-six seconds, lets playback continue. Viewers with a blocker see **Turn off your
+Warmup never displays a prompt while browsing. On Play or Download, an already
+confirmed positive triggers the prompt without waiting for stalled checks.
+Inconclusive results let playback continue. Viewers with a blocker see **Turn off your
 ad blocker** with **I turned it off**, which checks again, and **Cancel**,
-which closes the loader. A passed check covers the next five minutes, so an
-episode switch is not checked twice. On phones the check runs before the
-Adsterra interstitial, so a blocked viewer is not kept waiting on an ad that
-cannot load.
+which closes the loader. Finished results are reused for up to 30 seconds.
+Background/foreground lifecycle changes, connectivity changes, changed ad
+hosts or gate settings, and the retry button invalidate the result. This
+includes returning from system Private DNS settings. Concurrent callers and
+the loader share one pending scan rather than doing the full check twice.
+
+Play/Download has **zero foreground waiting** for an unfinished scan. Playback
+starts while the scan continues in the background. A pending result is never
+cached as a completed pass.
+
+Both `player.dart` and `live_player.dart` subscribe to accepted results. A late
+positive immediately forces native controller teardown, cancels next-episode
+or live-recovery work, removes fullscreen/menu routes and exits the player,
+then displays a localized playback-stopped message. This exit skips normal
+player-exit ads and feedback prompts. Results from an invalidated scan, a
+disabled gate, or a player that already left cannot interrupt other screens.
+Active players refresh the checks every 30 seconds after a completed scan,
+and on resume. Timeouts and inconclusive results do not stop playback. No
+real-device average or native teardown latency has been measured yet.
+
+When troubleshooting, publish `ad_block_gate_enabled = true` and confirm the
+phone has fetched and activated that value. `[AdBlockGate]` logs show whether
+the gate is disabled and the foreground wait in milliseconds; `[AdBlockDetector]`
+logs identify the blocked host or a timeout. Changing a Firebase value without
+the device receiving it does not enable the gate on that device.
+
+Detection is behavioral and best effort. It does not enumerate installed
+apps, label every VPN/Private DNS service a blocker, or guarantee detection
+of allowlisted probes, arbitrary custom block pages, modified clients, or
+filters that act only on a particular creative. Browser extensions that do
+not affect the app's WebView cannot affect or be identified by this check.
+
+Tests include the actual embedded JavaScript, Flutter WebView lifecycle
+tests, and real HTTP against `postman/simulations/ad-block-probes.sim.yaml`.
+Start it with `postman simulation run postman/simulations/ad-block-probes.sim.yaml
+--port 4936 --output ndjson`, then run
+`FQ_AD_BLOCK_SIMULATION_URL=http://127.0.0.1:4936/probes .fvm/flutter_sdk/bin/flutter
+test test/ad_block_network_simulation_test.dart`. The mock models HEAD status,
+redirect and timeout behavior and Google's DNS JSON response schema. No
+published owner mock was used because the Postman CLI was signed out. Actual
+AdGuard/NextDNS/local-VPN testing on a device is still required for release.
 
 Each prompt sends the Mixpanel event `Ad Blocker Gate` with `Outcome`
 (`detected`, `cleared` or `cancelled`), `Action` (`play` or `download`) and
