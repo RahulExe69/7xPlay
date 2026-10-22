@@ -459,6 +459,7 @@ class _TvLiveScreenState extends State<TvLiveScreen> {
               mediaType: stream.mediaType,
               clearKey: stream.clearKey,
               variants: stream.variants,
+              streamDiscovery: stream.discovery,
               autoFullScreen: false,
               colors: <Color>[
                 theme.colorScheme.primary,

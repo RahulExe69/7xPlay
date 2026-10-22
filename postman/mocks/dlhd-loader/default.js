@@ -19,7 +19,17 @@ http.createServer((req, res) => {
       channels: [{id: '110', name: 'DLHD loader fixture', watchUrl: origin + '/watch.php?id=110'}]});
   }
   if (url.pathname === '/watch.php') {
-    return send(200, `<button class="player-btn" title="PLAYER 1" data-url="${origin}/embed"></button>`, 'text/html');
+    return send(200, `<button class="player-btn" title="PLAYER 1" data-url="${origin}/embed"></button>
+<button class="player-btn" title="PLAYER 2" data-url="${origin}/backup-2"></button>
+<button class="player-btn" title="PLAYER 3" data-url="${origin}/backup-3"></button>`, 'text/html');
+  }
+  if (url.pathname === '/backup-2' || url.pathname === '/backup-3') {
+    const reply = () => send(200, `const source = "${origin}/backup-media/index.m3u8";`, 'text/html');
+    if (url.pathname === '/backup-2') return setTimeout(reply, 400);
+    return reply();
+  }
+  if (url.pathname === '/backup-media/index.m3u8') {
+    return send(200, '#EXTM3U\n#EXTINF:6,\nsegment.ts\n', 'application/vnd.apple.mpegurl');
   }
   if (url.pathname === '/embed') {
     return send(200, `const SRC = "${origin}/premium110/index.m3u8";

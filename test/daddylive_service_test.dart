@@ -8,7 +8,8 @@ import 'package:http/testing.dart';
 
 void main() {
   group('DaddyLiveService local DLHD resolution', () {
-    test('returns Players 1 and 2 while later players resolve concurrently',
+    test(
+        'returns only Player 1 and defers other players until content advances',
         () async {
       final requests = <http.Request>[];
       final releaseBackup = Completer<void>();
@@ -94,31 +95,38 @@ void main() {
         stream.variants.map((variant) => variant.url),
         <String>[
           'https://one.cdn.test/live/24.m3u8',
-          'https://two.cdn.test/live/24.m3u8',
         ],
       );
       expect(
         stream.variants.map((variant) => variant.title),
-        <String?>['Stream 1', 'Stream 2'],
+        <String?>['Stream 1'],
       );
       expect(stream.headers['Origin'], 'https://one.embed.test');
       expect(stream.headers['Referer'], 'https://one.embed.test/e/24');
+      expect(requests.any((request) => request.url.host == 'two.embed.test'),
+          isFalse);
+      expect(requests.any((request) => request.url.host == 'three.embed.test'),
+          isFalse);
+      final discovery = stream.discovery!;
+      final firstBackup = discovery.updates.first;
+      discovery.observePlayback(
+        position: const Duration(seconds: 1),
+        isPlaying: true,
+        isBuffering: false,
+        isAd: false,
+      );
+      expect((await firstBackup).map((variant) => variant.title),
+          ['Stream 1', 'Stream 2']);
       expect(
-        requests.any(
-          (request) =>
-              request.url.toString() == 'https://three.cdn.test/live/24.m3u8',
-        ),
+        requests.any((request) => request.url.host == 'three.cdn.test'),
         isTrue,
-        reason: 'later providers must start without blocking priority playback',
+        reason: 'after playback, backup resolutions run concurrently',
       );
-
+      final allBackups =
+          discovery.updates.firstWhere((items) => items.length == 3);
       releaseBackup.complete();
-      final backupStream = await service.getStream('24');
-      expect(backupStream.title, 'Stream 3');
-      expect(
-        backupStream.variants.map((variant) => variant.title),
-        <String?>['Stream 3'],
-      );
+      expect((await allBackups).map((variant) => variant.title),
+          ['Stream 1', 'Stream 2', 'Stream 3']);
       expect(
         requests.any((request) => request.url.path.endsWith('/stream')),
         isFalse,
@@ -161,9 +169,88 @@ void main() {
         stream.variants.map((variant) => variant.title),
         <String?>['Stream 1'],
       );
-      final backup = await service.getStream('51');
-      expect(backup.variants.single.title, 'Stream 3');
-      expect(backup.url, 'https://cdn.test/three.m3u8');
+      final discovery = stream.discovery!;
+      await discovery.resolveNext();
+      expect(discovery.variants.map((variant) => variant.title),
+          ['Stream 1', 'Stream 3']);
+      expect(discovery.variants.last.url, 'https://cdn.test/three.m3u8');
+    });
+
+    test(
+        'tries Player 2 only after Player 1 fails and leaves Player 3 deferred',
+        () async {
+      final requested = <String>[];
+      final service = DaddyLiveService(
+        baseUrl: 'https://metadata.example',
+        client: MockClient((request) async {
+          requested.add(request.url.toString());
+          if (request.url.path == '/watch.php') {
+            return http.Response('''
+              <button class="player-btn" data-url="https://p1.test/embed" title="PLAYER 1"></button>
+              <button class="player-btn" data-url="https://p2.test/embed" title="PLAYER 2"></button>
+              <button class="player-btn" data-url="https://p3.test/embed" title="PLAYER 3"></button>
+            ''', 200);
+          }
+          if (request.url.host == 'p1.test') return http.Response('down', 503);
+          if (request.url.host == 'p2.test') {
+            expect(requested, contains('https://p1.test/embed'));
+            return http.Response('https://cdn.test/two.m3u8', 200);
+          }
+          if (request.url.host == 'cdn.test') {
+            return http.Response('#EXTM3U\n#EXTINF:4,\nsegment.ts', 200);
+          }
+          fail('Unexpected request: ${request.url}');
+        }),
+      );
+      addTearDown(service.close);
+
+      final stream = await service.getStream('51');
+
+      expect(stream.title, 'Stream 2');
+      expect(stream.variants.single.url, 'https://cdn.test/two.m3u8');
+      expect(requested.any((url) => url.contains('p3.test')), isFalse);
+      expect(stream.discovery, isNotNull);
+    });
+
+    test('leaving a channel stops following a pending backup iframe', () async {
+      final requested = <String>[];
+      final backupStarted = Completer<void>();
+      final releaseBackup = Completer<http.Response>();
+      final service = DaddyLiveService(
+        baseUrl: 'https://metadata.example',
+        client: MockClient((request) async {
+          requested.add(request.url.toString());
+          if (request.url.path == '/watch.php') {
+            return http.Response('''
+              <button class="player-btn" data-url="https://p1.test/embed"></button>
+              <button class="player-btn" data-url="https://p2.test/embed"></button>
+            ''', 200);
+          }
+          if (request.url.host == 'p1.test') {
+            return http.Response('https://cdn.test/one.m3u8', 200);
+          }
+          if (request.url.host == 'cdn.test') {
+            return http.Response('#EXTM3U\n#EXTINF:4,\nsegment.ts', 200);
+          }
+          if (request.url.host == 'p2.test') {
+            backupStarted.complete();
+            return releaseBackup.future;
+          }
+          fail('Unexpected request after leaving channel: ${request.url}');
+        }),
+      );
+      addTearDown(service.close);
+      final stream = await service.getStream('51');
+      final discovery = stream.discovery!;
+      final resolving = discovery.resolveNext();
+      await backupStarted.future;
+      discovery.dispose();
+      releaseBackup.complete(http.Response(
+          '<iframe src="https://late.embed.test/channel"></iframe>', 200));
+      await resolving;
+
+      expect(requested.any((url) => url.contains('late.embed.test')), isFalse);
+      expect(discovery.variants, hasLength(1));
     });
 
     test('keeps the channel catalog available when the EPG is down', () async {

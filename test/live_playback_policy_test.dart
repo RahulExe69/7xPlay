@@ -117,6 +117,22 @@ void main() {
     expect(queue.next()?.url, 'fresh-two');
     expect(queue.next(), isNull);
   });
+
+  test('discovered backups extend failover without replaying attempted servers',
+      () {
+    final one = _variant('one');
+    final two = _variant('two');
+    final three = _variant('three');
+    final queue = LiveStreamFailoverQueue()
+      ..replace([one], currentUrl: one.url);
+
+    queue.add([one, two]);
+    expect(queue.next(), same(two));
+    queue.add([one, two, three]);
+    expect(queue.next(), same(three));
+    queue.add([one, two, three]);
+    expect(queue.next(), isNull);
+  });
 }
 
 LiveStreamVariant _variant(String url, {String? title}) => LiveStreamVariant(

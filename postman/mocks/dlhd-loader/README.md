@@ -21,6 +21,14 @@ The simulation log must show the catalog, watch page, embed, token endpoint,
 signed manifest and all three segments. Stop the simulation with Ctrl-C.
 Use `DLHD_SIM_ORIGIN` on the simulation process if choosing another port.
 
+The watch page advertises three players. The smoke check asserts that only
+Player 1 was requested during initial resolution. After reading its three media
+segments, it supplies the content-progress signal used by the shared mobile/TV
+player and waits for the deferred backups. Player 2 is deliberately slower than
+Player 3; successful results are published individually and displayed in their
+advertised order. This signal tests discovery sequencing, not native rendering
+or the UI event delivery on a physical phone or TV.
+
 The same smoke command without `DLHD_SMOKE_MOCK_SLUG`, using
 `https://scraper.flix.quest` as the base URL, tests the real production resolver.
 `test/dlhd_playback_proxy_test.dart` additionally checks 403 token renewal,
