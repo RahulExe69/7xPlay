@@ -246,8 +246,8 @@ class SettingsPreferences {
 
   static const USE_PROXY = 'use_proxy';
 
-  setUseProxy(bool useProxy) {
-    sharedPrefsSingleton.setBool(USE_PROXY, useProxy);
+  Future<void> setUseProxy(bool useProxy) async {
+    await sharedPrefsSingleton.setBool(USE_PROXY, useProxy);
   }
 
   Future<bool> getUseProxy() async {
@@ -291,6 +291,15 @@ class SettingsPreferences {
   Future<bool> getPlayerAmbientGlowEnabled() async {
     return sharedPrefsSingleton.getBool(PLAYER_AMBIENT_GLOW_ENABLED) ?? false;
   }
+
+  static const STREAMING_DND = 'do_not_disturb_while_streaming';
+
+  Future<void> setStreamingDnd(bool value) async {
+    await sharedPrefsSingleton.setBool(STREAMING_DND, value);
+  }
+
+  Future<bool> getStreamingDnd() async =>
+      sharedPrefsSingleton.getBool(STREAMING_DND) ?? false;
 
   static const AUTO_PIP_ON_LEAVE = 'auto_pip_on_leave';
 

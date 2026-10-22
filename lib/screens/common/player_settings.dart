@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../functions/subtitle_style.dart';
+import '../../services/streaming_dnd_service.dart';
 import '../../mobile/widgets/page_kit.dart';
 import '../../mobile/widgets/settings_kit.dart';
 import '/provider/settings_provider.dart';
@@ -19,7 +20,94 @@ class PlayerSettings extends StatefulWidget {
   State<PlayerSettings> createState() => _PlayerSettingsState();
 }
 
-class _PlayerSettingsState extends State<PlayerSettings> {
+class _PlayerSettingsState extends State<PlayerSettings>
+    with WidgetsBindingObserver {
+  bool _dndSupported = false;
+  bool _dndAccessGranted = false;
+  bool _dndBusy = false;
+  bool _enableDndAfterGrant = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshDndAccess();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshDndAccess();
+  }
+
+  Future<void> _refreshDndAccess() async {
+    final status = await StreamingDndService.status();
+    if (!mounted) return;
+    final granted = status['accessGranted'] == true;
+    setState(() {
+      _dndSupported = status['supported'] == true;
+      _dndAccessGranted = granted;
+    });
+    if (_enableDndAfterGrant) {
+      _enableDndAfterGrant = false;
+      if (granted) {
+        context.read<SettingsProvider>().doNotDisturbWhileStreaming = true;
+      }
+    }
+  }
+
+  Future<void> _setStreamingDnd(bool enabled) async {
+    final settings = context.read<SettingsProvider>();
+    if (!enabled) {
+      settings.doNotDisturbWhileStreaming = false;
+      return;
+    }
+    setState(() => _dndBusy = true);
+    try {
+      final status = await StreamingDndService.status();
+      if (!mounted) return;
+      if (status['accessGranted'] == true) {
+        setState(() => _dndAccessGranted = true);
+        settings.doNotDisturbWhileStreaming = true;
+        return;
+      }
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(tr('streaming_dnd')),
+          content: Text(tr('streaming_dnd_permission_description')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(tr('cancel')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(tr('streaming_dnd_open_settings')),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || proceed != true) return;
+      _enableDndAfterGrant = true;
+      final opened = await StreamingDndService.requestAccess();
+      if (!mounted) return;
+      if (!opened) {
+        _enableDndAfterGrant = false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('streaming_dnd_unavailable'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _dndBusy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   Future<void> _pickSubtitleColor({
     required Color initialColor,
     required String title,
@@ -214,6 +302,17 @@ class _PlayerSettingsState extends State<PlayerSettings> {
                     value: settingValues.autoPipOnLeave,
                     onChanged: (value) => settingValues.autoPipOnLeave = value,
                   ),
+                  if (_dndSupported)
+                    SwitchRow(
+                      icon: PhosphorIcons.bellSlash(),
+                      label: tr('streaming_dnd'),
+                      subtitle: tr(_dndAccessGranted
+                          ? 'streaming_dnd_description'
+                          : 'streaming_dnd_access_required'),
+                      value: settingValues.doNotDisturbWhileStreaming &&
+                          _dndAccessGranted,
+                      onChanged: _dndBusy ? null : _setStreamingDnd,
+                    ),
                   SwitchRow(
                     icon: PhosphorIcons.skipForward(),
                     label: tr('enable_next_episode_button'),

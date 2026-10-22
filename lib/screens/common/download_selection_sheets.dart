@@ -6,13 +6,29 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../mobile/widgets/page_kit.dart';
+import '../../models/offline_download.dart';
 import '../../video_providers/names.dart';
 import 'player/player_sheet_ui.dart';
 
 /// The choices before a download or a manual playback: which provider, then
-/// which resolution. Plain rows in the app's palette, so they follow the
+/// which resolution and audio track. Plain rows in the app's palette, so they follow the
 /// theme; opened from the player ([inPlayer]) they take the player's.
 abstract final class DownloadSelectionSheets {
+  /// Null means cancelled. A result with no track preserves the stream default.
+  /// The loading sheet also lets users cancel slow manifest inspection.
+  static Future<DownloadAudioSelection?> chooseAudio(
+    BuildContext context, {
+    required Future<List<OfflineAudioTrack>> tracks,
+    bool inPlayer = false,
+  }) {
+    Widget builder(BuildContext context) =>
+        _AudioSelectionSheet(tracks: tracks);
+    return inPlayer
+        ? showPlayerSheet<DownloadAudioSelection>(
+            context: context, builder: builder)
+        : showAppSheet<DownloadAudioSelection>(context, builder: builder);
+  }
+
   static Future<VideoProvider?> showProvider(
     BuildContext context, {
     required List<VideoProvider> providers,
@@ -105,6 +121,90 @@ abstract final class DownloadSelectionSheets {
     final mb = kb / 1024;
     if (mb < 1024) return '${mb.toStringAsFixed(1)} MB';
     return '${(mb / 1024).toStringAsFixed(1)} GB';
+  }
+}
+
+class DownloadAudioSelection {
+  const DownloadAudioSelection(this.track);
+
+  final OfflineAudioTrack? track;
+}
+
+class _AudioSelectionSheet extends StatefulWidget {
+  const _AudioSelectionSheet({required this.tracks});
+
+  final Future<List<OfflineAudioTrack>> tracks;
+
+  @override
+  State<_AudioSelectionSheet> createState() => _AudioSelectionSheetState();
+}
+
+class _AudioSelectionSheetState extends State<_AudioSelectionSheet> {
+  List<OfflineAudioTrack>? _tracks;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final tracks = await widget.tracks;
+      if (!mounted) return;
+      if (tracks.length <= 1) {
+        Navigator.pop(context, DownloadAudioSelection(tracks.firstOrNull));
+      } else {
+        setState(() => _tracks = tracks);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final tracks = _tracks;
+    if (tracks != null) {
+      return _ChoiceSheet<DownloadAudioSelection>(
+        title: tr('download_choose_audio'),
+        subtitle: tr('download_audio_description'),
+        choices: [
+          for (final track in tracks)
+            _Choice(
+              value: DownloadAudioSelection(track),
+              title: track.name,
+              subtitle: '',
+              icon: PhosphorIcons.speakerHigh(),
+            ),
+        ],
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(AppSpace.xl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!_failed)
+            SizedBox(
+              width: 120,
+              child: LinearProgressIndicator(
+                color: palette.foreground,
+                backgroundColor: palette.idleFill,
+                minHeight: 3,
+              ),
+            ),
+          const SizedBox(height: AppSpace.md),
+          Text(tr(_failed ? 'download_audio_error' : 'download_audio_loading')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(tr('cancel')),
+          ),
+        ],
+      ),
+    );
   }
 }
 

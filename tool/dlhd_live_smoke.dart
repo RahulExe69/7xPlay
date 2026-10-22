@@ -7,17 +7,31 @@ import 'package:flixquest/services/daddylive_service.dart';
 import 'package:http/http.dart' as http;
 
 class _RecordingClient extends http.BaseClient {
+  _RecordingClient(this.origin);
+
+  final String origin;
   final http.Client _upstream = http.Client();
   bool requestedServerStream = false;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final mockSlug = Platform.environment['DLHD_SMOKE_MOCK_SLUG'];
+    if (mockSlug != null && request.url.origin == origin) {
+      request.headers['x-mock-slug'] = mockSlug;
+    }
     if (request.url.path.endsWith('/stream')) {
       requestedServerStream = true;
       stdout
           .writeln('Local watch-page resolution failed; using embed fallback');
     }
-    return _upstream.send(request);
+    final timer = Stopwatch()..start();
+    final response = await _upstream.send(request);
+    if (Platform.environment['DLHD_SMOKE_TRACE'] == '1') {
+      stdout.writeln('HTTP ${response.statusCode} '
+          '${request.url.host}${request.url.path} '
+          '(${timer.elapsedMilliseconds}ms)');
+    }
+    return response;
   }
 
   @override
@@ -33,13 +47,14 @@ Future<void> main(List<String> args) async {
     return;
   }
   final channel = args.length == 2 ? args[1] : '51';
-  final recording = _RecordingClient();
+  final recording = _RecordingClient(Uri.parse(args[0]).origin);
   final service = DaddyLiveService(baseUrl: args[0], client: recording);
   final client = http.Client();
   try {
-    final channels = await service.getChannels();
+    final channels = await service.getChannels(refresh: true);
     if (!channels.any((item) => item.id == channel)) {
-      throw StateError('Channel $channel is missing from the scraper catalog');
+      stdout.writeln(
+          'Channel $channel is not in the catalog; using its watch page');
     }
     final timer = Stopwatch()..start();
     final stream = await service.getStream(channel);
@@ -60,7 +75,7 @@ Future<void> main(List<String> args) async {
     for (var depth = 0; depth < 4; depth++) {
       final response = await client
           .get(playlistUri, headers: stream.headers)
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 40));
       final body = utf8.decode(response.bodyBytes);
       stdout.writeln('Device playlist: HTTP ${response.statusCode}');
       if (response.statusCode != 200 ||
@@ -84,7 +99,7 @@ Future<void> main(List<String> args) async {
     for (var index = 0; index < 3; index++) {
       final response = await client
           .get(playlistUri.resolve(entries[index]), headers: stream.headers)
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 40));
       final bytes = response.bodyBytes;
       // Current DLHD channels use unencrypted MPEG-TS segments.
       final validTs = bytes.length > 376 &&

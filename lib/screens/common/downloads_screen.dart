@@ -196,6 +196,11 @@ class _DownloadCard extends StatelessWidget {
                           icon: PhosphorIcons.gauge(),
                           label: download.quality,
                         ),
+                        if (download.audioTrackName?.isNotEmpty == true)
+                          _DownloadMetadata(
+                            icon: PhosphorIcons.speakerHigh(),
+                            label: download.audioTrackName!,
+                          ),
                         _DownloadMetadata(
                           icon: PhosphorIcons.hardDrive(),
                           label: _totalSizeText(download),

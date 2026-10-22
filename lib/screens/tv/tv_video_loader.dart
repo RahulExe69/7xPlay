@@ -288,6 +288,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
             videoHeaders: videoHeaders,
             videoSizeTokens: videoSizeTokens,
             providerName: selection?.provider.displayName,
+            downloadProvider: selection?.provider,
           );
           return;
         }
@@ -307,7 +308,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
         if (!mounted) return;
 
         // Navigate to player with provider list for lazy loading
-        handoffLoaderToPlayer<Function>(
+        handoffLoaderToPlayer<void>(
           context,
           (context) {
             final player = PlayerOne(
@@ -340,12 +341,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
             );
             return widget.useTvPlayer ? TvPlayerScreen(child: player) : player;
           },
-        ).then((value) async {
-          if (value != null) {
-            Function callback = value;
-            await callback.call();
-          }
-        });
+        );
       } else {
         if (mounted) {
           _showErrorSheet(tr('tv_vid_404'));
@@ -492,6 +488,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
     required Map<String, Map<String, String>> videoHeaders,
     required Map<String, String> videoSizeTokens,
     String? providerName,
+    VideoProvider? downloadProvider,
   }) async {
     final estimatedSizes = ValueNotifier<Map<String, int?>>({
       for (final entry in videoSizeTokens.entries)
@@ -546,6 +543,23 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
     final episode = widget.metadata.episodeNumber ?? 0;
     final subtitleTrack = _preferredSubtitle(tvVideoSubs);
     try {
+      final downloadHeaders = videoHeaders[quality] ??
+          VideoUtils.inferVideoHeaders(url) ??
+          const <String, String>{};
+      final audioSelection = await DownloadSelectionSheets.chooseAudio(
+        context,
+        tracks: OfflineDownloadService.instance.getAudioTracks(
+          url: url,
+          format: format,
+          headers: downloadHeaders,
+          maxVideoHeight: _qualityHeight(quality),
+        ),
+      );
+      if (!mounted) return;
+      if (audioSelection == null) {
+        Navigator.pop(context, false);
+        return;
+      }
       await context.read<OfflineDownloadProvider>().enqueue(
             OfflineDownloadRequest(
               id: 'tv_${widget.metadata.tvId}_s${season}_e$episode',
@@ -562,9 +576,14 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
                   ? null
                   : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
               maxVideoHeight: _qualityHeight(quality),
-              headers: videoHeaders[quality] ??
-                  VideoUtils.inferVideoHeaders(url) ??
-                  const {},
+              headers: downloadHeaders,
+              audioTrack: audioSelection.track,
+              source: OfflineDownloadSource.forSelection(
+                provider: downloadProvider,
+                apiBaseUrl: _scraperApiUrl,
+                links: tvVideoLinks ?? const [],
+                url: url,
+              ),
               contentId: widget.metadata.tvId,
               seasonNumber: season,
               episodeNumber: episode,
@@ -605,10 +624,7 @@ class _TVVideoLoaderState extends State<TVVideoLoader> {
     }
   }
 
-  int? _qualityHeight(String quality) {
-    final match = RegExp(r'(\d{3,4})').firstMatch(quality);
-    return int.tryParse(match?.group(1) ?? '');
-  }
+  int? _qualityHeight(String quality) => VideoUtils.videoQualityHeight(quality);
 
   RegularSubtitleLinks? _preferredSubtitle(
     List<RegularSubtitleLinks>? subtitles,

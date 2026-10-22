@@ -83,6 +83,10 @@ void main() {
     platform = FakeAdsterraWebViewPlatform()..signalLoaded = false;
     WebViewPlatform.instance = platform;
     provider = AppDependencyProvider()
+      // Keep the existing timeout/lifecycle cases exercising the opt-in
+      // automatic-close behavior. Default-off behavior is covered below.
+      ..setPlaybackPopupBrowserBehavior(
+          autoClose: true, externalBrowserOnTap: false)
       ..setAdsterraPlaybackAdsConfig(
           AdsterraPlaybackAdsConfig.parse(catalog, enabled: true));
     storeLaunches = [];
@@ -117,6 +121,176 @@ void main() {
   }
 
   final android = const TargetPlatformVariant({TargetPlatform.android});
+
+  test('popup browser switches use their defaults and follow remote updates',
+      () async {
+    final defaults = AppDependencyProvider();
+    expect(defaults.playbackPopupAutoClose, isFalse);
+    expect(defaults.playbackPopupExternalBrowserOnTap, isTrue);
+    final remote = FakeFirebaseRemoteConfig();
+    await AppRemoteConfig.configure(remote);
+    expect(remote.defaults[AppRemoteConfig.playbackPopupAutoCloseEnabledKey],
+        isFalse);
+    expect(
+        remote.defaults[AppRemoteConfig.playbackPopupExternalBrowserOnTapKey],
+        isTrue);
+    remote.setMockBool(AppRemoteConfig.playbackPopupAutoCloseEnabledKey, true);
+    remote.setMockBool(
+        AppRemoteConfig.playbackPopupExternalBrowserOnTapKey, true);
+    AppRemoteConfig.apply(remote, defaults);
+    expect(defaults.playbackPopupAutoClose, isTrue);
+    expect(defaults.playbackPopupExternalBrowserOnTap, isTrue);
+    remote.setMockBool(AppRemoteConfig.playbackPopupAutoCloseEnabledKey, false);
+    remote.setMockBool(
+        AppRemoteConfig.playbackPopupExternalBrowserOnTapKey, false);
+    AppRemoteConfig.apply(remote, defaults);
+    expect(defaults.playbackPopupAutoClose, isFalse);
+    expect(defaults.playbackPopupExternalBrowserOnTap, isFalse);
+  });
+
+  testWidgets(
+      'default popup survives load and duration timeouts and background',
+      (tester) async {
+    provider
+      ..setPlaybackPopupBrowserBehavior(
+          autoClose: false, externalBrowserOnTap: false)
+      ..setAdsterraPlaybackAdsConfig(
+          AdsterraPlaybackAdsConfig.parse(smartlinkCatalog, enabled: true));
+    await pumpHost(tester);
+    final result = service.streamFound(host);
+    await pumpAd(tester);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(AdsterraPlaybackAdScreen), findsOneWidget);
+    expect(find.byTooltip('Close ad'), findsOneWidget);
+    await tester.pump(const Duration(minutes: 2));
+    expect(find.byType(AdsterraPlaybackAdScreen), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(find.byType(AdsterraPlaybackAdScreen), findsOneWidget);
+    expect(platform.controllers.single.javaScriptMode,
+        JavaScriptMode.unrestricted);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Close ad'));
+    await tester.pumpAndSettle();
+    expect(await result, isTrue);
+  }, variant: android);
+
+  testWidgets('remote automatic close ends a loaded popup at its max duration',
+      (tester) async {
+    provider.setAdsterraPlaybackAdsConfig(
+        AdsterraPlaybackAdsConfig.parse(smartlinkCatalog, enabled: true));
+    await pumpHost(tester);
+    final result = service.streamFound(host);
+    await pumpAd(tester);
+    final page = platform.controllers.single;
+    page.delegate!.onPageFinished!('https://ads.example/smartlink');
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.byType(AdsterraPlaybackAdScreen), findsNothing);
+    expect(await result, isTrue);
+  }, variant: android);
+
+  testWidgets('enabling automatic close applies to a popup past its deadline',
+      (tester) async {
+    provider
+      ..setPlaybackPopupBrowserBehavior(
+          autoClose: false, externalBrowserOnTap: false)
+      ..setAdsterraPlaybackAdsConfig(
+          AdsterraPlaybackAdsConfig.parse(smartlinkCatalog, enabled: true));
+    await pumpHost(tester);
+    final result = service.streamFound(host);
+    await pumpAd(tester);
+    platform.controllers.single.delegate!
+        .onPageFinished!('https://ads.example/smartlink');
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 6));
+    expect(find.byType(AdsterraPlaybackAdScreen), findsOneWidget);
+    provider.setPlaybackPopupBrowserBehavior(
+        autoClose: true, externalBrowserOnTap: false);
+    await tester.pumpAndSettle();
+    expect(find.byType(AdsterraPlaybackAdScreen), findsNothing);
+    expect(await result, isTrue);
+  }, variant: android);
+
+  testWidgets('browser body taps stay disabled for TV and the placeholder',
+      (tester) async {
+    provider
+      ..setPlaybackPopupBrowserBehavior(
+          autoClose: false, externalBrowserOnTap: true)
+      ..setAdsterraPlaybackAdsConfig(
+          AdsterraPlaybackAdsConfig.parse(tvCatalog, enabled: true));
+    service = AdsterraPlaybackAdsService(browserLauncher: (_) async {
+      fail('TV and placeholder taps must stay in-app');
+    });
+    await pumpHost(tester);
+    final result = service.streamFound(host, television: true);
+    await pumpAd(tester);
+    final body = find.byKey(const ValueKey('ad-external-browser-tap'));
+    expect(body, findsNothing);
+    await tester.tap(find.text('Your video is ready'));
+    final page = platform.controllers.single;
+    page.delegate!.onPageStarted!('https://offer.example/tv');
+    page.delegate!.onPageFinished!('https://offer.example/tv');
+    await tester.pumpAndSettle();
+    expect(body, findsNothing);
+    await tester.pump(AdsterraPlaybackAdScreen.minimumView);
+    await tester.tap(find.byTooltip('Close ad'));
+    await tester.pumpAndSettle();
+    expect(await result, isTrue);
+  }, variant: android);
+
+  testWidgets(
+      'body browser switch follows live config and uses the current URL',
+      (tester) async {
+    provider
+      ..setPlaybackPopupBrowserBehavior(
+          autoClose: false, externalBrowserOnTap: false)
+      ..setAdsterraPlaybackAdsConfig(
+          AdsterraPlaybackAdsConfig.parse(slowSmartlinkCatalog, enabled: true));
+    final launches = <Uri>[];
+    final launched = Completer<bool>();
+    service = AdsterraPlaybackAdsService(browserLauncher: (uri) {
+      launches.add(uri);
+      return launched.future;
+    });
+    await pumpHost(tester);
+    final result = service.streamFound(host);
+    await pumpAd(tester);
+    final page = platform.controllers.single;
+    const landing = 'https://offer.example/landing?campaign=abc#offer';
+    page.currentPageUrl = landing;
+    page.delegate!.onPageStarted!(landing);
+    page.delegate!.onPageFinished!(landing);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('fake-webview')));
+    await tester.pump();
+    expect(launches, isEmpty);
+    provider.setPlaybackPopupBrowserBehavior(
+        autoClose: false, externalBrowserOnTap: true);
+    await tester.pump();
+    final body = find.byKey(const ValueKey('ad-external-browser-tap'));
+    await tester.tap(body);
+    await tester.pump();
+    await tester.tap(body);
+    await tester.pump();
+    expect(launches, [Uri.parse(landing)]);
+    launched.complete(true);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(find.byType(AdsterraPlaybackAdScreen), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    provider.setPlaybackPopupBrowserBehavior(
+        autoClose: false, externalBrowserOnTap: false);
+    await tester.pump();
+    expect(body, findsNothing);
+    await tester.pump(AdsterraPlaybackAdScreen.minimumView);
+    await tester.tap(find.byTooltip('Close ad'));
+    await tester.pumpAndSettle();
+    expect(await result, isTrue);
+  }, variant: android);
 
   test('the landing check waits for complete loading and reports its URL',
       () async {

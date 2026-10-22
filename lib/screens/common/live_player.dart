@@ -22,12 +22,18 @@ import '../../provider/app_dependency_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../../provider/wellness_provider.dart';
 import '../../services/adsterra_playback_ads_service.dart';
+import '../../widgets/ad_block_playback_guard.dart';
 import '../../services/analytics_service.dart';
 import '../../services/daddylive_service.dart';
 import '../../services/stream_intro_service.dart';
 import 'player/player_preroll_ad.dart';
 import 'player/player_sheet_ui.dart';
 import 'player/player_feedback_ui.dart';
+import 'player/stream_feedback_prompt.dart';
+import '../../services/stream_feedback_session.dart';
+import '../../services/stream_feedback_service.dart';
+import '../../services/automatic_stream_report.dart';
+import '../../services/streaming_dnd_service.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
 
@@ -108,6 +114,13 @@ class _LivePlayerState extends State<LivePlayer> {
 
   final GlobalKey _betterPlayerKey = GlobalKey();
 
+  final _feedbackSession = StreamFeedbackSession();
+  final _automaticStreamReport = AutomaticStreamReport();
+  final _feedbackConnection = StreamFeedbackConnection();
+  bool _exitingPlayer = false;
+  bool _adBlockStopped = false;
+  int _feedbackChannelSwitches = 0;
+  String? _initialFeedbackChannel;
   String? _currentChannelId;
   late String _currentChannelName;
   bool _isSwitching = false;
@@ -149,6 +162,7 @@ class _LivePlayerState extends State<LivePlayer> {
       ValueNotifier<_LivePlaybackFailure?>(null);
   late final AppDependencyProvider _appDependencies;
   late final SettingsProvider _settings;
+  late final StreamingDndSession _streamingDnd;
   int? _occasionalEffectsSuppressionId;
   Orientation? _lastScreenOrientation;
   bool _landscapeFullscreenRequestPending = false;
@@ -156,9 +170,12 @@ class _LivePlayerState extends State<LivePlayer> {
   @override
   void initState() {
     super.initState();
+    _feedbackConnection.start();
     _appDependencies =
         Provider.of<AppDependencyProvider>(context, listen: false);
     _settings = Provider.of<SettingsProvider>(context, listen: false);
+    _streamingDnd =
+        StreamingDndSession(_settings, television: widget.useTvControls);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _occasionalEffectsSuppressionId != null) return;
       _occasionalEffectsSuppressionId =
@@ -173,6 +190,7 @@ class _LivePlayerState extends State<LivePlayer> {
     );
     _currentChannelId =
         widget.initialChannelId ?? widget.channels.firstOrNull?.id;
+    _initialFeedbackChannel = _currentChannelId;
     _currentChannelName = widget.channelName;
     _currentVideoUrl = widget.videoUrl;
     _currentVideoHeaders = Map<String, String>.of(widget.headers);
@@ -242,21 +260,18 @@ class _LivePlayerState extends State<LivePlayer> {
   }
 
   void _checkPlaybackProgress() {
-    if (!mounted) return;
+    if (!mounted || _adBlockStopped) return;
     if (!widget.useTvControls) {
       AdsterraPlaybackAdsService.instance.notePlayerWatch(
           context, Duration(milliseconds: _wellnessTracker.watchedMs()));
     }
     final value = _betterPlayerController.videoPlayerController?.value;
-    // Offline, the player waits for the connection by itself; a stall then
-    // says nothing about the stream.
     if (_isSwitching ||
         _recoveryStartedAt != null ||
         _playbackFailure.value != null ||
         value == null ||
         !value.initialized ||
-        value.hasError ||
-        !value.isNetworkAvailable) {
+        value.hasError) {
       _watchdog.reset();
       return;
     }
@@ -295,6 +310,7 @@ class _LivePlayerState extends State<LivePlayer> {
       }
     } catch (error) {
       if (!_isActiveSourceOperation(operation)) return;
+      _feedbackSession.recordFailure();
       _trackPlayerEvent('setup_error', error: error.toString());
       _beginPlaybackRecovery(error);
     }
@@ -633,12 +649,6 @@ class _LivePlayerState extends State<LivePlayer> {
       _scheduleAutomaticRecovery();
       return;
     }
-    if (!_isNetworkAvailable) {
-      // A replacement source would fail the same way. Check again later
-      // without spending an attempt.
-      _scheduleAutomaticRecovery();
-      return;
-    }
     _automaticRecoveryRunning = true;
     final generation = _recoveryGeneration;
     final operation = _beginSourceOperation();
@@ -751,7 +761,7 @@ class _LivePlayerState extends State<LivePlayer> {
   }
 
   bool _isActiveSourceOperation(int generation) =>
-      mounted && generation == _sourceOperationGeneration;
+      mounted && !_adBlockStopped && generation == _sourceOperationGeneration;
 
   Future<bool> _setupDataSourceForOperation(
     int operation,
@@ -811,20 +821,8 @@ class _LivePlayerState extends State<LivePlayer> {
     _betterPlayerController.setControlsEnabled(true);
   }
 
-  bool get _isNetworkAvailable =>
-      _betterPlayerController.videoPlayerController?.value.isNetworkAvailable ??
-      true;
-
   void _showTerminalPlaybackError(int generation) {
     if (!_isActiveRecovery(generation)) return;
-    if (!_isNetworkAvailable) {
-      // No connection is not a broken channel: keep waiting for it.
-      _recoveryDeadlineTimer = Timer(
-        const Duration(seconds: 30),
-        () => _showTerminalPlaybackError(generation),
-      );
-      return;
-    }
     final error = _lastPlaybackError ?? tr('player_did_not_recover');
     _sourceOperationGeneration++;
     _cancelPlaybackRecovery();
@@ -851,6 +849,19 @@ class _LivePlayerState extends State<LivePlayer> {
   }
 
   void _onPlayerEvent(BetterPlayerEvent event) {
+    if (_adBlockStopped) return;
+    if (_betterPlayerController.isPreRollActive ||
+        event.betterPlayerEventType == BetterPlayerEventType.preRollEnded ||
+        _isRelevantPlayerEvent(event)) {
+      final value = _betterPlayerController.videoPlayerController?.value;
+      _feedbackSession.onEvent(
+        event,
+        isAd: _betterPlayerController.isPreRollActive,
+        isPlaying: value?.isPlaying ?? false,
+        isBuffering: value?.isBuffering ?? false,
+        totalBytes: _betterPlayerController.networkBytesTransferred,
+      );
+    }
     // The ad's tracking must end however the sequence reports it.
     if (event.betterPlayerEventType == BetterPlayerEventType.preRollEnded) {
       _prerollAd.finish(
@@ -1130,6 +1141,7 @@ class _LivePlayerState extends State<LivePlayer> {
     if (_isSwitching || service == null || channel.id == _currentChannelId) {
       return;
     }
+    _feedbackChannelSwitches++;
     _cancelPlaybackRecovery();
     final operation = _beginSourceOperation();
     final hadPlaybackFailure = _playbackFailure.value != null;
@@ -1240,6 +1252,9 @@ class _LivePlayerState extends State<LivePlayer> {
 
   @override
   void dispose() {
+    _streamingDnd.dispose();
+    _sendAutomaticStreamReport();
+    _feedbackConnection.dispose();
     _settings.removeListener(_syncAmbientGlowSetting);
     _sourceOperationGeneration++;
     final suppressionId = _occasionalEffectsSuppressionId;
@@ -1289,8 +1304,25 @@ class _LivePlayerState extends State<LivePlayer> {
     super.dispose();
   }
 
+  void _stopForAdBlocker() {
+    if (_adBlockStopped) return;
+    _adBlockStopped = true;
+    _exitingPlayer = true;
+    _sourceOperationGeneration++;
+    _watchdogTimer?.cancel();
+    _cancelPlaybackRecovery();
+    _prerollAd.dispose();
+    _betterPlayerController.dispose(forceDispose: true);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AdBlockPlaybackGuard(
+        stopPlayback: _stopForAdBlocker,
+        television: widget.useTvControls,
+        child: _buildPlayback(context),
+      );
+
+  Widget _buildPlayback(BuildContext context) {
     _handleScreenOrientation(context);
     if (_isPortraitInlineLayout(context)) {
       return PopScope(
@@ -1505,11 +1537,61 @@ class _LivePlayerState extends State<LivePlayer> {
     return null;
   }
 
+  StreamFeedbackContext get _streamFeedbackContext {
+    final value = _betterPlayerController.videoPlayerController?.value;
+    return StreamFeedbackContext(
+      mediaType: 'live_tv',
+      surface: widget.useTvControls ? 'tv' : 'mobile',
+      channelId: _currentChannelId,
+      initialChannelId: _initialFeedbackChannel,
+      provider: 'dlhd',
+      initialProvider: 'dlhd',
+      sourceSwitches: _feedbackChannelSwitches,
+      videoHeight: value?.size?.height.round(),
+      connectionType: _feedbackConnection.type,
+      networkChanges: _feedbackConnection.changes,
+    );
+  }
+
+  void _sendAutomaticStreamReport() {
+    if (!_automaticStreamReport.shouldReport) return;
+    unawaited(_automaticStreamReport.send(
+      measurement: _feedbackSession.freeze(),
+      context: _streamFeedbackContext,
+      endReason: 'route_disposed',
+      fallbackNetworkBytes: _betterPlayerController.networkBytesTransferred,
+      flushNetworkUsage: _flushNetworkUsage,
+    ));
+  }
+
   void _exitPlayer() {
-    if (!widget.useTvControls) {
-      AdsterraPlaybackAdsService.instance.afterPlayerExit(context,
-          watched: Duration(milliseconds: _wellnessTracker.watchedMs()));
-    }
+    if (_exitingPlayer) return;
+    _exitingPlayer = true;
+    final measurement = _feedbackSession.freeze();
+    final reportContext = _streamFeedbackContext;
+    final metadata = reportContext.parameters;
+    final networkBytes = _flushNetworkUsage();
+    unawaited(_automaticStreamReport.send(
+      measurement: measurement,
+      context: reportContext,
+      endReason: 'user_exit',
+      fallbackNetworkBytes: _betterPlayerController.networkBytesTransferred,
+      flushNetworkUsage: () => networkBytes,
+    ));
+    final parameters = networkBytes.then((bytes) => <String, Object>{
+          ...metadata,
+          ...measurement.parameters(totalBytes: bytes),
+        });
+    final watched = Duration(milliseconds: _wellnessTracker.watchedMs());
+    scheduleStreamFeedbackAfterExit(
+      context,
+      measurement: measurement,
+      parameters: parameters,
+      beforePrompt: widget.useTvControls
+          ? null
+          : (context) => AdsterraPlaybackAdsService.instance
+              .playerExit(context, watched: watched),
+    );
     Navigator.of(context).pop();
   }
 }

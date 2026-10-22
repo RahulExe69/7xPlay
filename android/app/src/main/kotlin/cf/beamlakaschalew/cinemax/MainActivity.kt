@@ -15,12 +15,16 @@ import dev.beamlak.flixquest_v2.downloads.StreamDownloadsBridge
 import dev.beamlak.flixquest_v2.downloads.StreamOfflinePlayerFactory
 import dev.beamlak.flixquest_v2.links.MediaLinkBridge
 import dev.beamlak.flixquest_v2.ads.PlaybackAdInputBridge
+import dev.beamlak.flixquest_v2.ads.PlaybackAdBrowserBridge
+import dev.beamlak.flixquest_v2.playback.StreamingDndBridge
 import io.flutter.plugins.webviewflutter.WebViewFlutterPlugin
 
 class MainActivity: FlutterActivity() {
     private var downloadsBridge: StreamDownloadsBridge? = null
     private var linkBridge: MediaLinkBridge? = null
     private var playbackAdInputBridge: PlaybackAdInputBridge? = null
+    private var playbackAdBrowserBridge: PlaybackAdBrowserBridge? = null
+    private var streamingDndBridge: StreamingDndBridge? = null
 
     // Starting an activity of our own (a file picker, an external player, a full-screen ad) also
     // reports the user as leaving, which would send a playing video into picture in picture.
@@ -28,6 +32,11 @@ class MainActivity: FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        streamingDndBridge = StreamingDndBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+
+        playbackAdBrowserBridge = PlaybackAdBrowserBridge(
+            this, flutterEngine.dartExecutor.binaryMessenger,
+        )
 
         playbackAdInputBridge = PlaybackAdInputBridge(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -84,6 +93,10 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        streamingDndBridge?.dispose()
+        streamingDndBridge = null
+        playbackAdBrowserBridge?.dispose()
+        playbackAdBrowserBridge = null
         playbackAdInputBridge?.dispose()
         playbackAdInputBridge = null
         linkBridge?.dispose()
@@ -113,6 +126,12 @@ class MainActivity: FlutterActivity() {
     override fun onResume() {
         super.onResume()
         launchingOwnActivity = false
+        streamingDndBridge?.setForeground(true)
+    }
+
+    override fun onPause() {
+        streamingDndBridge?.setForeground(false)
+        super.onPause()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

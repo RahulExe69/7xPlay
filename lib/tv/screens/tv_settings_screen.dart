@@ -123,9 +123,14 @@ class TvSettingsScreen extends StatelessWidget {
           _TvSettingTile(
             key: const ValueKey<String>('tmdb-proxy'),
             label: tr('tv_tmdb_proxy'),
-            value: settings.enableProxy ? tr('tv_on') : tr('player_off'),
+            value: settings.enableProxy
+                ? tr('tmdb_proxy_turn_off')
+                : tr('tmdb_proxy_auto_off'),
             icon: PhosphorIcons.globeHemisphereWest(),
-            onActivate: () => settings.enableProxy = !settings.enableProxy,
+            showsNext: false,
+            onActivate: () {
+              if (settings.enableProxy) settings.disableTmdbProxy();
+            },
           ),
           _TvSettingTile(
             key: const ValueKey<String>('image-quality'),

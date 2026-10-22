@@ -45,6 +45,7 @@ import '../../services/stream_size_estimator.dart';
 import '../movie/movie_video_loader.dart';
 import '../tv/tv_video_loader.dart';
 import 'player/player_data_management.dart';
+import 'player/player_background_save.dart';
 import 'player/player_preroll_ad.dart';
 import 'player/player_completion_detector.dart';
 import 'player/tv_subtitle_timing_panel.dart';
@@ -56,6 +57,12 @@ import 'player/player_movie_recommendations.dart';
 import 'player/player_next_episode_policy.dart';
 import 'player/player_sheet_ui.dart';
 import 'player/player_feedback_ui.dart';
+import 'player/stream_feedback_prompt.dart';
+import '../../services/stream_feedback_session.dart';
+import '../../services/stream_feedback_service.dart';
+import '../../services/automatic_stream_report.dart';
+import '../../services/streaming_dnd_service.dart';
+import '../../widgets/ad_block_playback_guard.dart';
 import '../../design/app_tokens.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
@@ -112,6 +119,7 @@ class PlayerOne extends StatefulWidget {
 }
 
 class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
+  late final StreamingDndSession _streamingDnd;
   late BetterPlayerController _betterPlayerController;
   bool _betterPlayerControllerInitialized = false;
   final StreamIntroService _introService = StreamIntroService();
@@ -129,6 +137,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late final List<EpisodeMetadata> _contentMenuEpisodes;
   late final List<SeasonMetadata> _contentMenuSeasons;
   int duration = 0;
+  final _feedbackSession = StreamFeedbackSession();
+  final _automaticStreamReport = AutomaticStreamReport();
+  final _feedbackConnection = StreamFeedbackConnection();
+  bool _exitingPlayer = false;
+  bool _adBlockStopped = false;
+  String _automaticReportEndReason = 'route_disposed';
+  int _feedbackSourceSwitches = 0;
 
   final GlobalKey _betterPlayerKey = GlobalKey();
 
@@ -240,7 +255,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   @override
   void initState() {
+    _feedbackConnection.start();
     settings = Provider.of<SettingsProvider>(context, listen: false);
+    _streamingDnd =
+        StreamingDndSession(settings, television: widget.useTvControls);
     _currentProviderCode = widget.currentProviderCode; // Initialize from widget
     _providerResults = Map.of(widget.prefetchedProviderResults);
     _activeSources = Map.of(widget.sources);
@@ -323,11 +341,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           brightnessSwipeSensitivity: 0.5,
           seekSwipeSensitivity: 1.0,
         ),
-        onFullScreenChange: () {
-          widget.mediaType == MediaType.movie
-              ? insertRecentMovieData()
-              : insertRecentEpisodeData();
-        },
+        onFullScreenChange: _saveRecentProgress,
         enableFullscreen: true,
         enableEpisodeSelection: hasEpisodeSelection,
         // Open immediately: addPostFrameCallback does not request a frame and
@@ -451,7 +465,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                 ),
               ]
             // Subtitle timing, searching online and uploading live in the
-            // Audio & Subtitles panel.
+            // Subtitles panel.
             : [
                 BetterPlayerOverflowMenuItem(
                   PhosphorIcons.arrowSquareOut(),
@@ -563,7 +577,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // The ad request runs alongside the intro lookup; neither waits on the
       // other, and a missing ad never delays the content.
       final adFuture = _prerollAd.load(_appDependencies.vastPreroll,
-          cancelled: () => !mounted);
+          cancelled: () => !mounted || _adBlockStopped);
       StreamIntroConfig intro = const StreamIntroConfig.disabled();
       try {
         intro = await _introService.fetch(_resolveScraperApiUrl());
@@ -571,7 +585,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         debugPrint('[Player] Branded intro unavailable: $error');
       }
       final prerollAd = await adFuture;
-      if (!mounted) return;
+      if (!mounted || _adBlockStopped) return;
 
       if (prerollAd != null) {
         // The ad replaces the branded intro for this session: one pre-roll
@@ -597,7 +611,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           initialPosition: initialPosition,
         );
       }
-      if (!mounted) return;
+      if (!mounted || _adBlockStopped) return;
       _applyPreferredAdaptiveQuality();
       duration = _betterPlayerController
               .videoPlayerController?.value.duration?.inSeconds ??
@@ -608,8 +622,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!_preRollActive) unawaited(_loadIntroDbTimings());
     } catch (error) {
+      if (_adBlockStopped) return;
       _preRollActive = false;
       _prerollAd.finish('error');
+      _feedbackSession.recordFailure();
       debugPrint('[Player] Initial stream setup failed: $error');
     }
   }
@@ -655,6 +671,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       DateTime.now().difference(_analyticsSessionStartedAt).inMilliseconds;
 
   void _onAnalyticsPlayerEvent(BetterPlayerEvent event) {
+    if (_adBlockStopped) return;
+    final feedbackValue = _betterPlayerController.videoPlayerController?.value;
+    _feedbackSession.onEvent(
+      event,
+      isAd: _preRollActive,
+      isPlaying: feedbackValue?.isPlaying ?? false,
+      isBuffering: feedbackValue?.isBuffering ?? false,
+      totalBytes: _betterPlayerController.networkBytesTransferred,
+    );
     switch (event.betterPlayerEventType) {
       case BetterPlayerEventType.initialized:
         duration = _betterPlayerController
@@ -674,9 +699,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           _trackPlaybackEvent('content_initialized');
           if (_recentInsertPending) {
             _recentInsertPending = false;
-            widget.mediaType == MediaType.movie
-                ? unawaited(insertRecentMovieData())
-                : unawaited(insertRecentEpisodeData());
+            _saveRecentProgress();
           }
           break;
         }
@@ -712,6 +735,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _analyticsPlayingStartedAt ??= DateTime.now();
         if (!_preRollActive) _wellnessTracker.play();
         _trackPlaybackEvent('play');
+        _saveRecentProgress();
+        _saveWellnessSession();
         break;
       case BetterPlayerEventType.pause:
         if (_preRollActive) _prerollAd.onPause();
@@ -719,6 +744,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _stopAnalyticsWatchClock();
         _wellnessTracker.pause();
         _trackPlaybackEvent('pause');
+        _saveRecentProgress();
+        _saveWellnessSession();
         break;
       case BetterPlayerEventType.bufferingStart:
         _analyticsWasPlayingBeforeBuffering =
@@ -896,7 +923,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             (_lastWellnessCheckpointAt == null ||
                 now.difference(_lastWellnessCheckpointAt!).inSeconds >= 30)) {
           _lastWellnessCheckpointAt = now;
-          unawaited(_persistWellnessSession());
+          _saveWellnessSession();
         }
 
         if (duration != null && duration.inMilliseconds > 0) {
@@ -1490,7 +1517,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           if (key.contains(' · ')) key: key.split(' · ').skip(1).join(' · '),
       };
 
-
   String? _castArtworkUrl() {
     final path = widget.mediaType == MediaType.movie
         ? widget.movieMetadata?.backdropPath ?? widget.movieMetadata?.posterPath
@@ -1578,6 +1604,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> insertRecentMovieData() async {
+    if (!mounted) return;
     if (_deferRecentInsertDuringPreRoll()) return;
     await _dataManagement.insertRecentMovieData(
       context: context,
@@ -1588,12 +1615,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> insertRecentEpisodeData() async {
+    if (!mounted) return;
     if (_deferRecentInsertDuringPreRoll()) return;
     await _dataManagement.insertRecentEpisodeData(
       context: context,
       betterPlayerController: _betterPlayerController,
       duration: duration,
       tvMetadata: widget.tvMetadata!,
+    );
+  }
+
+  void _saveRecentProgress() {
+    savePlayerDataInBackground(
+      widget.mediaType == MediaType.movie
+          ? insertRecentMovieData
+          : insertRecentEpisodeData,
+      operation: 'playback progress',
     );
   }
 
@@ -1746,11 +1783,24 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     );
   }
 
+  void _saveWellnessSession({
+    bool completed = false,
+    bool syncImmediately = false,
+  }) {
+    savePlayerDataInBackground(
+      () => _persistWellnessSession(
+        completed: completed,
+        syncImmediately: syncImmediately,
+      ),
+      operation: 'wellness session',
+    );
+  }
+
   Future<void> _persistWellnessSession({
     bool completed = false,
     bool syncImmediately = false,
   }) async {
-    if (_preRollActive) return;
+    if (_preRollActive || _awaitingContentAfterPreRoll) return;
     // Requested before the first await so it reaches the player ahead of a
     // dispose that follows this call.
     final networkBytes = _flushNetworkUsage();
@@ -1812,23 +1862,27 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
   }
 
-  /// Handles saving progress and analytics before switching to a new episode/movie
-  Future<void> _handleContentSwitch() async {
-    await _persistWellnessSession(
+  /// Captures the outgoing content now; persistence must not hold navigation.
+  void _handleContentSwitch() {
+    if (!mounted) return;
+    savePlayerDataInBackground(
+      () => _dataManagement.handleContentSwitch(
+        context: context,
+        mediaType: widget.mediaType!,
+        betterPlayerController: _betterPlayerController,
+        duration: duration,
+        playbackDurationInSeconds: playbackDurationInSeconds,
+        movieMetadata: widget.movieMetadata,
+        tvMetadata: widget.tvMetadata,
+      ),
+      operation: 'playback progress on content switch',
+    );
+    _saveWellnessSession(
       completed: _playbackCompletionHandled,
       syncImmediately: true,
     );
-    if (!mounted) return;
-    await _dataManagement.handleContentSwitch(
-      context: context,
-      mediaType: widget.mediaType!,
-      betterPlayerController: _betterPlayerController,
-      duration: duration,
-      playbackDurationInSeconds: playbackDurationInSeconds,
-      movieMetadata: widget.movieMetadata,
-      tvMetadata: widget.tvMetadata,
-    );
 
+    _automaticReportEndReason = 'content_switch';
     // Reset playback duration timer for next content
     playbackDurationInSeconds = 0;
   }
@@ -1838,20 +1892,21 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final isInBackground = (state == AppLifecycleState.paused) ||
         (state == AppLifecycleState.inactive);
     if (isInBackground) {
-      unawaited(_persistWellnessSession(
+      _saveWellnessSession(
         completed: _playbackCompletionHandled,
         syncImmediately: true,
-      ));
+      );
       if (_isVideoInitializedSafely()) {
-        widget.mediaType == MediaType.movie
-            ? insertRecentMovieData()
-            : insertRecentEpisodeData();
+        _saveRecentProgress();
       }
     }
   }
 
   @override
   void dispose() {
+    _streamingDnd.dispose();
+    _sendAutomaticStreamReport();
+    _feedbackConnection.dispose();
     _hideContentSwitchLoading();
     _betterPlayerControllerInitialized = false;
     _prerollAd.dispose();
@@ -1896,10 +1951,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       providerSwitchCount: _analyticsProviderSwitchCount,
       provider: _analyticsProviderName,
     );
-    unawaited(_persistWellnessSession(
+    _saveWellnessSession(
       completed: _playbackCompletionHandled,
       syncImmediately: true,
-    ));
+    );
 
     // Dispose the BetterPlayer controller to clean up resources
     _betterPlayerController.dispose();
@@ -1915,6 +1970,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     ]);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _stopForAdBlocker() {
+    if (_adBlockStopped) return;
+    if (_isVideoInitializedSafely()) _saveRecentProgress();
+    _adBlockStopped = true;
+    _exitingPlayer = true;
+    _automaticReportEndReason = 'ad_blocked';
+    _durationTimer?.cancel();
+    _progressCheckTimer?.cancel();
+    _phoneNextEpisodeTimer?.cancel();
+    _tvNextEpisodeTimer?.cancel();
+    _hideNextEpisodeOverlay();
+    _prerollAd.dispose();
+    // Force native teardown now, before any route transition or message.
+    _betterPlayerController.dispose(forceDispose: true);
   }
 
   void _handleVideoFinished() {
@@ -2036,13 +2107,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     debugPrint('[Player] Playback completed via $source');
     _playbackCompletionHandled = true;
+    _feedbackSession.recordCompletion();
     _stopAnalyticsWatchClock();
     _wellnessTracker.pause();
     _trackPlaybackEvent('finished', value: source);
-    unawaited(_persistWellnessSession(
+    _saveWellnessSession(
       completed: true,
       syncImmediately: true,
-    ));
+    );
 
     // Remove the near-end teaser before presenting the definitive completion
     // action. Native and fallback completion can arrive close together.
@@ -2366,11 +2438,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> _startContent(Future<void> Function() action) async {
-    if (_startingContent || !mounted) return;
+    if (_startingContent || !mounted || _adBlockStopped) return;
     setState(() => _startingContent = true);
     _nextEpisodeOverlay?.markNeedsBuild();
     // Fullscreen controls live on a separate route. Show feedback above that
-    // route too while saving the current watch progress before navigation.
+    // route too while preparing the next content for navigation.
     _contentSwitchLoading = OverlayEntry(
       builder: (_) => const Positioned.fill(
         child: AbsorbPointer(
@@ -2412,7 +2484,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             _tvSubtitleTimingOpen = false;
           });
         }
-        await _handleContentSwitch();
+        _handleContentSwitch();
         if (!mounted) return;
         _hideContentSwitchLoading();
         _hideNextEpisodeOverlay();
@@ -2438,7 +2510,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   Future<void> _playTvMovie(MovieRecommendation movie) =>
       _startContent(() async {
         if (mounted) setState(() => _tvMenu = null);
-        await _handleContentSwitch();
+        _handleContentSwitch();
         if (!mounted) return;
         _hideContentSwitchLoading();
         _hideNextEpisodeOverlay();
@@ -2596,10 +2668,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     bool reload = false,
     Duration? resumeAt,
   }) async {
-    if (_isSwitchingProvider ||
+    if (_adBlockStopped ||
+        _isSwitchingProvider ||
         (!reload && providerCode == _currentProviderCode)) {
       return false;
     }
+    if (!reload) _feedbackSourceSwitches++;
     final analyticsStopwatch = Stopwatch()..start();
     final providerName = _providerDisplayName(providerCode);
     final analyticsPurpose = reload ? 'source_refresh' : 'provider_switch';
@@ -2684,7 +2758,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _rawVideoLinksByProvider[providerCode] = List.of(result.videoLinks!);
       }
 
-      if (!mounted) return false;
+      if (!mounted || _adBlockStopped) return false;
       final nextSource = source;
       replacementStarted = true;
       _preRollActive = false;
@@ -2697,6 +2771,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         ),
         initialPosition: position,
       );
+      if (!mounted || _adBlockStopped) return false;
       _applyPreferredAdaptiveQuality();
       if (!wasPlaying) await _betterPlayerController.pause();
       unawaited(_loadIntroDbTimings());
@@ -2760,7 +2835,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         '[Player] Provider ${reload ? 'refresh' : 'switch'} failed for '
         '$providerCode: $error',
       );
-      if (!mounted) return false;
+      if (!mounted || _adBlockStopped) return false;
       // A refresh has nothing to restore: the previous source is the one
       // that failed.
       if (!reload && replacementStarted && previousDataSource != null) {
@@ -2810,7 +2885,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AdBlockPlaybackGuard(
+        stopPlayback: _stopForAdBlocker,
+        television: widget.useTvControls,
+        child: _buildPlayback(context),
+      );
+
+  Widget _buildPlayback(BuildContext context) {
     _handleScreenOrientation(context);
     if (_isPortraitInlineLayout(context)) {
       return PopScope(
@@ -3336,7 +3417,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       return;
     }
     await _startContent(() async {
-      await _handleContentSwitch();
+      _handleContentSwitch();
       if (!mounted) return;
       _hideContentSwitchLoading();
       _hideNextEpisodeOverlay();
@@ -3356,27 +3437,72 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     });
   }
 
-  void _exitPlayer() {
-    final playerRoute = ModalRoute.of(context);
-    final onTvPlayerExit = widget.onTvPlayerExit;
-    if (!widget.useTvControls) {
-      AdsterraPlaybackAdsService.instance.afterPlayerExit(context,
-          watched: Duration(milliseconds: _wellnessTracker.watchedMs()));
-    }
-    Navigator.pop(
-      context,
-      _isVideoInitializedSafely()
-          ? widget.mediaType == MediaType.movie
-              ? insertRecentMovieData
-              : insertRecentEpisodeData
-          : null,
+  StreamFeedbackContext get _streamFeedbackContext {
+    final value = _betterPlayerController.videoPlayerController?.value;
+    return StreamFeedbackContext(
+      mediaType: _analyticsMediaType,
+      surface: widget.useTvControls ? 'tv' : 'mobile',
+      tmdbId: widget.mediaType == MediaType.movie
+          ? widget.movieMetadata?.movieId
+          : widget.tvMetadata?.tvId,
+      seasonNumber: widget.tvMetadata?.seasonNumber,
+      episodeNumber: widget.tvMetadata?.episodeNumber,
+      provider: _currentProviderCode ?? 'unknown',
+      initialProvider: widget.currentProviderCode ?? 'unknown',
+      sourceSwitches: _feedbackSourceSwitches,
+      videoHeight: value?.size?.height.round(),
+      connectionType: _feedbackConnection.type,
+      networkChanges: _feedbackConnection.changes,
     );
-    if (onTvPlayerExit == null) return;
-    if (playerRoute == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => onTvPlayerExit());
-      return;
+  }
+
+  void _sendAutomaticStreamReport() {
+    if (!_automaticStreamReport.shouldReport) return;
+    unawaited(_automaticStreamReport.send(
+      measurement: _feedbackSession.freeze(),
+      context: _streamFeedbackContext,
+      endReason: _automaticReportEndReason,
+      fallbackNetworkBytes: _betterPlayerController.networkBytesTransferred,
+      flushNetworkUsage: _flushNetworkUsage,
+    ));
+  }
+
+  void _exitPlayer() {
+    if (_exitingPlayer) return;
+    _exitingPlayer = true;
+    // Start saving while the context and video position are still available.
+    // The save captures them synchronously and can finish after this route pops.
+    if (_isVideoInitializedSafely()) {
+      _saveRecentProgress();
     }
-    unawaited(playerRoute.completed.then((_) => onTvPlayerExit()));
+    final measurement = _feedbackSession.freeze();
+    final reportContext = _streamFeedbackContext;
+    final metadata = reportContext.parameters;
+    // The platform flush is requested before dispose; it never holds Back.
+    final networkBytes = _flushNetworkUsage();
+    unawaited(_automaticStreamReport.send(
+      measurement: measurement,
+      context: reportContext,
+      endReason: 'user_exit',
+      fallbackNetworkBytes: _betterPlayerController.networkBytesTransferred,
+      flushNetworkUsage: () => networkBytes,
+    ));
+    final parameters = networkBytes.then((bytes) => <String, Object>{
+          ...metadata,
+          ...measurement.parameters(totalBytes: bytes),
+        });
+    final watched = Duration(milliseconds: _wellnessTracker.watchedMs());
+    scheduleStreamFeedbackAfterExit(
+      context,
+      measurement: measurement,
+      parameters: parameters,
+      onReturned: widget.onTvPlayerExit,
+      beforePrompt: widget.useTvControls
+          ? null
+          : (context) => AdsterraPlaybackAdsService.instance
+              .playerExit(context, watched: watched),
+    );
+    Navigator.pop(context);
   }
 
   void _showExternalPlayerSheet() {
@@ -3397,6 +3523,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (_activeSources.isEmpty) return;
     if (!mounted || _activeSources.isEmpty) return;
     final providerName = _currentProviderName();
+    final downloadApiBaseUrl = _resolveScraperApiUrl();
+    final providerCode = _currentProviderCode;
+    final downloadProvider = widget.availableProviders
+        ?.where((provider) => provider.codeName == providerCode)
+        .firstOrNull;
+    final rawDownloadLinks = List<RegularVideoLinks>.of(
+      _rawVideoLinksByProvider[providerCode] ?? const [],
+    );
     final sources = Map<String, String>.of(_activeSources);
     final formats = _activeVideoFormats == null
         ? <String, BetterPlayerVideoFormat?>{}
@@ -3451,6 +3585,23 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final subtitleTrack = _originalSubtitleTrack();
 
     try {
+      final downloadHeaders = headers[resolution] ??
+          VideoUtils.inferVideoHeaders(url) ??
+          const <String, String>{};
+      final audioSelection = await DownloadSelectionSheets.chooseAudio(
+        context,
+        tracks: OfflineDownloadService.instance.getAudioTracks(
+          url: url,
+          format: format,
+          headers: downloadHeaders,
+          maxVideoHeight: _downloadResolutionHeight(resolution),
+        ),
+        inPlayer: true,
+      );
+      if (!mounted) return;
+      if (audioSelection == null) {
+        return;
+      }
       await context.read<OfflineDownloadProvider>().enqueue(
             OfflineDownloadRequest(
               id: isMovie
@@ -3472,9 +3623,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                   ? null
                   : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
               maxVideoHeight: _downloadResolutionHeight(resolution),
-              headers: headers[resolution] ??
-                  VideoUtils.inferVideoHeaders(url) ??
-                  const {},
+              headers: downloadHeaders,
+              audioTrack: audioSelection.track,
+              source: OfflineDownloadSource.forSelection(
+                provider: downloadProvider,
+                apiBaseUrl: downloadApiBaseUrl,
+                links: rawDownloadLinks,
+                url: url,
+              ),
               contentId: isMovie ? movie?.movieId : episode?.tvId,
               seasonNumber: isMovie ? null : season,
               episodeNumber: isMovie ? null : episodeNumber,
@@ -3533,10 +3689,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   String _currentProviderName() => _providerDisplayName(_currentProviderCode);
 
-  int? _downloadResolutionHeight(String resolution) {
-    final match = RegExp(r'(\d{3,4})').firstMatch(resolution);
-    return int.tryParse(match?.group(1) ?? '');
-  }
+  int? _downloadResolutionHeight(String resolution) =>
+      VideoUtils.videoQualityHeight(resolution);
 
   BetterPlayerSubtitlesSource? _originalSubtitleTrack() {
     BetterPlayerSubtitlesSource? fallback;
@@ -4016,9 +4170,7 @@ class _TvSkipButton extends StatelessWidget {
       );
 }
 
-/// Audio and subtitles in one panel, as Netflix has it: soundtracks beside
-/// the subtitle languages when there is more than one soundtrack, and the
-/// subtitle tools (timing, searching online, a file) along the bottom.
+/// Subtitle languages with timing, online search and file upload tools.
 class _SubtitleSwitcherSheet extends StatefulWidget {
   const _SubtitleSwitcherSheet({
     required this.controller,
@@ -4138,55 +4290,8 @@ class _SubtitleSwitcherSheetState extends State<_SubtitleSwitcherSheet> {
     );
   }
 
-  List<Widget> _audioRows() {
-    final tracks = widget.controller.betterPlayerAsmsAudioTracks ??
-        const <BetterPlayerAsmsAudioTrack>[];
-    final selected = widget.controller.betterPlayerAsmsAudioTrack;
-    return [
-      for (final (index, track) in tracks.indexed)
-        BetterPlayerSelectionTile(
-          title: _audioTrackTitle(track, index),
-          subtitle: _audioTrackSubtitle(track),
-          selected: selected == track || (selected == null && track.isDefault),
-          onTap: () {
-            widget.controller.setAudioTrack(track);
-            widget.onClose();
-          },
-        ),
-    ];
-  }
-
-  /// The audio track's own label when it has one, its language in full
-  /// otherwise ("en" and "eng" both become "English").
-  String _audioTrackTitle(BetterPlayerAsmsAudioTrack track, int index) {
-    final label = languageDisplayName(
-      track.label?.trim().isNotEmpty == true ? track.label : track.language,
-    );
-    return label.isEmpty ? '${tr('player_audio')} ${index + 1}' : label;
-  }
-
-  String? _audioTrackSubtitle(BetterPlayerAsmsAudioTrack track) {
-    if (track.label?.trim().isEmpty != false) return null;
-    final language = languageDisplayName(track.language);
-    return language.isEmpty ? null : language;
-  }
-
-  Widget _heading(String text) => Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 10, 8),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: BetterPlayerPanelColors.of(context).foreground,
-            fontFamily: 'FigtreeBold',
-            fontSize: 16,
-          ),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
-    final audio = _audioRows();
-    final withAudio = audio.length > 1;
     final subtitles = [
       for (final option in widget.options) _subtitleRow(option)
     ];
@@ -4197,8 +4302,7 @@ class _SubtitleSwitcherSheetState extends State<_SubtitleSwitcherSheet> {
       expand: false,
       snap: true,
       builder: (context, scrollController) => PlayerSheetScaffold(
-        title:
-            withAudio ? tr('player_audio_subtitles') : tr('player_subtitles'),
+        title: tr('player_subtitles'),
         subtitle: tr('choose_subtitle_language'),
         actions: [
           PlayerSheetAction(
@@ -4212,44 +4316,10 @@ class _SubtitleSwitcherSheetState extends State<_SubtitleSwitcherSheet> {
           onSearchOnline: widget.onSearchOnline,
           onUpload: widget.onUpload,
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (withAudio && constraints.maxWidth >= 560) {
-              Widget column(String title, List<Widget> rows,
-                      {ScrollController? controller}) =>
-                  Expanded(
-                    child: ListView(
-                      controller: controller,
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-                      children: [_heading(title), ...rows],
-                    ),
-                  );
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  column(tr('player_audio'), audio),
-                  column(
-                    tr('player_subtitles'),
-                    subtitles,
-                    controller: scrollController,
-                  ),
-                ],
-              );
-            }
-            return ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-              children: [
-                if (withAudio) ...[
-                  _heading(tr('player_audio')),
-                  ...audio,
-                  const SizedBox(height: 16),
-                  _heading(tr('player_subtitles')),
-                ],
-                ...subtitles,
-              ],
-            );
-          },
+        child: ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+          children: subtitles,
         ),
       ),
     );

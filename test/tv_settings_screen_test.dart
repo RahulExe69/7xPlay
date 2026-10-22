@@ -6,6 +6,9 @@ import 'package:flixquest/functions/player_buffering_configuration.dart';
 import 'package:flixquest/preferences/setting_preferences.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
 import 'package:flixquest/provider/settings_provider.dart';
+import 'package:flixquest/services/tmdb_connectivity.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:flixquest/tv/app/tv_design.dart';
 import 'package:flixquest/tv/focus/tv_screen_focus_controller.dart';
 import 'package:flixquest/tv/screens/tv_settings_screen.dart';
@@ -95,6 +98,40 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     sharedPrefsSingleton = await SharedPreferences.getInstance();
+  });
+
+  testWidgets('TV remote cannot manually enable the TMDB proxy',
+      (tester) async {
+    final original = TmdbConnectivity.instance;
+    final client = MockClient((request) async =>
+        request.url.host == 'proxy.example'
+            ? http.Response('{"images": {}}', 200)
+            : http.Response('<html>Blocked</html>', 451));
+    final connectivity =
+        TmdbConnectivity(client: client, hasNetwork: () async => true);
+    TmdbConnectivity.instance = connectivity;
+    final settings = SettingsProvider();
+    addTearDown(() {
+      settings.dispose();
+      connectivity.dispose();
+      TmdbConnectivity.instance = original;
+      client.close();
+    });
+    await _pumpSettings(tester, settings);
+    await _focusLabel(tester, 'TMDB proxy');
+    await _select(tester);
+    expect(settings.enableProxy, isFalse);
+    expect(find.text('Off · Automatic'), findsOneWidget);
+    await connectivity.check('https://proxy.example');
+    await tester.pumpAndSettle();
+    expect(settings.enableProxy, isTrue);
+    expect(find.text('On · Turn off'), findsOneWidget);
+    await _select(tester);
+    expect(settings.enableProxy, isFalse);
+    await _select(tester);
+    await connectivity.check('https://proxy.example', networkChanged: true);
+    expect(settings.enableProxy, isFalse);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('remote choices persist and TV buffer reflects its effective cap',

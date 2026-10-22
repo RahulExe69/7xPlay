@@ -32,6 +32,7 @@ class StreamDownloadsBridge(
     private var eventSink: EventChannel.EventSink? = null
     private var polling = false
     private var pendingSave: PendingSave? = null
+    private val pendingEnqueues = mutableMapOf<String, Any>()
 
     init {
         MethodChannel(messenger, METHOD_CHANNEL).setMethodCallHandler(this)
@@ -43,6 +44,21 @@ class StreamDownloadsBridge(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "getDownloads" -> runResult(result) { downloadMaps() }
+            "getAudioTracks" -> {
+                val arguments = call.arguments as? Map<*, *>
+                if (arguments == null) {
+                    result.error("INVALID_ARGUMENTS", "Stream arguments are required.", null)
+                } else {
+                    store.getAudioTracks(arguments) { tracks ->
+                        mainHandler.post {
+                            tracks.fold(
+                                onSuccess = { result.success(it) },
+                                onFailure = { result.error("PREPARE_FAILED", it.message, null) },
+                            )
+                        }
+                    }
+                }
+            }
             "enqueue" -> enqueue(call, result)
             "pause" -> withId(call, result) { id ->
                 DownloadService.sendSetStopReason(
@@ -63,12 +79,12 @@ class StreamDownloadsBridge(
                 )
             }
             "retry" -> withId(call, result) { id ->
-                val download = store.getDownload(id)
+                val request = store.originalRequest(id)
                     ?: throw IllegalArgumentException("Download not found: $id")
                 DownloadService.sendAddDownload(
                     appContext,
                     StreamDownloadService::class.java,
-                    download.request,
+                    request,
                     true,
                 )
             }
@@ -76,6 +92,7 @@ class StreamDownloadsBridge(
             "openExternal" -> exportForExternalPlayer(call, result)
             "saveCopy" -> exportForDocument(call, result)
             "remove" -> withId(call, result) { id ->
+                pendingEnqueues.remove(id)
                 exporter.deleteExport(id)
                 store.deleteSubtitle(id)
                 DownloadService.sendRemoveDownload(
@@ -202,12 +219,55 @@ class StreamDownloadsBridge(
             return
         }
         val id = arguments["id"] as? String
-        if (!id.isNullOrBlank() && store.getDownload(id)?.state == Download.STATE_COMPLETED) {
+        val existing = id?.takeIf { it.isNotBlank() }?.let(store::getDownload)
+        if (existing?.state == Download.STATE_COMPLETED) {
             result.error("ALREADY_DOWNLOADED", "This title is already downloaded.", null)
             return
         }
+        if (id.isNullOrBlank()) {
+            result.error("INVALID_ID", "A download id is required.", null)
+            return
+        }
+        if (pendingEnqueues.containsKey(id)) {
+            result.error("ENQUEUE_IN_PROGRESS", "This download is already being prepared.", null)
+            return
+        }
+        if (existing != null) {
+            val stored = StreamDownloadStore.requestMetadata(existing.request)
+            val storedTrack = stored.optJSONObject("audioTrack")?.let(DownloadSourceResolver::jsonMap)
+            if (storedTrack != arguments["audioTrack"]) {
+                result.error("DOWNLOAD_AUDIO_CONFLICT", "Remove the existing download before changing its audio.", null)
+                return
+            }
+            val source = arguments["source"] as? Map<*, *>
+            val oldSource = stored.optJSONObject("source")
+            val sameSource = if (source != null && oldSource != null) {
+                listOf("providerId", "server", "quality", "apiBaseUrl").all {
+                    oldSource.optString(it) == source[it]?.toString().orEmpty()
+                }
+            } else source == null && oldSource == null && existing.request.uri.toString() == arguments["url"]
+            if (!sameSource || stored.optString("quality") != arguments["quality"] || stored.optString("format") != arguments["format"]) {
+                result.error("DOWNLOAD_SOURCE_CONFLICT", "This title already has a different download source or quality.", null)
+                return
+            }
+            // Resume the original Media3 job. Never merge stream keys from a
+            // refreshed manifest, or overwrite its recovery/cache history.
+            runResult(result) {
+                DownloadService.sendAddDownload(appContext, StreamDownloadService::class.java,
+                    checkNotNull(store.originalRequest(id)), true)
+                null
+            }
+            return
+        }
+        val token = Any()
+        pendingEnqueues[id] = token
         store.prepareRequest(arguments) { prepared ->
             mainHandler.post {
+                if (pendingEnqueues[id] !== token) {
+                    result.error("ENQUEUE_CANCELLED", "The download was removed while preparing.", null)
+                    return@post
+                }
+                pendingEnqueues.remove(id)
                 prepared.fold(
                     onSuccess = { request ->
                         try {

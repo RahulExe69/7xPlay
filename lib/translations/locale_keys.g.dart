@@ -1484,9 +1484,32 @@ abstract class  LocaleKeys {
   static const tv_current_provider = 'tv_current_provider';
   static const tv_font_weight_light = 'tv_font_weight_light';
   static const ad_blocker_title = 'ad_blocker_title';
+  static const ad_blocker_playback_stopped = 'ad_blocker_playback_stopped';
   static const ad_blocker_message = 'ad_blocker_message';
   static const ad_blocker_private_dns_hint = 'ad_blocker_private_dns_hint';
   static const ad_blocker_still_detected = 'ad_blocker_still_detected';
   static const ad_blocker_retry = 'ad_blocker_retry';
+  static const download_choose_audio = 'download_choose_audio';
+  static const download_audio_description = 'download_audio_description';
+  static const download_audio_loading = 'download_audio_loading';
+  static const download_audio_error = 'download_audio_error';
+  static const stream_feedback_title = 'stream_feedback_title';
+  static const stream_feedback_description = 'stream_feedback_description';
+  static const stream_feedback_good = 'stream_feedback_good';
+  static const stream_feedback_okay = 'stream_feedback_okay';
+  static const stream_feedback_bad = 'stream_feedback_bad';
+  static const stream_feedback_issue_question = 'stream_feedback_issue_question';
+  static const stream_feedback_issue_buffering = 'stream_feedback_issue_buffering';
+  static const stream_feedback_issue_did_not_play = 'stream_feedback_issue_did_not_play';
+  static const stream_feedback_issue_quality = 'stream_feedback_issue_quality';
+  static const stream_feedback_issue_audio = 'stream_feedback_issue_audio';
+  static const stream_feedback_issue_subtitles = 'stream_feedback_issue_subtitles';
+  static const stream_feedback_issue_wrong_content = 'stream_feedback_issue_wrong_content';
+  static const stream_feedback_issue_other = 'stream_feedback_issue_other';
+  static const stream_feedback_skip = 'stream_feedback_skip';
+  static const stream_feedback_submit = 'stream_feedback_submit';
+  static const tmdb_proxy_automatic = 'tmdb_proxy_automatic';
+  static const tmdb_proxy_turn_off = 'tmdb_proxy_turn_off';
+  static const tmdb_proxy_auto_off = 'tmdb_proxy_auto_off';
 
 }

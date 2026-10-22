@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/live_tv.dart';
+import 'dlhd_playback_proxy.dart';
 
 /// Traces DLHD stream extraction to the console so a failing channel shows
 /// which step broke. Disabled in release builds: the logged URLs carry
@@ -117,6 +118,9 @@ class DaddyLiveService implements LiveTvService {
   final Map<String, String> _watchUrlsByChannel = <String, String>{};
   final Map<String, _PendingDlhdBackups> _pendingBackupsByWatchUrl =
       <String, _PendingDlhdBackups>{};
+  final _loaderUrlsByEmbed = <String, Future<String>>{};
+  final _loaderProxies = <DlhdPlaybackProxy>[];
+  bool _closed = false;
 
   Uri _uri(String path, [Map<String, String>? query]) =>
       Uri.parse('$_baseUrl$path').replace(queryParameters: query);
@@ -429,6 +433,38 @@ class DaddyLiveService implements LiveTvService {
         final response = await _getHtml(page.url, referer: page.referer);
         final finalUrl = response.request?.url.toString() ?? page.url;
         final headers = _headersForEmbed(finalUrl, fallbackHeaders);
+        final loader = DlhdPlaybackProxy.fromEmbed(
+          response.body,
+          headers: headers,
+          client: _client,
+        );
+        if (loader != null) {
+          if (_closed) return null;
+          final pending = _loaderUrlsByEmbed.putIfAbsent(finalUrl, () {
+            _loaderProxies.add(loader);
+            return loader.start();
+          });
+          try {
+            final localUrl = await pending;
+            _log(
+                '${player.label}: signed DLHD loader ready for ${loader.channel}');
+            return _ResolvedDlhdPlayer(
+              embedUrl: finalUrl,
+              variant: LiveStreamVariant(
+                url: localUrl,
+                headers: const {},
+                mediaType: 'hls',
+                title: player.label,
+              ),
+            );
+          } catch (_) {
+            if (identical(_loaderUrlsByEmbed[finalUrl], pending)) {
+              _loaderUrlsByEmbed.remove(finalUrl);
+            }
+            loader.close();
+            rethrow;
+          }
+        }
         final candidates = _extractM3u8Urls(response.body, finalUrl);
         _log(
           '${player.label} depth ${page.depth}: $finalUrl -> '
@@ -776,7 +812,13 @@ class DaddyLiveService implements LiveTvService {
 
   @override
   void close() {
+    _closed = true;
     _pendingBackupsByWatchUrl.clear();
+    for (final proxy in _loaderProxies) {
+      proxy.close();
+    }
+    _loaderProxies.clear();
+    _loaderUrlsByEmbed.clear();
     _client.close();
   }
 }

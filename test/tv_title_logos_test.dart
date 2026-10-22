@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flixquest/tv/controllers/tv_title_logos.dart';
+import 'package:flixquest/services/tmdb_connectivity.dart';
 import 'package:flixquest/tv/models/tv_media_item.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -161,6 +162,19 @@ void main() {
 
     test('goes through the TMDB proxy when it is on', () async {
       late Uri requested;
+      final original = TmdbConnectivity.instance;
+      final probeClient = MockClient((request) async =>
+          request.url.host == 'proxy.example'
+              ? http.Response('{"images": {}}', 200)
+              : http.Response('<html>Blocked</html>', 451));
+      TmdbConnectivity.instance =
+          TmdbConnectivity(client: probeClient, hasNetwork: () async => true);
+      addTearDown(() {
+        TmdbConnectivity.instance.dispose();
+        TmdbConnectivity.instance = original;
+        probeClient.close();
+      });
+      await TmdbConnectivity.instance.check('https://proxy.example');
       final logos = TvTitleLogos(
         language: 'en',
         proxyEnabled: true,
@@ -173,7 +187,10 @@ void main() {
       await logos.resolve(_item(3));
       expect(requested.host, 'proxy.example');
       expect(requested.toString(), contains('destination='));
-      expect(requested.toString(), contains('/movie/3/images'));
+      final destination = Uri.parse(requested.queryParameters['destination']!);
+      expect(destination.path, '/3/movie/3/images');
+      expect(
+          destination.queryParameters['include_image_language'], 'en,en,null');
     });
 
     test('does not look up a title without an id', () async {

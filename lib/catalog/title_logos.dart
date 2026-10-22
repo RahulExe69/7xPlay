@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
 import '../api/endpoints.dart';
+import '../services/tmdb_connectivity.dart';
 import 'media_item.dart';
 
 /// Finds each title's logo artwork on TMDB and remembers it for the session,
@@ -73,12 +74,11 @@ class TitleLogos {
     final images = item.kind == MediaKind.movie
         ? Endpoints.getImages(item.id)
         : Endpoints.getTVImages(item.id);
-    var url = '$images&include_image_language=$language,en,null';
-    if (proxyEnabled && proxyUrl.isNotEmpty) {
-      url = '$proxyUrl?destination=$url';
-    }
-    final response =
-        await _client.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+    final response = await TmdbConnectivity.instance.get(
+      '$images&include_image_language=$language,en,null',
+      proxyUrl,
+      client: _client,
+    );
     if (response.statusCode != 200) {
       throw http.ClientException('TMDB images ${response.statusCode}');
     }

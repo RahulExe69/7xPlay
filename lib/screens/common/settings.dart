@@ -234,30 +234,13 @@ class _SettingsState extends State<Settings> {
                     },
                   ),
                 SwitchRow(
-                  subtitle: tr('enable_warning'),
+                  subtitle: tr('tmdb_proxy_automatic'),
                   value: settingsValues.enableProxy,
                   icon: PhosphorIcons.globe(),
                   label: tr('use_proxy'),
-                  onChanged: (bool value) async {
-                    if (value) {
-                      final enable = await showConfirmDialog(
-                        context,
-                        icon: PhosphorIcons.globe(),
-                        title: tr('use_proxy_title'),
-                        message: tr('use_proxy_detail'),
-                        confirmLabel: tr('enable'),
-                      );
-                      if (enable == true && mounted) {
-                        setState(() {
-                          settingsValues.enableProxy = value;
-                        });
-                      }
-                    } else {
-                      setState(() {
-                        settingsValues.enableProxy = value;
-                      });
-                    }
-                  },
+                  onChanged: settingsValues.enableProxy
+                      ? (_) => settingsValues.disableTmdbProxy()
+                      : null,
                 ),
               ],
             ),

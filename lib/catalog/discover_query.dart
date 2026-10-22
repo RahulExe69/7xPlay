@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
+import '../services/tmdb_connectivity.dart';
 import 'media_item.dart';
 
 /// One option in a Discover filter: its label's translation key (or a name
@@ -163,14 +164,14 @@ Future<int?> fetchDiscoverTotal(
   required String proxyUrl,
   http.Client? client,
 }) async {
-  final request = proxyEnabled && proxyUrl.isNotEmpty
-      ? '$proxyUrl?destination=$url'
-      : url;
   final http.Client ownClient = client ?? http.Client();
   try {
-    final response = await ownClient
-        .get(Uri.parse(request))
-        .timeout(const Duration(seconds: 10));
+    final response = await TmdbConnectivity.instance.get(
+      url,
+      proxyUrl,
+      client: ownClient,
+      timeout: const Duration(seconds: 10),
+    );
     if (response.statusCode != 200) return null;
     final body = jsonDecode(response.body);
     return body is Map ? (body['total_results'] as num?)?.toInt() : null;

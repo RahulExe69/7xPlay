@@ -4,11 +4,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../models/adsterra_playback_ads_config.dart';
+import '../provider/app_dependency_provider.dart';
+import '../services/playback_ad_browser_service.dart';
 import '../services/playback_ad_input_service.dart';
 import 'network_banner_widget.dart';
 
@@ -106,7 +109,7 @@ class PlaybackAdPreload with WidgetsBindingObserver {
 /// Script tags (Adsterra's Social Bar and Popunder, Clickadu's and Monetag's
 /// onclick tags) run in one WebView. Advertiser pages (Smartlinks, Direct Links and the popups a
 /// script emits) open in FlixQuest's own ad page,
-/// never in an external browser. On that page a friendly placeholder covers
+/// with optional external-browser handoff on a body tap. A placeholder covers
 /// blank redirect pages, and the way on (and Back) waits until the final
 /// redirect has shown its ad for [minimumView]. If the ad never gets there,
 /// the placement's [PlaybackAdPlacement.closeFallback] lets the viewer on.
@@ -118,6 +121,7 @@ class AdsterraPlaybackAdScreen extends StatefulWidget {
       {required this.placement,
       required this.stage,
       this.storeLauncher,
+      this.browserLauncher,
       this.holdClose = true,
       this.television = false,
       this.preload,
@@ -127,6 +131,7 @@ class AdsterraPlaybackAdScreen extends StatefulWidget {
   final PlaybackAdPlacement placement;
   final PlaybackAdStage stage;
   final StoreLauncher? storeLauncher;
+  final PlaybackBrowserLauncher? browserLauncher;
   final PlaybackAdPreload? preload;
   final PlaybackContinueTap? continueTap;
 
@@ -198,7 +203,36 @@ class _AdsterraPlaybackAdScreenState extends State<AdsterraPlaybackAdScreen>
   DateTime? _lastPointer;
   bool _finished = false;
   bool _openingPage = false;
+  bool _launchingBrowser = false;
+  bool _popupAutoClose = false;
+  bool _externalBrowserOnTap = true;
   Completer<void>? _visibilityWait;
+
+  bool get _autoClose =>
+      widget.stage == PlaybackAdStage.beforeLoader || _popupAutoClose;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final config = context.watch<AppDependencyProvider?>();
+    _popupAutoClose = config?.playbackPopupAutoClose ?? false;
+    _externalBrowserOnTap = config?.playbackPopupExternalBrowserOnTap ?? true;
+    // A popup may have stayed open beyond its deadline while automatic close
+    // was disabled. Enabling it remotely must still honor that deadline.
+    if (_autoClose && _durationTimer?.isActive == false) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_finished && _autoClose) _finish('max_duration');
+      });
+    }
+  }
+
+  void _pageTimeout(String reason) {
+    if (_autoClose) {
+      _finish(reason);
+    } else {
+      _allowClose(reason);
+    }
+  }
 
   /// Whether the hosted page ([PlaybackAdPlacement.pageUrl]) has loaded.
   /// Until then its own redirects may navigate the script WebView.
@@ -228,8 +262,13 @@ class _AdsterraPlaybackAdScreenState extends State<AdsterraPlaybackAdScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _durationTimer =
-        Timer(widget.placement.maxDuration, () => _finish('max_duration'));
+    _durationTimer = Timer(widget.placement.maxDuration, () {
+      if (_phase == _Phase.page) {
+        _pageTimeout('max_duration');
+      } else {
+        _finish('max_duration');
+      }
+    });
     final smartlink = widget.placement.trackedSmartlinkUrl;
     _log(
         'starting mode=${widget.placement.mode} loadTimeoutMs=${widget.placement.loadTimeout.inMilliseconds}');
@@ -247,6 +286,7 @@ class _AdsterraPlaybackAdScreenState extends State<AdsterraPlaybackAdScreen>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      if (!_autoClose && _phase == _Phase.page) return;
       _finish('app_lifecycle_${state.name}');
     }
   }
@@ -672,8 +712,8 @@ class _AdsterraPlaybackAdScreenState extends State<AdsterraPlaybackAdScreen>
       if (!mounted || _finished) return;
       setState(() => _phase = _Phase.page);
       if (!await _waitForVisibleSurface()) return;
-      _loadTimer = Timer(
-          widget.placement.loadTimeout, () => _finish('page_load_timeout'));
+      _loadTimer = Timer(widget.placement.loadTimeout,
+          () => _pageTimeout('page_load_timeout'));
       await page.loadRequest(uri);
     } catch (error) {
       _log('ad page unavailable ($error)');
@@ -705,8 +745,8 @@ class _AdsterraPlaybackAdScreenState extends State<AdsterraPlaybackAdScreen>
     _minimumViewTimer?.cancel();
     _countdownTimer?.cancel();
     _loadTimer?.cancel();
-    _loadTimer =
-        Timer(widget.placement.loadTimeout, () => _finish('page_load_timeout'));
+    _loadTimer = Timer(
+        widget.placement.loadTimeout, () => _pageTimeout('page_load_timeout'));
     if (mounted) {
       setState(() {
         _pageReady = false;
@@ -919,6 +959,28 @@ class _AdsterraPlaybackAdScreenState extends State<AdsterraPlaybackAdScreen>
     });
   }
 
+  Future<void> _openCurrentPageInBrowser() async {
+    final page = _page;
+    if (page == null || _launchingBrowser || _finished) return;
+    _launchingBrowser = true;
+    try {
+      // Ask the WebView so HTTP redirects, fragments and history changes are
+      // carried into Chrome instead of reopening the original smartlink.
+      final current = await page.currentUrl().timeout(
+          AdsterraPlaybackAdScreen.contentCheckTimeout,
+          onTimeout: () => null);
+      final uri = current == null ? _pageDocument : Uri.tryParse(current);
+      if (!mounted || _finished || !_externalBrowserOnTap || !_webUrl(uri)) {
+        return;
+      }
+      await (widget.browserLauncher ?? openPlaybackBrowser)(uri!);
+    } catch (error) {
+      _log('external browser unavailable ($error)');
+    } finally {
+      _launchingBrowser = false;
+    }
+  }
+
   /// App-install offers often end in a market:// or intent:// link, which a
   /// WebView cannot load; blocking it alone leaves an empty redirect page.
   /// Show the offer's web page in place. Only the viewer's own tap (such as
@@ -1060,6 +1122,17 @@ class _AdsterraPlaybackAdScreenState extends State<AdsterraPlaybackAdScreen>
                   child: Listener(
                     onPointerDown: (_) => _lastPointer = DateTime.now(),
                     child: _webView(controller),
+                  ),
+                ),
+              if (_phase == _Phase.page &&
+                  _revealed &&
+                  _externalBrowserOnTap &&
+                  !widget.television)
+                Positioned.fill(
+                  child: GestureDetector(
+                    key: const ValueKey('ad-external-browser-tap'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _openCurrentPageInBrowser,
                   ),
                 ),
               Positioned.fill(

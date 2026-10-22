@@ -12,6 +12,7 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> 
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <queries>
       <!-- If your app opens https URLs -->
@@ -42,6 +43,15 @@
         <meta-data
             android:name="uz.shs.better_player_plus.CAST_RECEIVER_APPLICATION_ID"
             android:value="CC1AD845" />
+        <service
+            android:name=".playback.StreamingDndConditionProvider"
+            android:label="@string/streaming_dnd_rule_name"
+            android:permission="android.permission.BIND_CONDITION_PROVIDER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.ConditionProviderService" />
+            </intent-filter>
+        </service>
         <activity
             android:name=".MainActivity"
             android:supportsPictureInPicture="true"

@@ -117,6 +117,20 @@ class AppDependencyProvider extends ChangeNotifier {
     return config.enabled ? config : null;
   }
 
+  /// Selected catalogs, including networks serving individual slot overrides.
+  Iterable<BannerAdsConfig> get activeBannerCatalogs sync* {
+    if (_bannerAdNetwork == 'none') return;
+    final networks = {
+      bannerNetwork,
+      ..._bannerAdNetworkOverrides.values.map(AdNetwork.parse),
+    };
+    for (final network in networks) {
+      if (network == null) continue;
+      final catalog = bannerAdsFor(network);
+      if (catalog.enabled) yield catalog;
+    }
+  }
+
   AdsterraPlaybackAdsConfig _adsterraPlaybackAds =
       const AdsterraPlaybackAdsConfig();
   AdsterraPlaybackAdsConfig get adsterraPlaybackAds => _adsterraPlaybackAds;
@@ -176,6 +190,26 @@ class AppDependencyProvider extends ChangeNotifier {
     final normalized = minutes < 0 ? 0 : minutes;
     if (_playbackPopupFrequencyMinutes == normalized) return;
     _playbackPopupFrequencyMinutes = normalized;
+    notifyListeners();
+  }
+
+  /// Popup browser behavior, shared by every network and trigger.
+  bool _playbackPopupAutoClose = false;
+  bool get playbackPopupAutoClose => _playbackPopupAutoClose;
+  bool _playbackPopupExternalBrowserOnTap = true;
+  bool get playbackPopupExternalBrowserOnTap =>
+      _playbackPopupExternalBrowserOnTap;
+
+  void setPlaybackPopupBrowserBehavior({
+    required bool autoClose,
+    required bool externalBrowserOnTap,
+  }) {
+    if (_playbackPopupAutoClose == autoClose &&
+        _playbackPopupExternalBrowserOnTap == externalBrowserOnTap) {
+      return;
+    }
+    _playbackPopupAutoClose = autoClose;
+    _playbackPopupExternalBrowserOnTap = externalBrowserOnTap;
     notifyListeners();
   }
 
