@@ -157,8 +157,18 @@ void main() {
     await service.getChannels(refresh: true);
     final stream = await service.getStream('110');
     expect(Uri.parse(stream.url).host, '127.0.0.1');
-    expect(stream.variants.map((v) => v.title), ['Stream 1', 'Stream 2']);
-    expect(stream.variants.map((v) => v.url).toSet(), hasLength(1));
+    expect(stream.variants.map((v) => v.title), ['Stream 1']);
+    final discovery = stream.discovery!;
+    final backups = discovery.updates.first;
+    discovery.observePlayback(
+      position: const Duration(seconds: 1),
+      isPlaying: true,
+      isBuffering: false,
+      isAd: false,
+    );
+    final variants = await backups;
+    expect(variants.map((v) => v.title), ['Stream 1', 'Stream 2']);
+    expect(variants.map((v) => v.url).toSet(), hasLength(1));
     expect(tokenRequests, 1,
         reason: 'duplicate embeds must share the same loader');
     expect(bareRequests, 0);

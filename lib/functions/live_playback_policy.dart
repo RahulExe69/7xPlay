@@ -83,6 +83,13 @@ class LiveStreamFailoverQueue {
     return _variants[nextIndex];
   }
 
+  /// Extend a running pass without replaying servers already attempted.
+  void add(List<LiveStreamVariant> variants) {
+    final added = variants.where((variant) =>
+        variant.url.trim().isNotEmpty && !_variants.contains(variant));
+    _variants = [..._variants, ...added];
+  }
+
   void select(LiveStreamVariant selected) {
     final index = _variants.indexWhere(
       (variant) =>

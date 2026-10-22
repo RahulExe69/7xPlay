@@ -12,9 +12,11 @@ class _RecordingClient extends http.BaseClient {
   final String origin;
   final http.Client _upstream = http.Client();
   bool requestedServerStream = false;
+  bool requestedBackup = false;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request.url.path.startsWith('/backup-')) requestedBackup = true;
     final mockSlug = Platform.environment['DLHD_SMOKE_MOCK_SLUG'];
     if (mockSlug != null && request.url.origin == origin) {
       request.headers['x-mock-slug'] = mockSlug;
@@ -66,6 +68,10 @@ Future<void> main(List<String> args) async {
     if (stream.variants.isEmpty || stream.embedUrl.isEmpty) {
       throw StateError('The device did not resolve a local stream');
     }
+    if (Platform.environment['DLHD_SMOKE_MOCK_SLUG'] != null &&
+        (stream.variants.length != 1 || recording.requestedBackup)) {
+      throw StateError('Backup resolution started before content playback');
+    }
     for (final variant in stream.variants) {
       stdout.writeln('${variant.title}: ${Uri.parse(variant.url).host}');
     }
@@ -114,10 +120,25 @@ Future<void> main(List<String> args) async {
         throw StateError('Invalid MPEG-TS media segment');
       }
     }
-    stdout.writeln(
-      'PASS: local DLHD extraction, ordered backups, device playlist, '
-      'and 3 segments',
-    );
+    final discovery = stream.discovery;
+    if (discovery != null &&
+        Platform.environment['DLHD_SMOKE_MOCK_SLUG'] != null) {
+      final backups =
+          discovery.updates.firstWhere((items) => items.length >= 3);
+      // Stand in for the shared mobile/TV player's first content progress
+      // event only after transport has delivered the three media segments.
+      discovery.observePlayback(
+        position: const Duration(seconds: 1),
+        isPlaying: true,
+        isBuffering: false,
+        isAd: false,
+      );
+      final variants = await backups.timeout(const Duration(seconds: 10));
+      stdout.writeln('Deferred backups: '
+          '${variants.map((variant) => variant.title).join(', ')}');
+    }
+    stdout.writeln('PASS: Player 1 first, device playlist and 3 segments, '
+        'then deferred backup discovery');
   } catch (error) {
     stderr.writeln('FAIL: $error');
     exitCode = 1;

@@ -465,6 +465,7 @@ class _ChannelListState extends State<ChannelList> {
             mediaType: stream.mediaType,
             clearKey: stream.clearKey,
             variants: stream.variants,
+            streamDiscovery: stream.discovery,
             autoFullScreen: autoFullScreen,
             colors: <Color>[
               Theme.of(context).colorScheme.primary,

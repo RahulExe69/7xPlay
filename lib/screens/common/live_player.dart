@@ -50,6 +50,7 @@ class LivePlayer extends StatefulWidget {
     this.mediaType = 'hls',
     this.clearKey,
     this.variants = const <LiveStreamVariant>[],
+    this.streamDiscovery,
     this.streamIcon,
     this.channels = const <Channel>[],
     this.initialChannelId,
@@ -74,6 +75,7 @@ class LivePlayer extends StatefulWidget {
   final String mediaType;
   final String? clearKey;
   final List<LiveStreamVariant> variants;
+  final LiveStreamDiscovery? streamDiscovery;
   final String? streamIcon;
 
   /// Channels available for in-player switching. When empty, the channel
@@ -157,6 +159,8 @@ class _LivePlayerState extends State<LivePlayer> {
   late String _currentMediaType;
   String? _currentClearKey;
   late List<LiveStreamVariant> _streamVariants;
+  LiveStreamDiscovery? _streamDiscovery;
+  StreamSubscription<List<LiveStreamVariant>>? _discoverySubscription;
   final LiveStreamFailoverQueue _variantFailover = LiveStreamFailoverQueue();
   final ValueNotifier<_LivePlaybackFailure?> _playbackFailure =
       ValueNotifier<_LivePlaybackFailure?>(null);
@@ -250,6 +254,7 @@ class _LivePlayerState extends State<LivePlayer> {
     );
 
     _betterPlayerController = BetterPlayerController(betterPlayerConfiguration);
+    _adoptStreamDiscovery(widget.streamDiscovery);
     _settings.addListener(_syncAmbientGlowSetting);
     _syncAmbientGlowSetting();
     _betterPlayerController.addEventsListener(_onPlayerEvent);
@@ -447,7 +452,7 @@ class _LivePlayerState extends State<LivePlayer> {
                 ),
               if (canSwitchVariants)
                 BetterPlayerOverflowMenuItem(
-                  PhosphorIcons.gauge(),
+                  PhosphorIcons.hardDrives(),
                   tr('player_backup_streams'),
                   _showStreamVariantSwitcher,
                 ),
@@ -456,7 +461,7 @@ class _LivePlayerState extends State<LivePlayer> {
           ? <BetterPlayerOverflowMenuItem>[
               if (canSwitchVariants)
                 BetterPlayerOverflowMenuItem(
-                  PhosphorIcons.gauge(),
+                  PhosphorIcons.hardDrives(),
                   tr('player_backup_streams'),
                   _showStreamVariantSwitcher,
                 ),
@@ -477,6 +482,58 @@ class _LivePlayerState extends State<LivePlayer> {
       widget.channels.length > 1;
 
   bool get canSwitchVariants => _streamVariants.length > 1;
+
+  void _adoptStreamDiscovery(LiveStreamDiscovery? discovery) {
+    if (identical(_streamDiscovery, discovery)) return;
+    _streamDiscovery?.dispose();
+    final subscription = _discoverySubscription;
+    if (subscription != null) unawaited(subscription.cancel());
+    _streamDiscovery = discovery;
+    _discoverySubscription = discovery?.updates.listen((_) {
+      _updateDiscoveredVariants(discovery);
+    });
+  }
+
+  void _updateDiscoveredVariants(LiveStreamDiscovery discovery) {
+    if (!mounted ||
+        _adBlockStopped ||
+        !identical(_streamDiscovery, discovery)) {
+      return;
+    }
+    setState(() => _streamVariants = discovery.variants);
+    _variantFailover.add(_streamVariants);
+    betterPlayerControlsConfiguration =
+        _buildControlsConfiguration(_currentChannelName);
+    _betterPlayerController.setBetterPlayerControlsConfiguration(
+      betterPlayerControlsConfiguration,
+    );
+  }
+
+  void _adoptResolvedStream(DaddyLiveStream stream) {
+    setState(() => _streamVariants = List.of(stream.variants));
+    _variantFailover.replace(_streamVariants, currentUrl: stream.url);
+    _adoptStreamDiscovery(stream.discovery);
+    betterPlayerControlsConfiguration =
+        _buildControlsConfiguration(_currentChannelName);
+    _betterPlayerController.setBetterPlayerControlsConfiguration(
+      betterPlayerControlsConfiguration,
+    );
+  }
+
+  Future<LiveStreamVariant?> _nextBackup(int operation) async {
+    var backup = _variantFailover.next();
+    final discovery = _streamDiscovery;
+    while (backup == null && discovery?.hasNext == true) {
+      await discovery!.resolveNext().timeout(_sourceResolveTimeout);
+      if (!_isActiveSourceOperation(operation) ||
+          !identical(discovery, _streamDiscovery)) {
+        return null;
+      }
+      _updateDiscoveredVariants(discovery);
+      backup = _variantFailover.next();
+    }
+    return backup;
+  }
 
   BetterPlayerDataSource _buildDataSource(
     String url,
@@ -528,6 +585,7 @@ class _LivePlayerState extends State<LivePlayer> {
     final failure = _playbackFailure.value;
     if (failure?.retrying == true || !mounted) return;
     _cancelPlaybackRecovery();
+    _adoptStreamDiscovery(null);
     final operation = _beginSourceOperation();
     _playbackFailure.value = _LivePlaybackFailure(
       message: failure?.message ?? tr('player_channel_temporarily_unavailable'),
@@ -541,7 +599,10 @@ class _LivePlayerState extends State<LivePlayer> {
       final stream = service != null && channelId != null
           ? await service.getStream(channelId).timeout(_sourceResolveTimeout)
           : null;
-      if (!_isActiveSourceOperation(operation)) return;
+      if (!_isActiveSourceOperation(operation)) {
+        stream?.discovery?.dispose();
+        return;
+      }
       final url = stream?.url ?? _currentVideoUrl;
       final headers = stream?.headers ?? _currentVideoHeaders;
       final mediaType = stream?.mediaType ?? _currentMediaType;
@@ -549,6 +610,7 @@ class _LivePlayerState extends State<LivePlayer> {
       if (url.trim().isEmpty) {
         throw StateError(tr('player_no_playable_stream'));
       }
+      if (stream != null) _adoptResolvedStream(stream);
       if (_recoveryStartedAt == null) {
         _beginPlaybackRecovery(tr('player_waiting_for_live'));
       }
@@ -568,16 +630,6 @@ class _LivePlayerState extends State<LivePlayer> {
       _currentVideoHeaders = Map<String, String>.of(headers);
       _currentMediaType = mediaType;
       _currentClearKey = clearKey;
-      if (stream != null) {
-        _streamVariants = List<LiveStreamVariant>.of(stream.variants);
-        _variantFailover.replace(
-          _streamVariants,
-          currentUrl: url,
-        );
-        _betterPlayerController.setBetterPlayerControlsConfiguration(
-          _buildControlsConfiguration(_currentChannelName),
-        );
-      }
       if (_betterPlayerController.isPlaying() != true) {
         await _betterPlayerController.play();
       }
@@ -655,7 +707,11 @@ class _LivePlayerState extends State<LivePlayer> {
     final attempt = ++_automaticRecoveryAttempt;
     _trackPlayerEvent('auto_retry_$attempt');
     try {
-      final backup = _variantFailover.next();
+      final backup = await _nextBackup(operation);
+      if (!_isActiveRecovery(generation) ||
+          !_isActiveSourceOperation(operation)) {
+        return;
+      }
       final service = widget.service;
       final channelId = _currentChannelId;
       if (backup != null) {
@@ -685,12 +741,15 @@ class _LivePlayerState extends State<LivePlayer> {
         );
         _trackPlayerEvent('auto_failover');
       } else if (service != null && channelId != null) {
+        _adoptStreamDiscovery(null);
         final stream =
             await service.getStream(channelId).timeout(_sourceResolveTimeout);
         if (!_isActiveRecovery(generation) ||
             !_isActiveSourceOperation(operation)) {
+          stream.discovery?.dispose();
           return;
         }
+        _adoptResolvedStream(stream);
         final didSetup = await _setupDataSourceForOperation(
           operation,
           _buildDataSource(
@@ -709,14 +768,6 @@ class _LivePlayerState extends State<LivePlayer> {
         _currentVideoHeaders = Map<String, String>.of(stream.headers);
         _currentMediaType = stream.mediaType;
         _currentClearKey = stream.clearKey;
-        _streamVariants = List<LiveStreamVariant>.of(stream.variants);
-        _variantFailover.replace(
-          _streamVariants,
-          currentUrl: stream.url,
-        );
-        _betterPlayerController.setBetterPlayerControlsConfiguration(
-          _buildControlsConfiguration(_currentChannelName),
-        );
       } else {
         final didSetup = await _setupDataSourceForOperation(
           operation,
@@ -919,6 +970,14 @@ class _LivePlayerState extends State<LivePlayer> {
         final operation = _pendingRecoveryOperation;
         final position = event.parameters?['progress'];
         final value = _betterPlayerController.videoPlayerController?.value;
+        if (!_isSwitching && position is Duration) {
+          _streamDiscovery?.observePlayback(
+            position: position,
+            isPlaying: value?.isPlaying == true && value?.hasError == false,
+            isBuffering: value?.isBuffering != false,
+            isAd: _betterPlayerController.isPreRollActive,
+          );
+        }
         if (_recoveryStartedAt != null &&
             (operation == null || _isActiveSourceOperation(operation)) &&
             value?.isPlaying == true &&
@@ -1064,43 +1123,51 @@ class _LivePlayerState extends State<LivePlayer> {
   Future<void> _showStreamVariantSwitcher() async {
     final selected = await showPlayerSheet<LiveStreamVariant>(
       context: context,
-      builder: (sheetContext) => DraggableScrollableSheet(
-        initialChildSize: .62,
-        minChildSize: .4,
-        maxChildSize: .92,
-        expand: false,
-        snap: true,
-        builder: (context, scrollController) => PlayerSheetScaffold(
-          title: tr('player_backup_streams'),
-          subtitle: tr(
-            'player_stream_count',
-            namedArgs: {'count': '${_streamVariants.length}'},
-          ),
-          actions: [
-            PlayerSheetAction(
-              icon: PhosphorIcons.x(),
-              tooltip: tr('close'),
-              onPressed: () => Navigator.pop(sheetContext),
+      builder: (sheetContext) => StreamBuilder<List<LiveStreamVariant>>(
+        stream: _streamDiscovery?.updates,
+        initialData: _streamVariants,
+        builder: (context, snapshot) {
+          final variants = snapshot.data ?? _streamVariants;
+          return DraggableScrollableSheet(
+            initialChildSize: .62,
+            minChildSize: .4,
+            maxChildSize: .92,
+            expand: false,
+            snap: true,
+            builder: (context, scrollController) => PlayerSheetScaffold(
+              title: tr('player_backup_streams'),
+              subtitle: tr(
+                'player_stream_count',
+                namedArgs: {'count': '${variants.length}'},
+              ),
+              actions: [
+                PlayerSheetAction(
+                  icon: PhosphorIcons.x(),
+                  tooltip: tr('close'),
+                  onPressed: () => Navigator.pop(sheetContext),
+                ),
+              ],
+              child: ListView.separated(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                itemCount: variants.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (context, index) {
+                  final variant = variants[index];
+                  final current = variant.url == _currentVideoUrl;
+                  return PlayerChoiceCard(
+                    title:
+                        variant.title ?? '${tr('player_stream')} ${index + 1}',
+                    subtitle: variant.mediaType.toUpperCase(),
+                    selected: current,
+                    kicker: current ? tr('player_now_playing') : null,
+                    onTap: () => Navigator.pop(sheetContext, variant),
+                  );
+                },
+              ),
             ),
-          ],
-          child: ListView.separated(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-            itemCount: _streamVariants.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 4),
-            itemBuilder: (context, index) {
-              final variant = _streamVariants[index];
-              final current = variant.url == _currentVideoUrl;
-              return PlayerChoiceCard(
-                title: variant.title ?? '${tr('player_stream')} ${index + 1}',
-                subtitle: variant.mediaType.toUpperCase(),
-                selected: current,
-                kicker: current ? tr('player_now_playing') : null,
-                onTap: () => Navigator.pop(sheetContext, variant),
-              );
-            },
-          ),
-        ),
+          );
+        },
       ),
     );
     if (selected == null) return;
@@ -1142,6 +1209,7 @@ class _LivePlayerState extends State<LivePlayer> {
       return;
     }
     _feedbackChannelSwitches++;
+    _adoptStreamDiscovery(null);
     _cancelPlaybackRecovery();
     final operation = _beginSourceOperation();
     final hadPlaybackFailure = _playbackFailure.value != null;
@@ -1177,7 +1245,11 @@ class _LivePlayerState extends State<LivePlayer> {
     try {
       final stream =
           await service.getStream(channel.id).timeout(_sourceResolveTimeout);
-      if (!_isActiveSourceOperation(operation)) return;
+      if (!_isActiveSourceOperation(operation)) {
+        stream.discovery?.dispose();
+        return;
+      }
+      _adoptResolvedStream(stream);
       if (hadPlaybackFailure) {
         _beginPlaybackRecovery(tr('player_waiting_for_live'));
       }
@@ -1195,14 +1267,6 @@ class _LivePlayerState extends State<LivePlayer> {
       _currentVideoHeaders = Map<String, String>.of(stream.headers);
       _currentMediaType = stream.mediaType;
       _currentClearKey = stream.clearKey;
-      _streamVariants = List<LiveStreamVariant>.of(stream.variants);
-      _variantFailover.replace(
-        _streamVariants,
-        currentUrl: stream.url,
-      );
-      _betterPlayerController.setBetterPlayerControlsConfiguration(
-        _buildControlsConfiguration(_currentChannelName),
-      );
       setState(() {
         _isSwitching = false;
       });
@@ -1252,6 +1316,7 @@ class _LivePlayerState extends State<LivePlayer> {
 
   @override
   void dispose() {
+    _adoptStreamDiscovery(null);
     _streamingDnd.dispose();
     _sendAutomaticStreamReport();
     _feedbackConnection.dispose();
@@ -1307,6 +1372,7 @@ class _LivePlayerState extends State<LivePlayer> {
   void _stopForAdBlocker() {
     if (_adBlockStopped) return;
     _adBlockStopped = true;
+    _adoptStreamDiscovery(null);
     _exitingPlayer = true;
     _sourceOperationGeneration++;
     _watchdogTimer?.cancel();
@@ -1506,7 +1572,7 @@ class _LivePlayerState extends State<LivePlayer> {
             actions: <WatchAction>[
               if (canSwitchVariants)
                 WatchAction(
-                  icon: PhosphorIcons.gauge(),
+                  icon: PhosphorIcons.hardDrives(),
                   label: tr('player_backup_streams'),
                   onTap: () => unawaited(_showStreamVariantSwitcher()),
                 ),
@@ -1567,6 +1633,7 @@ class _LivePlayerState extends State<LivePlayer> {
   void _exitPlayer() {
     if (_exitingPlayer) return;
     _exitingPlayer = true;
+    _adoptStreamDiscovery(null);
     final measurement = _feedbackSession.freeze();
     final reportContext = _streamFeedbackContext;
     final metadata = reportContext.parameters;

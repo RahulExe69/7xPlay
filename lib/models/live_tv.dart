@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:intl/intl.dart';
 
 class Channels {
@@ -123,6 +125,7 @@ class DaddyLiveStream {
     this.clearKey,
     this.title,
     this.variants = const <LiveStreamVariant>[],
+    this.discovery,
   });
 
   factory DaddyLiveStream.fromJson(Map<String, dynamic> json) {
@@ -155,6 +158,7 @@ class DaddyLiveStream {
   final String? clearKey;
   final String? title;
   final List<LiveStreamVariant> variants;
+  final LiveStreamDiscovery? discovery;
 }
 
 class LiveStreamVariant {
@@ -187,6 +191,90 @@ class LiveStreamVariant {
   final String? clearKey;
   final String? title;
   final String? logo;
+}
+
+/// Resolves additional servers only after content advances, or on demand when
+/// the current server fails before playback. Results retain advertised order.
+class LiveStreamDiscovery {
+  LiveStreamDiscovery({
+    required LiveStreamVariant initial,
+    required List<Future<LiveStreamVariant?> Function()> backups,
+  })  : _resolved = {0: initial},
+        _backups = backups;
+
+  final List<Future<LiveStreamVariant?> Function()> _backups;
+  final Map<int, LiveStreamVariant> _resolved;
+  final Map<int, Future<LiveStreamVariant?>> _pending = {};
+  final _updates = StreamController<List<LiveStreamVariant>>.broadcast();
+  bool _started = false;
+  bool _disposed = false;
+  int _nextFallback = 0;
+  Duration _lastPosition = Duration.zero;
+
+  Stream<List<LiveStreamVariant>> get updates => _updates.stream;
+  bool get isDisposed => _disposed;
+  bool get hasNext => !_disposed && _nextFallback < _backups.length;
+  List<LiveStreamVariant> get variants {
+    final keys = _resolved.keys.toList()..sort();
+    return List.unmodifiable(keys.map((key) => _resolved[key]!));
+  }
+
+  void observePlayback({
+    required Duration position,
+    required bool isPlaying,
+    required bool isBuffering,
+    required bool isAd,
+  }) {
+    if (_disposed || _started) return;
+    if (isAd) {
+      _lastPosition = Duration.zero;
+      return;
+    }
+    final advanced = position > _lastPosition;
+    _lastPosition = position;
+    if (advanced && isPlaying && !isBuffering) start();
+  }
+
+  /// The caller has observed content playback. Each successful backup is
+  /// published independently, so one slow server never holds up the others.
+  void start() {
+    if (_disposed || _started) return;
+    _started = true;
+    for (var index = 0; index < _backups.length; index++) {
+      unawaited(_resolve(index));
+    }
+  }
+
+  /// Before playback, recovery tries only as far as the next working server.
+  /// Already-running resolutions are shared with background discovery.
+  Future<void> resolveNext() async {
+    while (hasNext) {
+      final result = await _resolve(_nextFallback++);
+      if (_disposed || result != null) return;
+    }
+  }
+
+  Future<LiveStreamVariant?> _resolve(int index) {
+    if (_disposed) return Future.value(null);
+    return _pending.putIfAbsent(index, () async {
+      try {
+        final variant = await _backups[index]();
+        if (_disposed || variant == null) return null;
+        _resolved[index + 1] = variant;
+        _updates.add(variants);
+        return variant;
+      } catch (_) {
+        // A failed backup must never interrupt the playing server.
+        return null;
+      }
+    });
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    unawaited(_updates.close());
+  }
 }
 
 class DaddyLiveEpg {
