@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:provider/provider.dart';
+import '../../presentation/session/firebase_session_bridge.dart';
 import '../../services/globle_method.dart';
 import '../../services/auth_navigation_service.dart';
 import '../../mobile/widgets/account_form.dart';
@@ -154,6 +155,8 @@ class _LoginScreenState extends State<LaravelLoginScreen> {
             children: [
               TextFormField(
                 key: const ValueKey('email'),
+                // Prefilled for 4.2.x accounts that need one manual sign-in.
+                initialValue: FirebaseSessionBridge.signInEmailHint,
                 validator: (value) {
                   if (value!.isEmpty || !value.contains('@')) {
                     return tr('invalid_email');

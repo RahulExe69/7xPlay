@@ -105,6 +105,19 @@ development deployment settings remain warnings and fail in strict mode.
 
 Keep production `config_source=firebase`. Laravel's current bootstrap still lacks modern network-ad/popup/Telegram fields needed for a complete Laravel-config cutover. Automated tests establish client mapping/source selection, but switching production to the incomplete backend payload would lose feature configuration. Correct that contract and revalidate both sources before changing the operator selection.
 
+## Upgrade sign-in (4.2.x → 4.3.0)
+
+On the first launch after updating, `FirebaseSessionBridge` reads the Firebase sign-in 4.2.x left on the device:
+
+- **Signed-in accounts** send a fresh Firebase ID token to `POST /api/v1/auth/firebase/exchange`. Laravel verifies it, migrates the account and its Firestore data if needed, and returns a normal Sanctum token. Local library data is merged like a guest sign-in; wellness rows stored under `user:<firebase uid>` move to the Laravel owner. The user lands in Home, already signed in.
+- **4.2.x guests** (anonymous Firebase users) go straight to guest browsing instead of the landing screen.
+- **Accounts the exchange can't carry** (deleted, disabled or revoked in Firebase, or an email already owned by another Laravel account) see sign-in once, with their email prefilled. Their original password still works.
+- Offline, rate-limited or 5xx exchanges keep the Firebase session and retry on resume and the next launch. Startup waits at most 10 seconds for the exchange.
+
+The backend needs `FIREBASE_MIGRATION_ENABLED=true` and Firebase Admin credentials (`FIREBASE_CREDENTIALS`) for the project the 4.2.x app used. Without them the endpoint answers `503 firebase_exchange_unavailable`, and apps keep retrying, so enable it before the release reaches users. Exchanged accounts keep their Firebase password hash only when the Admin credentials can read hashes; otherwise their first password login verifies through Firebase instead.
+
+`firebase_auth` stays in 4.3.0 only for this bridge. Remove it, the bridge, and the endpoint in 4.4.0, once most installs have upgraded.
+
 ## Cutover and recovery
 
 1. Capture a restorable MySQL backup, source export manifest/counts, release identifiers and the current runtime config owner. Rehearse restoration on staging first.

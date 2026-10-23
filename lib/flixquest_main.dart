@@ -1,3 +1,4 @@
+import 'presentation/session/firebase_session_bridge.dart';
 import 'presentation/notifications/notification_controller.dart';
 import 'data/sync/sync_runtime.dart';
 import 'services/bookmark_sync_service.dart';
@@ -47,6 +48,7 @@ class FlixQuest extends StatefulWidget {
       this.configController,
       this.adsController,
       this.notifications,
+      this.firebaseSession,
       super.key});
 
   final SettingsProvider settingsProvider;
@@ -57,6 +59,7 @@ class FlixQuest extends StatefulWidget {
   final ConfigLifecycle? configController;
   final AdEventsController? adsController;
   final NotificationController? notifications;
+  final FirebaseSessionBridge? firebaseSession;
 
   @override
   State<FlixQuest> createState() => _FlixQuestState();
@@ -186,6 +189,7 @@ class _FlixQuestState extends State<FlixQuest>
     unawaited(_firebaseConfig?.resume());
     unawaited(widget.adsController?.onResume());
     unawaited(widget.notifications?.onResume());
+    unawaited(widget.firebaseSession?.run());
     unawaited(_refreshHomeWidgets());
     unawaited(RecentlyWatchedSyncService.instance.autoSyncIfSignedIn());
     if (SyncRuntime.enabled) {

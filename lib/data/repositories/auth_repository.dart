@@ -68,6 +68,11 @@ class AuthRepository {
           method: 'POST',
           authenticated: false,
           data: {'access_token': accessToken})));
+  Future<Result<AuthSession>> exchangeFirebaseSession(String idToken) =>
+      _result(() async => _session(await api.request('auth/firebase/exchange',
+          method: 'POST',
+          authenticated: false,
+          data: {'id_token': idToken})));
   Future<Result<AppUser>> profile() => _result(() async => AppUser.fromJson(
       (await api.request('user/profile'))['user'] as Map<String, dynamic>));
   Future<Result<AppUser>> updateProfile(UpdateProfileRequest request) =>

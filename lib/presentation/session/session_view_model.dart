@@ -159,6 +159,10 @@ class SessionViewModel extends ChangeNotifier {
       _authenticate(() => repository.signIn(request), mergeGuest: true);
   Future<Result<AuthSession>> signUp(RegisterRequest request) =>
       _authenticate(() => repository.signUp(request), mergeGuest: true);
+  /// Signs in an upgraded install from the Firebase session it still holds.
+  Future<Result<AuthSession>> signInWithFirebaseSession(String idToken) =>
+      _authenticate(() => repository.exchangeFirebaseSession(idToken),
+          mergeGuest: true);
   Future<Result<AuthSession?>> signInWithGoogle() async {
     final revision = _revision;
     final accessToken = await google.authenticate();

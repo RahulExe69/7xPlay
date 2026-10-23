@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../presentation/session/firebase_session_bridge.dart';
 import '../../provider/settings_provider.dart';
 import '../../services/auth_navigation_service.dart';
 import '../app/tv_design.dart';
@@ -47,6 +48,14 @@ class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
   int _profileId = 0;
 
   bool get _isSignIn => widget.mode == TvAuthMode.signIn;
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefilled for 4.2.x accounts that need one manual sign-in.
+    final hint = FirebaseSessionBridge.signInEmailHint;
+    if (_isSignIn && hint != null) _emailController.text = hint;
+  }
 
   @override
   void dispose() {

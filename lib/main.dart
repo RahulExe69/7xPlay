@@ -1,3 +1,6 @@
+import 'controllers/wellness_database_controller.dart';
+import 'presentation/session/firebase_session_bridge.dart';
+import 'data/sources/legacy_firebase_session.dart';
 import 'data/sources/onesignal_messaging_client.dart';
 import 'data/repositories/push_message_repository.dart';
 import 'presentation/notifications/push_message_controller.dart';
@@ -227,8 +230,27 @@ void main() async {
       unawaited(recentProvider.fetchEpisodes());
     });
   }
+  final firebaseSession = FirebaseSessionBridge(
+    session: injector.session,
+    legacy: SdkLegacyFirebaseSession(),
+    preferences: injector.kvStore,
+    moveLocalOwner: (from, to) async {
+      await WellnessDatabaseController.instance
+          .moveOwner(fromOwnerId: from, toOwnerId: to);
+      await wellnessProvider.reload();
+      if (SyncRuntime.enabled) {
+        unawaited(injector.syncCoordinator.syncAll());
+      }
+    },
+  );
   {
     await injector.session.restore();
+    // Costs one round trip on the first launch after upgrading from 4.2.x,
+    // which keeps those users out of the sign-in screen. A slow network lets
+    // the app start while the exchange finishes in the background.
+    await firebaseSession
+        .run()
+        .timeout(const Duration(seconds: 10), onTimeout: () {});
     AuthSessionController.instance.initialize();
     await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
     if (SyncRuntime.enabled) {
@@ -312,6 +334,7 @@ void main() async {
               configController: configController,
               adsController: adsController,
               notifications: notifications,
+              firebaseSession: firebaseSession,
             ),
           ))));
 }
