@@ -48,9 +48,9 @@ flutter run --flavor prod \
   --dart-define=ONESIGNAL_APP_ID=YOUR_PUBLIC_APP_UUID
 ```
 
-For a release APK, use the same defines with `flutter build apk --release --flavor prod`. Changing a compile-time define requires a full restart/rebuild. Hot reload does not activate OneSignal.
+Instead of the define, `ONESIGNAL_APP_ID` can go in the bundled `.env` (see `.env.example`), so plain `flutter build apk --release --flavor prod` builds pick it up. A define, when given, wins over `.env`. Either way, a change needs a full restart/rebuild; hot reload does not activate OneSignal.
 
-Without `ONESIGNAL_APP_ID`, the existing FCM client remains selected. With a valid App ID, OneSignal handles push, and Laravel receives OneSignal **subscription IDs** rather than raw FCM tokens. A native initialization failure allows the app to start with the FCM adapter and retries OneSignal on the next full launch. It does not prove OneSignal is configured.
+Without `ONESIGNAL_APP_ID` in either place, the existing FCM client remains selected. With a valid App ID, OneSignal handles push, and Laravel receives OneSignal **subscription IDs** rather than raw FCM tokens. A native initialization failure allows the app to start with the FCM adapter and retries OneSignal on the next full launch. It does not prove OneSignal is configured.
 
 Allow notification permission using the app's existing prompt/system settings. Device registration waits until OneSignal has an opted-in subscription ID. On sign-in, token/subscription changes, cold boot and resume, the app reconciles registration. Physical Android TV devices get the `flixquest_platform=tv` tag; changing the app's visual layout does not change the physical platform tag.
 

@@ -245,7 +245,7 @@ void main() async {
         : Platform.isIOS
             ? 'ios'
             : 'android';
-    const oneSignalAppId = String.fromEnvironment('ONESIGNAL_APP_ID');
+    final oneSignalAppId = injector.environment.oneSignalAppId;
     if (oneSignalAppId.isNotEmpty &&
         !OneSignalMessagingClient.validAppId(oneSignalAppId)) {
       throw StateError('ONESIGNAL_APP_ID must be a valid public App ID.');

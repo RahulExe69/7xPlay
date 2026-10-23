@@ -24,6 +24,19 @@ void main() {
         'http://10.0.2.2:8000/api/v1/');
   });
 
+  test('OneSignal App ID uses define before bundled environment', () {
+    const env = {
+      'LARAVEL_API_URL': 'https://backend.example',
+      'ONESIGNAL_APP_ID': ' bundled-id ',
+    };
+    expect(AppEnvironment.resolve(env: env).oneSignalAppId, 'bundled-id');
+    expect(
+        AppEnvironment.resolve(defineOneSignalAppId: 'define-id', env: env)
+            .oneSignalAppId,
+        'define-id');
+    expect(AppEnvironment.resolve(isDebug: true).oneSignalAppId, isEmpty);
+  });
+
   test('release builds require a deployment URL', () {
     expect(() => AppEnvironment.resolve(isDebug: false), throwsStateError);
   });

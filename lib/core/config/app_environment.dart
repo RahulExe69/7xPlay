@@ -3,16 +3,19 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Deployment configuration. Base URLs always end in `/api/v1/` for Dio.
 class AppEnvironment {
-  const AppEnvironment._(this.laravelApiUrl, this.debugLogging);
+  const AppEnvironment._(
+      this.laravelApiUrl, this.debugLogging, this.oneSignalAppId);
 
   factory AppEnvironment.fromRuntime() => AppEnvironment.resolve(
         defineUrl: const String.fromEnvironment('LARAVEL_API_URL'),
+        defineOneSignalAppId: const String.fromEnvironment('ONESIGNAL_APP_ID'),
         env: dotenv.isInitialized ? dotenv.env : const {},
         isDebug: kDebugMode,
       );
 
   factory AppEnvironment.resolve({
     String defineUrl = '',
+    String defineOneSignalAppId = '',
     Map<String, String> env = const {},
     bool isDebug = false,
   }) {
@@ -40,11 +43,17 @@ class AppEnvironment {
     return AppEnvironment._(
       uri.replace(path: '$path/').toString(),
       isDebug,
+      defineOneSignalAppId.trim().isNotEmpty
+          ? defineOneSignalAppId.trim()
+          : (env['ONESIGNAL_APP_ID'] ?? '').trim(),
     );
   }
 
   final String laravelApiUrl;
   final bool debugLogging;
+
+  /// Public OneSignal App ID; empty keeps push on the plain FCM client.
+  final String oneSignalAppId;
   Duration get connectTimeout => const Duration(seconds: 10);
   Duration get receiveTimeout => const Duration(seconds: 20);
 }
