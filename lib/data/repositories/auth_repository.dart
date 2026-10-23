@@ -63,11 +63,11 @@ class AuthRepository {
                 'email': request.email.trim().toLowerCase(),
                 'username': request.username.trim().toLowerCase()
               })));
-  Future<Result<AuthSession>> signInWithGoogle(String accessToken) =>
+  Future<Result<AuthSession>> signInWithGoogle(String idToken) =>
       _result(() async => _session(await api.request('auth/google',
           method: 'POST',
           authenticated: false,
-          data: {'access_token': accessToken})));
+          data: {'id_token': idToken})));
   Future<Result<AuthSession>> exchangeFirebaseSession(String idToken) =>
       _result(() async => _session(await api.request('auth/firebase/exchange',
           method: 'POST',

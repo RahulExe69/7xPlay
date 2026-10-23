@@ -165,14 +165,14 @@ class SessionViewModel extends ChangeNotifier {
           mergeGuest: true);
   Future<Result<AuthSession?>> signInWithGoogle() async {
     final revision = _revision;
-    final accessToken = await google.authenticate();
+    final idToken = await google.authenticate();
     if (revision != _revision) {
       return const Result.err(
           Failure.unknown(message: 'Session changed. Please try again.'));
     }
-    if (accessToken == null) return const Result.ok(null);
+    if (idToken == null) return const Result.ok(null);
     final result = await _authenticate(
-        () => repository.signInWithGoogle(accessToken),
+        () => repository.signInWithGoogle(idToken),
         mergeGuest: true);
     return result.when(
         ok: (session) => Result.ok(session),

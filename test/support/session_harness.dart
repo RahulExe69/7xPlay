@@ -38,10 +38,10 @@ class MemoryTokens extends SecureTokenStore {
 }
 
 class FakeGoogleIdentity implements GoogleIdentityClient {
-  String? accessToken;
+  String? idToken;
   int signOuts = 0;
   @override
-  Future<String?> authenticate() async => accessToken;
+  Future<String?> authenticate() async => idToken;
   @override
   Future<void> signOut() async {
     signOuts++;

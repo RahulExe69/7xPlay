@@ -34,19 +34,19 @@ class PluginClient extends GoogleSignIn {
 }
 
 void main() {
-  test('prefers the OAuth access token when both Google tokens exist',
-      () async {
+  test('sends the ID token even when an access token exists', () async {
     final plugin = PluginClient()
       ..account =
           PluginAccount(PluginAuth(accessToken: 'access', idToken: 'id'));
     expect(await PlatformGoogleIdentityClient(client: plugin).authenticate(),
-        'access');
-  });
-  test('falls back to the ID token when the access token is empty', () async {
-    final plugin = PluginClient()
-      ..account = PluginAccount(PluginAuth(accessToken: '', idToken: 'id'));
-    expect(await PlatformGoogleIdentityClient(client: plugin).authenticate(),
         'id');
+  });
+  test('an access token alone cannot sign in', () async {
+    final plugin = PluginClient()
+      ..account = PluginAccount(PluginAuth(accessToken: 'access'));
+    await expectLater(
+        PlatformGoogleIdentityClient(client: plugin).authenticate(),
+        throwsFormatException);
   });
   test('cancel returns null without an exchange', () async {
     expect(

@@ -182,15 +182,15 @@ void main() {
   });
   test('Google exchange sends access token and persists the Sanctum session',
       () async {
-    h.google.accessToken = 'oauth-token';
+    h.google.idToken = 'google-id-token';
     h.adapter.enqueueJson(authFixture());
     expect(await h.session.signInWithGoogle(), isA<Ok>());
-    expect(h.adapter.requests.single.data, {'access_token': 'oauth-token'});
+    expect(h.adapter.requests.single.data, {'id_token': 'google-id-token'});
     expect(h.tokens.value, '7|sanitized-test-token');
   });
   test('Google conflict leaves tokens empty and returns an actionable failure',
       () async {
-    h.google.accessToken = 'oauth-token';
+    h.google.idToken = 'google-id-token';
     h.adapter.enqueueJson(
         {'success': false, 'message': 'Password account exists.'},
         statusCode: 409);

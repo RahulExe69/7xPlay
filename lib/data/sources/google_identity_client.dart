@@ -15,10 +15,11 @@ class PlatformGoogleIdentityClient implements GoogleIdentityClient {
     final account = await client.signIn();
     if (account == null) return null;
     final auth = await account.authentication;
-    final token =
-        auth.accessToken?.isNotEmpty == true ? auth.accessToken : auth.idToken;
+    // The backend accepts only ID tokens: unlike access tokens they name the
+    // client they were issued to (the project's default_web_client_id).
+    final token = auth.idToken;
     if (token == null || token.isEmpty) {
-      throw const FormatException('Google did not return a token.');
+      throw const FormatException('Google did not return an ID token.');
     }
     return token;
   }
