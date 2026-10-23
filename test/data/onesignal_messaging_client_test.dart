@@ -11,6 +11,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   const channelNames = [
     'OneSignal',
+    'OneSignal#debug',
     'OneSignal#user',
     'OneSignal#pushsubscription',
     'OneSignal#notifications',

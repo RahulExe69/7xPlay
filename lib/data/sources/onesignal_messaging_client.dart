@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'push_messaging_client.dart';
 
@@ -16,6 +17,7 @@ class OneSignalMessagingClient implements PushMessagingClient {
 
   Future<void> initialize(String appId, {required String platform}) async {
     if (!validAppId(appId)) throw ArgumentError('Invalid OneSignal App ID.');
+    if (kDebugMode) await OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
     OneSignal.Notifications.addClickListener(_onClick);
     OneSignal.Notifications.addForegroundWillDisplayListener(_onForeground);
     OneSignal.User.pushSubscription.addObserver(_onSubscription);
