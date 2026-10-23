@@ -95,69 +95,71 @@ class AppRemoteConfig {
             : RemoteConfigRefreshController.minimumFetchInterval,
       ),
     );
-    await remoteConfig.setDefaults(<String, Object>{
-      occasionalThemeKey: '{"enabled":false}',
-      appLogoKey: '',
-      legacyAppLogoKey: 'default',
-      'forced_update': false,
-      'latest_version': '',
-      'latest_build_number': 0,
-      'min_build_number': 0,
-      appDownloadUrlKey: '',
-      for (final abi in AppUpdateService.splitApkAbis)
-        abiDownloadUrlKey(abi): '',
-      'change_log': '',
-      flixquestApiInstancesKey: '',
-      flixquestApiUrlKey: '',
-      tmdbApiKey: '',
-      // Feature toggles ship enabled so a failed or offline fetch never hides
-      // playback, downloads or Live TV.
-      enableWatchNowKey: true,
-      enableDownloadKey: true,
-      enableLiveTvKey: true,
-      legacyEnableLiveTvKey: true,
-      // Off until published, so a misbehaving check can be withdrawn remotely.
-      adBlockGateEnabledKey: false,
-      bannersKey: '{"banners":[]}',
-      bannerAdNetworkKey: 'adsterra',
-      bannerAdNetworkTestKey: '',
-      bannerAdNetworkOverridesKey: '{}',
-      hostedBannerModeKey: 'stack',
-      adsterraBannerEnabledKey: false,
-      adsterraTvEnabledKey: false,
-      adsterraBannersKey: '{"units":{},"defaults":{},"placements":{}}',
-      clickaduBannerEnabledKey: false,
-      clickaduTvEnabledKey: false,
-      clickaduBannersKey: '{"units":{},"defaults":{},"placements":{}}',
-      exoclickBannerEnabledKey: false,
-      exoclickTvEnabledKey: false,
-      exoclickBannersKey: '{"units":{},"defaults":{},"placements":{}}',
-      adsterraPlaybackEnabledKey: false,
-      adsterraPlaybackAdsKey: '{}',
-      playbackPopunderNetworkKey: 'adsterra',
-      playbackPopupFrequencyMinutesKey: 0,
-      playbackPopupAutoCloseEnabledKey: false,
-      playbackPopupExternalBrowserOnTapKey: true,
-      for (final stage in PlaybackAdStage.triggers) ...{
-        popupEnabledKey(stage): false,
-        popupFrequencyMinutesKey(stage): 0,
-      },
-      playerExitPopupMinWatchSecondsKey: 60,
-      playerExitPopupRelaunchEnabledKey: false,
-      playerExitPopupRelaunchMaxHoursKey: 24,
-      clickaduPlaybackEnabledKey: false,
-      clickaduPlaybackAdsKey: '{}',
-      monetagPlaybackEnabledKey: false,
-      monetagPlaybackAdsKey: '{}',
-      exoclickPlaybackEnabledKey: false,
-      exoclickPlaybackAdsKey: '{}',
-      vastPrerollEnabledKey: false,
-      vastPrerollKey: '{}',
-      vastPrerollNetworkKey: 'clickadu',
-      // Empty keeps the Home prompt to join the channel off.
-      telegramChannelUrlKey: '',
-    });
+    await remoteConfig.setDefaults(defaults);
   }
+
+  static Map<String, Object> get defaults => <String, Object>{
+        occasionalThemeKey: '{"enabled":false}',
+        appLogoKey: '',
+        legacyAppLogoKey: 'default',
+        'forced_update': false,
+        'latest_version': '',
+        'latest_build_number': 0,
+        'min_build_number': 0,
+        appDownloadUrlKey: '',
+        for (final abi in AppUpdateService.splitApkAbis)
+          abiDownloadUrlKey(abi): '',
+        'change_log': '',
+        flixquestApiInstancesKey: '',
+        flixquestApiUrlKey: '',
+        tmdbApiKey: '',
+        // Feature toggles ship enabled so a failed or offline fetch never hides
+        // playback, downloads or Live TV.
+        enableWatchNowKey: true,
+        enableDownloadKey: true,
+        enableLiveTvKey: true,
+        legacyEnableLiveTvKey: true,
+        // Off until published, so a misbehaving check can be withdrawn remotely.
+        adBlockGateEnabledKey: false,
+        bannersKey: '{"banners":[]}',
+        bannerAdNetworkKey: 'adsterra',
+        bannerAdNetworkTestKey: '',
+        bannerAdNetworkOverridesKey: '{}',
+        hostedBannerModeKey: 'stack',
+        adsterraBannerEnabledKey: false,
+        adsterraTvEnabledKey: false,
+        adsterraBannersKey: '{"units":{},"defaults":{},"placements":{}}',
+        clickaduBannerEnabledKey: false,
+        clickaduTvEnabledKey: false,
+        clickaduBannersKey: '{"units":{},"defaults":{},"placements":{}}',
+        exoclickBannerEnabledKey: false,
+        exoclickTvEnabledKey: false,
+        exoclickBannersKey: '{"units":{},"defaults":{},"placements":{}}',
+        adsterraPlaybackEnabledKey: false,
+        adsterraPlaybackAdsKey: '{}',
+        playbackPopunderNetworkKey: 'adsterra',
+        playbackPopupFrequencyMinutesKey: 0,
+        playbackPopupAutoCloseEnabledKey: false,
+        playbackPopupExternalBrowserOnTapKey: true,
+        for (final stage in PlaybackAdStage.triggers) ...{
+          popupEnabledKey(stage): false,
+          popupFrequencyMinutesKey(stage): 0,
+        },
+        playerExitPopupMinWatchSecondsKey: 60,
+        playerExitPopupRelaunchEnabledKey: false,
+        playerExitPopupRelaunchMaxHoursKey: 24,
+        clickaduPlaybackEnabledKey: false,
+        clickaduPlaybackAdsKey: '{}',
+        monetagPlaybackEnabledKey: false,
+        monetagPlaybackAdsKey: '{}',
+        exoclickPlaybackEnabledKey: false,
+        exoclickPlaybackAdsKey: '{}',
+        vastPrerollEnabledKey: false,
+        vastPrerollKey: '{}',
+        vastPrerollNetworkKey: 'clickadu',
+        // Empty keeps the Home prompt to join the channel off.
+        telegramChannelUrlKey: '',
+      };
 
   /// Only the dev flavor may exercise real banner catalogs independently of
   /// production settings. Build mode (debug/profile/release) is irrelevant.
@@ -220,7 +222,32 @@ class AppRemoteConfig {
   static void apply(
     FirebaseRemoteConfig remoteConfig,
     AppDependencyProvider provider,
+  ) =>
+      _apply(_ConfigValues(remoteConfig.getValue), provider);
+
+  /// Apply the selected backend's snapshot through the same runtime mapping.
+  static void applySnapshot(
+    Map<String, dynamic> settings,
+    AppDependencyProvider provider,
   ) {
+    final fallback = defaults;
+    _apply(_ConfigValues((key) {
+      final published = settings.containsKey(key) && settings[key] != null;
+      final value = published ? settings[key] : fallback[key];
+      final text = value is String
+          ? value
+          : value == null
+              ? ''
+              : value is Map || value is List
+                  ? jsonEncode(value)
+                  : value.toString();
+      return RemoteConfigValue(Uint8List.fromList(utf8.encode(text)),
+          published ? ValueSource.valueRemote : ValueSource.valueDefault);
+    }), provider);
+  }
+
+  static void _apply(
+      _ConfigValues remoteConfig, AppDependencyProvider provider) {
     final preferredLogoValue = remoteConfig.getValue(appLogoKey);
     final legacyLogoValue = remoteConfig.getValue(legacyAppLogoKey);
     final preferredLogo = preferredLogoValue.asString().trim();
@@ -470,7 +497,7 @@ class AppRemoteConfig {
   }
 
   /// Ad switches count only when published: no default turns an ad on.
-  static bool _remoteBool(FirebaseRemoteConfig remoteConfig, String key) {
+  static bool _remoteBool(_ConfigValues remoteConfig, String key) {
     final value = remoteConfig.getValue(key);
     return value.source == ValueSource.valueRemote && value.asBool();
   }
@@ -478,11 +505,19 @@ class AppRemoteConfig {
   /// Resolves the Live TV toggle, preferring [enableLiveTvKey] and falling back
   /// to [legacyEnableLiveTvKey] for consoles that have not migrated yet. Only
   /// values actually published remotely win; otherwise the feature stays on.
-  static bool _resolveLiveTv(FirebaseRemoteConfig remoteConfig) {
+  static bool _resolveLiveTv(_ConfigValues remoteConfig) {
     final value = remoteConfig.getValue(enableLiveTvKey);
     if (value.source == ValueSource.valueRemote) return value.asBool();
     final legacy = remoteConfig.getValue(legacyEnableLiveTvKey);
     if (legacy.source == ValueSource.valueRemote) return legacy.asBool();
     return true;
   }
+}
+
+class _ConfigValues {
+  const _ConfigValues(this.getValue);
+  final RemoteConfigValue Function(String) getValue;
+  String getString(String key) => getValue(key).asString();
+  bool getBool(String key) => getValue(key).asBool();
+  int getInt(String key) => getValue(key).asInt();
 }

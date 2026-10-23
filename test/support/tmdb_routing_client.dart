@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:http/http.dart' as http;
 
 /// Routes the real TMDB HTTP client to a local dependency fixture. Requests to
@@ -24,4 +28,33 @@ class TmdbRoutingClient extends http.BaseClient {
 
   @override
   void close() => _transport.close();
+}
+
+/// [TmdbRoutingClient] for the Dio transport behind `functions/network.dart`.
+class TmdbRoutingDioAdapter implements HttpClientAdapter {
+  TmdbRoutingDioAdapter(this.directBase);
+
+  final Uri directBase;
+  final IOHttpClientAdapter _transport = IOHttpClientAdapter();
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options,
+      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) {
+    final url = options.uri;
+    if (url.host != 'api.themoviedb.org') {
+      return _transport.fetch(options, requestStream, cancelFuture);
+    }
+    final uri = directBase.replace(
+      path: '${directBase.path}${url.path}',
+      query: url.query,
+    );
+    return _transport.fetch(
+        options.copyWith(
+            baseUrl: '', path: uri.toString(), queryParameters: {}),
+        requestStream,
+        cancelFuture);
+  }
+
+  @override
+  void close({bool force = false}) => _transport.close(force: force);
 }

@@ -1561,7 +1561,13 @@ class CodegenLoader extends AssetLoader{
   "stream_feedback_submit": "Submit",
   "tmdb_proxy_automatic": "Automatically enabled when TMDB is unreachable. You can turn it off for this app session.",
   "tmdb_proxy_turn_off": "On · Turn off",
-  "tmdb_proxy_auto_off": "Off · Automatic"
+  "tmdb_proxy_auto_off": "Off · Automatic",
+  "streaming_dnd": "Do not disturb while streaming",
+  "streaming_dnd_description": "Silence notifications and hide call pop-ups while the player is open. Restores on exit or in the background. Media and alarms stay on; system exceptions may still interrupt.",
+  "streaming_dnd_access_required": "Requires Do Not Disturb access. Applies to the mobile video and live TV players on Android 10 or later.",
+  "streaming_dnd_permission_description": "Allow FlixQuest in Android’s Do Not Disturb access settings. While the player is in the foreground, FlixQuest temporarily silences notifications and hides notification and call pop-ups across the device. Your existing Do Not Disturb modes stay in place and the streaming rule ends when you leave. Media and alarms remain allowed. Emergency alerts and some system or calling-app screens may still appear.",
+  "streaming_dnd_open_settings": "Open settings",
+  "streaming_dnd_unavailable": "Could not open Do Not Disturb access settings on this device."
 };
 static const Map<String,dynamic> _hi = {
   "popularity_descending": "लोकप्रियता घटती",
@@ -3110,7 +3116,13 @@ static const Map<String,dynamic> _hi = {
   "stream_feedback_submit": "भेजें",
   "tmdb_proxy_automatic": "TMDB उपलब्ध न होने पर अपने आप चालू होता है। आप इसे इस ऐप सत्र के लिए बंद कर सकते हैं।",
   "tmdb_proxy_turn_off": "चालू · बंद करें",
-  "tmdb_proxy_auto_off": "बंद · स्वचालित"
+  "tmdb_proxy_auto_off": "बंद · स्वचालित",
+  "streaming_dnd": "स्ट्रीमिंग के दौरान परेशान न करें",
+  "streaming_dnd_description": "प्लेयर खुला रहने पर सूचनाएँ शांत करें और कॉल पॉप-अप छिपाएँ। बाहर निकलने या बैकग्राउंड में जाने पर बंद हो जाता है। मीडिया और अलार्म चालू रहते हैं; सिस्टम के अपवाद फिर भी बाधा डाल सकते हैं।",
+  "streaming_dnd_access_required": "परेशान न करें की अनुमति आवश्यक है। Android 10 या बाद के संस्करण में मोबाइल वीडियो और लाइव टीवी प्लेयर के लिए उपलब्ध है।",
+  "streaming_dnd_permission_description": "Android की परेशान न करें सेटिंग में FlixQuest को अनुमति दें। प्लेयर सामने रहने पर FlixQuest पूरे डिवाइस की सूचनाएँ अस्थायी रूप से शांत करता है और सूचना व कॉल पॉप-अप छिपाता है। आपके मौजूदा मोड बने रहते हैं और बाहर निकलने पर स्ट्रीमिंग नियम बंद हो जाता है। मीडिया और अलार्म की अनुमति बनी रहती है। आपातकालीन चेतावनियाँ और कुछ सिस्टम या कॉलिंग ऐप की स्क्रीन फिर भी दिखाई दे सकती हैं।",
+  "streaming_dnd_open_settings": "सेटिंग खोलें",
+  "streaming_dnd_unavailable": "इस डिवाइस पर परेशान न करें की अनुमति सेटिंग नहीं खुल सकी।"
 };
 static const Map<String,dynamic> _es = {
   "popularity_descending": "Popularidad descendiente",
@@ -4659,7 +4671,13 @@ static const Map<String,dynamic> _es = {
   "stream_feedback_submit": "Enviar",
   "tmdb_proxy_automatic": "Se activa automáticamente cuando no se puede acceder a TMDB. Puedes desactivarlo durante esta sesión.",
   "tmdb_proxy_turn_off": "Activado · Desactivar",
-  "tmdb_proxy_auto_off": "Desactivado · Automático"
+  "tmdb_proxy_auto_off": "Desactivado · Automático",
+  "streaming_dnd": "No molestar durante la reproducción",
+  "streaming_dnd_description": "Silencia notificaciones y oculta avisos de llamadas mientras el reproductor está abierto. Se desactiva al salir o pasar a segundo plano. El contenido y las alarmas siguen sonando; pueden intervenir excepciones del sistema.",
+  "streaming_dnd_access_required": "Requiere acceso a No molestar. Disponible en los reproductores móviles de vídeo y TV en directo con Android 10 o posterior.",
+  "streaming_dnd_permission_description": "Permite el acceso de FlixQuest a No molestar en los ajustes de Android. Con el reproductor en primer plano, FlixQuest silencia temporalmente las notificaciones y oculta los avisos de notificaciones y llamadas del dispositivo. Tus modos actuales se mantienen y la regla de reproducción termina al salir. El contenido y las alarmas siguen permitidos. Las alertas de emergencia y algunas pantallas del sistema o de llamadas pueden aparecer.",
+  "streaming_dnd_open_settings": "Abrir ajustes",
+  "streaming_dnd_unavailable": "No se pudieron abrir los ajustes de acceso a No molestar en este dispositivo."
 };
 static const Map<String,dynamic> _ar = {
   "popularity_descending": "ترتيب تنازلي حسب الشعبية",
@@ -6255,7 +6273,13 @@ static const Map<String,dynamic> _ar = {
   "stream_feedback_submit": "إرسال",
   "tmdb_proxy_automatic": "يتم تفعيله تلقائيًا عندما يتعذر الوصول إلى TMDB. يمكنك إيقافه خلال جلسة التطبيق الحالية.",
   "tmdb_proxy_turn_off": "مفعّل · إيقاف",
-  "tmdb_proxy_auto_off": "متوقف · تلقائي"
+  "tmdb_proxy_auto_off": "متوقف · تلقائي",
+  "streaming_dnd": "عدم الإزعاج أثناء المشاهدة",
+  "streaming_dnd_description": "كتم الإشعارات وإخفاء نوافذ المكالمات أثناء فتح المشغل. يتوقف عند الخروج أو الانتقال إلى الخلفية. تبقى الوسائط والمنبهات مسموحة؛ قد تستمر استثناءات النظام في المقاطعة.",
+  "streaming_dnd_access_required": "يتطلب إذن عدم الإزعاج. متاح لمشغلات الفيديو والتلفزيون المباشر على الهاتف بنظام Android 10 أو أحدث.",
+  "streaming_dnd_permission_description": "اسمح لـ FlixQuest بالوصول إلى عدم الإزعاج في إعدادات Android. عندما يكون المشغل في المقدمة، يكتم FlixQuest الإشعارات مؤقتًا ويخفي نوافذ الإشعارات والمكالمات على الجهاز. تبقى أوضاع عدم الإزعاج الحالية كما هي وتنتهي قاعدة المشاهدة عند الخروج. تبقى الوسائط والمنبهات مسموحة. قد تظهر تنبيهات الطوارئ وبعض شاشات النظام أو تطبيقات الاتصال.",
+  "streaming_dnd_open_settings": "فتح الإعدادات",
+  "streaming_dnd_unavailable": "تعذر فتح إعدادات إذن عدم الإزعاج على هذا الجهاز."
 };
 static const Map<String, Map<String,dynamic>> mapLocales = {"en": _en, "hi": _hi, "es": _es, "ar": _ar};
 }

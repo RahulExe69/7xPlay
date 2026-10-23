@@ -1511,5 +1511,11 @@ abstract class  LocaleKeys {
   static const tmdb_proxy_automatic = 'tmdb_proxy_automatic';
   static const tmdb_proxy_turn_off = 'tmdb_proxy_turn_off';
   static const tmdb_proxy_auto_off = 'tmdb_proxy_auto_off';
+  static const streaming_dnd = 'streaming_dnd';
+  static const streaming_dnd_description = 'streaming_dnd_description';
+  static const streaming_dnd_access_required = 'streaming_dnd_access_required';
+  static const streaming_dnd_permission_description = 'streaming_dnd_permission_description';
+  static const streaming_dnd_open_settings = 'streaming_dnd_open_settings';
+  static const streaming_dnd_unavailable = 'streaming_dnd_unavailable';
 
 }

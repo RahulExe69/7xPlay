@@ -1,3 +1,5 @@
+import '../../presentation/session/auth_runtime.dart';
+import '../../presentation/session/session_gate.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -26,19 +28,18 @@ class _UserStateState extends State<UserState> {
   Widget build(BuildContext context) {
     // Mandatory updates are gated above the navigator: MobileUpdateGate on
     // phones, TvUpdateGate on TV.
-    final authSession = AuthSessionController.instance..initialize();
-    return AuthStateRouter(
-      userIdListenable: authSession.userId,
-      builder: (context, isAuthenticated) {
-        final previewTvHome =
-            widget.devicePresentation == DevicePresentation.television &&
-                TvDebugOptions.previewHomeShell;
-        return presentationShellFor(
-          devicePresentation: widget.devicePresentation,
-          isAuthenticated: isAuthenticated || previewTvHome,
-        );
-      },
-    );
+    AuthSessionController.instance.initialize();
+    Widget shell(BuildContext context, bool isAuthenticated) {
+      final previewTvHome =
+          widget.devicePresentation == DevicePresentation.television &&
+              TvDebugOptions.previewHomeShell;
+      return presentationShellFor(
+        devicePresentation: widget.devicePresentation,
+        isAuthenticated: isAuthenticated || previewTvHome,
+      );
+    }
+
+    return SessionGate(session: AuthRuntime.session, builder: shell);
   }
 }
 

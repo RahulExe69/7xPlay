@@ -199,7 +199,27 @@ class TmdbConnectivity extends ChangeNotifier {
   /// Automatically retry the interrupted request once after a route check.
   /// Never carry a caller's stale proxy flag across an automatic route change.
   Future<http.Response> get(String url, String proxyUrl,
-      {http.Client? client, Duration? timeout}) async {
+          {http.Client? client, Duration? timeout}) =>
+      route<http.Response>(
+        proxyUrl,
+        (proxied, proxyUrl) => _send(tmdbRequestUri(url, proxied, proxyUrl),
+            client: client, timeout: timeout ?? requestTimeout),
+        blocked: (response) => looksBlocked(response.statusCode, response.body),
+        routeFailure: (error) =>
+            error is IOException ||
+            error is TimeoutException ||
+            error is http.ClientException,
+      );
+
+  /// [get] for any transport: [send] makes the request on the route it is
+  /// given. A [blocked] result or a [routeFailure] error checks the route and
+  /// sends once more when the route changed or TMDB is still reachable.
+  Future<T> route<T>(
+    String proxyUrl,
+    Future<T> Function(bool proxied, String proxyUrl) send, {
+    required bool Function(T result) blocked,
+    required bool Function(Object error) routeFailure,
+  }) async {
     proxyUrl = proxyUrlSource?.call() ?? proxyUrl;
     if (_proxyEnabled || _checking != null) await check(proxyUrl);
     proxyUrl = proxyUrlSource?.call() ?? proxyUrl;
@@ -207,23 +227,16 @@ class TmdbConnectivity extends ChangeNotifier {
         (_checkedProxy != proxyUrl || _checkedProbe != _probeUri())) {
       await check(proxyUrl);
     }
-    final direct = Uri.parse(url);
     final proxied = _proxyEnabled;
     final checkRevision = _checkRevision;
-    final request = tmdbRequestUri(url, proxied, proxyUrl);
-    http.Response? response;
+    late T response;
     Object? failure;
     StackTrace? failureStack;
     try {
-      response = await _send(request,
-          client: client, timeout: timeout ?? requestTimeout);
-      if (!_looksBlocked(response)) return response;
+      response = await send(proxied, proxyUrl);
+      if (!blocked(response)) return response;
     } catch (error, stack) {
-      if (error is! IOException &&
-          error is! TimeoutException &&
-          error is! http.ClientException) {
-        rethrow;
-      }
+      if (!routeFailure(error)) rethrow;
       failure = error;
       failureStack = stack;
     }
@@ -238,33 +251,33 @@ class TmdbConnectivity extends ChangeNotifier {
       await check(proxyUrl);
       proxyUrl = proxyUrlSource?.call() ?? proxyUrl;
       if (_proxyEnabled != proxied || _reachable) {
-        return _send(tmdbRequestUri(direct.toString(), _proxyEnabled, proxyUrl),
-            client: client, timeout: timeout ?? requestTimeout);
+        return send(_proxyEnabled, proxyUrl);
       }
     }
     if (failure != null) Error.throwWithStackTrace(failure, failureStack!);
-    return response!;
+    return response;
   }
 
-  bool _looksBlocked(http.Response response) {
+  /// [body] is the raw text, or JSON a transport such as Dio already decoded.
+  static bool looksBlocked(int statusCode, Object? body) {
     // Don't spend proxy traffic on ordinary API errors or server failures.
-    if (response.statusCode == 429) return false;
-    if (response.statusCode >= 500) {
-      return response.body.trimLeft().startsWith('<');
+    if (statusCode == 429) return false;
+    if (statusCode >= 500) {
+      return body is String && body.trimLeft().startsWith('<');
     }
-    try {
-      final body = jsonDecode(response.body);
-      if (body is Map<String, dynamic> &&
-          (response.statusCode < 400 ||
-              (body['success'] == false && body['status_code'] is num))) {
-        return false;
+    if (body is String) {
+      try {
+        body = jsonDecode(body);
+      } on FormatException {
+        // A successful HTTP connection can still be a filtering/block page.
       }
-    } on FormatException {
-      // A successful HTTP connection can still be a filtering/block page.
     }
-    return response.statusCode < 400 ||
-        response.statusCode == 403 ||
-        response.statusCode == 451;
+    if (body is Map &&
+        (statusCode < 400 ||
+            (body['success'] == false && body['status_code'] is num))) {
+      return false;
+    }
+    return statusCode < 400 || statusCode == 403 || statusCode == 451;
   }
 
   @override

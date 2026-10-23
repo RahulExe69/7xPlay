@@ -1,5 +1,5 @@
 import '../models/banner_ad.dart';
-import '../video_providers/scraper_api.dart';
+import '../data/repositories/ads_repository.dart';
 
 /// Shares one `/ads` response between every banner slot on screen, so a Home
 /// feed with several slots makes one request, not one per slot.
@@ -17,9 +17,23 @@ class HostedAdsRepository {
   final Map<String, _Entry> _entries = <String, _Entry>{};
 
   Future<List<BannerAd>> Function(String apiUrl) _fetch =
-      (apiUrl) => ScraperApi(apiUrl).getAds();
+      (_) async => const <BannerAd>[];
+
+  AdsRepository? _laravel;
+  bool get telemetryEnabled => _laravel != null;
+
+  void configure(AdsRepository repository) {
+    _laravel = repository;
+    _fetch = (_) async => const <BannerAd>[];
+    clear();
+  }
+
+  Future<void> reportImpression(String id) async =>
+      await _laravel?.reportImpression(id);
+  Future<void> reportClick(String id) async => await _laravel?.reportClick(id);
 
   Future<List<BannerAd>> load(String apiUrl) {
+    if (_laravel != null) return _laravel!.load();
     final cached = _entries[apiUrl];
     if (cached != null && !cached.isStale) return cached.ads;
     final entry = _Entry(_fetchOrEmpty(apiUrl));
@@ -41,6 +55,7 @@ class HostedAdsRepository {
   void useFetcherForTesting(
     Future<List<BannerAd>> Function(String apiUrl) fetch,
   ) {
+    _laravel = null;
     _fetch = fetch;
     clear();
   }

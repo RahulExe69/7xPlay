@@ -1,11 +1,14 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+
+import '../core/error/failure_exception.dart';
+import '../core/network/network_runtime.dart';
+import '../data/repositories/tmdb_repository.dart';
+import '../data/sources/tmdb_api.dart';
 
 import '../api/endpoints.dart';
-import '../services/tmdb_connectivity.dart';
 import 'media_item.dart';
 
 /// Finds each title's logo artwork on TMDB and remembers it for the session,
@@ -18,9 +21,10 @@ class TitleLogos {
     required String language,
     required this.proxyEnabled,
     required this.proxyUrl,
-    http.Client? client,
+    Dio? dio,
   })  : language = languageCode(language),
-        _client = client ?? http.Client();
+        _repository = dio == null ? NetworkRuntime.tmdb
+            : TmdbRepository(TmdbApi(dio));
 
   /// ISO 639-1, the form TMDB tags images with.
   final String language;
@@ -30,7 +34,8 @@ class TitleLogos {
       language.split(RegExp('[-_]')).first.toLowerCase();
   final bool proxyEnabled;
   final String proxyUrl;
-  final http.Client _client;
+  final TmdbRepository _repository;
+  final CancelToken _cancelToken = CancelToken();
 
   /// Bounds the cache on long sessions; a lookup is small, so this is about
   /// never growing without limit rather than about memory.
@@ -66,7 +71,7 @@ class TitleLogos {
     return _pending[key] = pending;
   }
 
-  void dispose() => _client.close();
+  void dispose() => _cancelToken.cancel('Title logos disposed');
 
   static String _key(MediaItem item) => '${item.kind.name}:${item.id}';
 
@@ -74,16 +79,14 @@ class TitleLogos {
     final images = item.kind == MediaKind.movie
         ? Endpoints.getImages(item.id)
         : Endpoints.getTVImages(item.id);
-    final response = await TmdbConnectivity.instance.get(
-      '$images&include_image_language=$language,en,null',
-      proxyUrl,
-      client: _client,
-    );
-    if (response.statusCode != 200) {
-      throw http.ClientException('TMDB images ${response.statusCode}');
-    }
-    final body = jsonDecode(response.body);
-    final logos = body is Map<String, dynamic> ? body['logos'] : null;
+    final url = '$images&include_image_language=$language,en,null';
+    final result = await _repository.getJson(url,
+        proxyUrl: proxyUrl,
+        cancelToken: _cancelToken,
+        timeout: const Duration(seconds: 12));
+    final body = result.when(ok: (data) => data,
+        err: (failure) => throw FailureException(failure));
+    final logos = body['logos'];
     return pickTitleLogo(
       logos is List ? logos.whereType<Map<String, dynamic>>() : const [],
       language: language,

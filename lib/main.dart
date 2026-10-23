@@ -1,4 +1,30 @@
+import 'data/sources/onesignal_messaging_client.dart';
+import 'data/repositories/push_message_repository.dart';
+import 'presentation/notifications/push_message_controller.dart';
+import 'services/google_error_reporting.dart';
+import 'presentation/notifications/device_registration_controller.dart';
+import 'presentation/notifications/in_app_message_controller.dart';
+import 'presentation/notifications/notification_controller.dart';
+import 'data/sources/push_messaging_client.dart';
+import 'services/in_app_messaging_service.dart';
+import 'data/sync/sync_runtime.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+import 'data/ads/ad_events_controller.dart';
+import 'services/hosted_ads_repository.dart';
+import 'presentation/config/bootstrap_view_model.dart';
+import 'presentation/config/refresh_controller.dart';
+import 'presentation/config/config_source_controller.dart';
+import 'data/sources/firebase_config_source.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'services/local_account_data.dart';
+import 'presentation/session/auth_runtime.dart';
+import 'presentation/session/session_view_model.dart';
+import 'services/auth_session_controller.dart';
+import 'dart:async';
 import 'dart:io';
+import 'package:provider/provider.dart';
+import 'core/di/injector.dart';
+import 'core/network/network_runtime.dart';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flixquest/flixquest_main.dart';
 import '../models/translation.dart';
@@ -74,14 +100,10 @@ Future<DevicePresentation> appInitialize({
 
   // Surface uncaught Dart and platform errors to Crashlytics. Installed only
   // after Firebase initialization so the recorder is always ready.
-  FlutterError.onError = (details) {
-    if (_isRecoverableImageError(details)) return;
-    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-  };
-  PlatformDispatcher.instance.onError = (error, stackTrace) {
-    FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: true);
-    return true;
-  };
+  final reporting = GoogleErrorReporting(FirebaseCrashlytics.instance,
+      ignoreFlutterError: _isRecoverableImageError);
+  FlutterError.onError = reporting.flutterError;
+  PlatformDispatcher.instance.onError = reporting.platformError;
 
   final devicePresentation = await resolveDevicePresentation(
     detector: devicePresentationDetector,
@@ -154,14 +176,11 @@ Future<DevicePresentation> appInitialize({
   await bookmarkProvider.fetchBookmarks();
   await wellnessProvider.initialize();
   await appDependencyProvider.getFlixQuestLogo();
-  await appDependencyProvider.getOccasionalTheme();
+  await appDependencyProvider.getOccasionalTheme(preserveSelection: true);
   await appDependencyProvider.getAmbientMode();
   await appDependencyProvider.getFQUrl();
   await appDependencyProvider.getTmdbProxy();
   await appDependencyProvider.getUpdateConfiguration();
-
-  await BookmarkSyncService.instance.init();
-  await RecentlyWatchedSyncService.instance.init();
 
   return devicePresentation;
 }
@@ -169,6 +188,104 @@ Future<DevicePresentation> appInitialize({
 void main() async {
   final devicePresentation = await appInitialize();
   HttpOverrides.global = MyHttpOverrides();
+  final injector = await buildInjector(deleteLocalData: (owner) async {
+    await LocalAccountData.delete(owner);
+    await bookmarkProvider.fetchBookmarks();
+    await recentProvider.fetchMovies();
+    await recentProvider.fetchEpisodes();
+    await wellnessProvider.reload();
+  });
+  HostedAdsRepository.instance.configure(injector.adsRepository);
+  if (injector.migrationFlags.ads) {
+    // Observe each rendered frame so brief visibility interruptions reset dwell.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+  }
+  final adsController = injector.migrationFlags.ads
+      ? AdEventsController(injector.adsRepository)
+      : null;
+  ConfigLifecycle? configController;
+  if (!kDebugMode || injector.migrationFlags.config) {
+    final bootstrap =
+        BootstrapViewModel(injector.configRepository, appDependencyProvider);
+    final sourceController = ConfigSourceController(injector.configRepository,
+        bootstrap, injector.kvStore, SdkFirebaseConfigSource());
+    await sourceController.hydrate();
+    configController = sourceController;
+  }
+  AuthRuntime.configure(injector.session);
+  SyncRuntime.configure(injector.syncCoordinator,
+      enabled: injector.migrationFlags.auth && injector.migrationFlags.sync);
+  if (SyncRuntime.enabled) {
+    await BookmarkSyncService.instance.init();
+    await RecentlyWatchedSyncService.instance.init();
+    wellnessProvider.syncService.bind();
+    injector.session.ownerId.addListener(() {
+      bookmarkProvider.resetForOwner();
+      recentProvider.resetForOwner();
+      unawaited(bookmarkProvider.fetchBookmarks());
+      unawaited(recentProvider.fetchMovies());
+      unawaited(recentProvider.fetchEpisodes());
+    });
+  }
+  {
+    await injector.session.restore();
+    AuthSessionController.instance.initialize();
+    await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
+    if (SyncRuntime.enabled) {
+      await bookmarkProvider.fetchBookmarks();
+      await recentProvider.fetchMovies();
+      await recentProvider.fetchEpisodes();
+      unawaited(injector.syncCoordinator.syncAll());
+    }
+  }
+  NotificationController? notifications;
+  if (injector.migrationFlags.notifications) {
+    final platform = devicePresentation == DevicePresentation.television
+        ? 'tv'
+        : Platform.isIOS
+            ? 'ios'
+            : 'android';
+    const oneSignalAppId = String.fromEnvironment('ONESIGNAL_APP_ID');
+    if (oneSignalAppId.isNotEmpty &&
+        !OneSignalMessagingClient.validAppId(oneSignalAppId)) {
+      throw StateError('ONESIGNAL_APP_ID must be a valid public App ID.');
+    }
+    PushMessagingClient messaging = SdkPushMessagingClient();
+    if (oneSignalAppId.isNotEmpty) {
+      final oneSignal = OneSignalMessagingClient();
+      try {
+        await oneSignal
+            .initialize(oneSignalAppId, platform: platform)
+            .timeout(const Duration(seconds: 10));
+        messaging = oneSignal;
+      } catch (_) {
+        await oneSignal.dispose();
+        debugPrint(
+            'OneSignal initialization unavailable; retry on next app launch.');
+      }
+    }
+    final messages = InAppMessageController(injector.announcementRepository,
+        injector.kvStore, InAppMessagingService.present);
+    notifications = NotificationController(
+      DeviceRegistrationController(injector.deviceRepository, injector.session,
+          injector.kvStore, messaging,
+          platform: platform,
+          provider: messaging is OneSignalMessagingClient ? 'onesignal' : 'fcm',
+          appVersion: currentAppVersion),
+      messages,
+      messaging,
+      pushMessages: PushMessageController(
+          PushMessageRepository(injector.laravelDio), messages,
+          currentOwner: () => injector.session.ownerId.value,
+          currentToken: () => injector.session.token),
+    );
+  }
+  NetworkRuntime.configure(
+      publicDio: injector.publicDio,
+      httpCache: injector.httpCache,
+      tmdb: injector.tmdbRepository);
+  Timer.run(() =>
+      unawaited(injector.httpCache.pruneExpired().catchError((Object _) {})));
   HomeWidgetNavigationService.configure(
     source: () => (
       language: settingsProvider.appLanguage,
@@ -177,17 +294,24 @@ void main() async {
     ),
   );
   await MediaLinkNavigationService.initialize();
-  runApp(EasyLocalization(
-    supportedLocales: Translation.all,
-    path: 'assets/translations',
-    fallbackLocale: Translation.all[0],
-    startLocale: Locale(settingsProvider.appLanguage),
-    child: FlixQuest(
-      settingsProvider: settingsProvider,
-      recentProvider: recentProvider,
-      bookmarkProvider: bookmarkProvider,
-      appDependencyProvider: appDependencyProvider,
-      devicePresentation: devicePresentation,
-    ),
-  ));
+  runApp(ChangeNotifierProvider<SessionViewModel>.value(
+      value: injector.session,
+      child: Provider<AppInjector>.value(
+          value: injector,
+          child: EasyLocalization(
+            supportedLocales: Translation.all,
+            path: 'assets/translations',
+            fallbackLocale: Translation.all[0],
+            startLocale: Locale(settingsProvider.appLanguage),
+            child: FlixQuest(
+              settingsProvider: settingsProvider,
+              recentProvider: recentProvider,
+              bookmarkProvider: bookmarkProvider,
+              appDependencyProvider: appDependencyProvider,
+              devicePresentation: devicePresentation,
+              configController: configController,
+              adsController: adsController,
+              notifications: notifications,
+            ),
+          ))));
 }

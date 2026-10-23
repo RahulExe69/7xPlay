@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'support/callback_dio.dart';
 
 TvMediaItem _item(int id, {TvMediaKind kind = TvMediaKind.movie}) =>
     TvMediaItem(
@@ -89,9 +90,9 @@ void main() {
         language: 'pt-BR',
         proxyEnabled: false,
         proxyUrl: '',
-        client: MockClient((request) async {
-          requests.add(request.url);
-          return http.Response(
+        dio: scriptedDio((request) async {
+          requests.add(request.uri);
+          return jsonResponse(
             jsonEncode(<String, dynamic>{
               'logos': <Object>[_logo('/logo.png', language: 'pt')],
             }),
@@ -125,9 +126,9 @@ void main() {
         language: 'en',
         proxyEnabled: false,
         proxyUrl: '',
-        client: MockClient((_) async {
+        dio: scriptedDio((_) async {
           calls++;
-          return http.Response('{"logos": []}', 200);
+          return jsonResponse('{"logos": []}', 200);
         }),
       );
       expect(await logos.resolve(_item(1)), isNull);
@@ -142,11 +143,11 @@ void main() {
         language: 'en',
         proxyEnabled: false,
         proxyUrl: '',
-        client: MockClient((_) async {
+        dio: scriptedDio((_) async {
           calls++;
           return calls == 1
-              ? http.Response('busy', 503)
-              : http.Response(
+              ? jsonResponse('busy', 503)
+              : jsonResponse(
                   jsonEncode(<String, dynamic>{
                     'logos': <Object>[_logo('/logo.png', language: 'en')],
                   }),
@@ -179,9 +180,9 @@ void main() {
         language: 'en',
         proxyEnabled: true,
         proxyUrl: 'https://proxy.example',
-        client: MockClient((request) async {
-          requested = request.url;
-          return http.Response('{"logos": []}', 200);
+        dio: scriptedDio((request) async {
+          requested = request.uri;
+          return jsonResponse('{"logos": []}', 200);
         }),
       );
       await logos.resolve(_item(3));
@@ -199,9 +200,9 @@ void main() {
         language: 'en',
         proxyEnabled: false,
         proxyUrl: '',
-        client: MockClient((_) async {
+        dio: scriptedDio((_) async {
           calls++;
-          return http.Response('{}', 200);
+          return jsonResponse('{}', 200);
         }),
       );
       expect(await logos.resolve(_item(-1)), isNull);

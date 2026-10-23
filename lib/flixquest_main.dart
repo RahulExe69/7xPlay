@@ -1,9 +1,12 @@
+import 'presentation/notifications/notification_controller.dart';
+import 'data/sync/sync_runtime.dart';
+import 'services/bookmark_sync_service.dart';
+import 'data/ads/ad_events_controller.dart';
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flixquest/models/app_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -25,9 +28,9 @@ import 'services/in_app_messaging_service.dart';
 import 'services/deep_link_dispatcher.dart';
 import 'services/home_widget_service.dart';
 import 'services/recently_watched_sync_service.dart';
-import 'services/app_remote_config.dart';
 import 'services/tmdb_connectivity.dart';
-import 'services/remote_config_refresh_controller.dart';
+import 'services/firebase_config_controller.dart';
+import 'presentation/config/refresh_controller.dart';
 import 'mobile/app/mobile_shell.dart';
 import 'mobile/app/mobile_update_gate.dart';
 import 'tv/platform/device_presentation.dart';
@@ -41,6 +44,9 @@ class FlixQuest extends StatefulWidget {
       required this.bookmarkProvider,
       required this.appDependencyProvider,
       required this.devicePresentation,
+      this.configController,
+      this.adsController,
+      this.notifications,
       super.key});
 
   final SettingsProvider settingsProvider;
@@ -48,6 +54,9 @@ class FlixQuest extends StatefulWidget {
   final BookmarkProvider bookmarkProvider;
   final AppDependencyProvider appDependencyProvider;
   final DevicePresentation devicePresentation;
+  final ConfigLifecycle? configController;
+  final AdEventsController? adsController;
+  final NotificationController? notifications;
 
   @override
   State<FlixQuest> createState() => _FlixQuestState();
@@ -55,98 +64,29 @@ class FlixQuest extends StatefulWidget {
 
 class _FlixQuestState extends State<FlixQuest>
     with ChangeNotifier, WidgetsBindingObserver {
-  final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
-  StreamSubscription<RemoteConfigUpdate>? _remoteConfigSubscription;
+  FirebaseConfigController? _firebaseConfig;
   Timer? _widgetRefreshDebounce;
   StreamSubscription<List<ConnectivityResult>>? _tmdbNetworkSubscription;
-
   final Connectivity _connectivity = Connectivity();
-  RemoteConfigRefreshController? _configRefresh;
 
   Future<void> _initConfig() async {
-    try {
-      await AppRemoteConfig.configure(_remoteConfig);
-      await _remoteConfig.ensureInitialized();
-      if (!mounted) return;
-      // A slow fetch must not leave playback using the disabled defaults
-      // while the last activated settings are already stored on the device.
-      AppRemoteConfig.apply(_remoteConfig, widget.appDependencyProvider);
-      unawaited(_checkTmdb());
-      _configRefresh = RemoteConfigRefreshController(
-        fetch: _fetchConfig,
-        lastFetchTime: () => _remoteConfig.lastFetchTime,
-        connectivityChanges: _connectivity.onConnectivityChanged
-            .map((results) => results.any((r) => r != ConnectivityResult.none)),
-        checkConnectivity: () async => (await _connectivity.checkConnectivity())
-            .any((r) => r != ConnectivityResult.none),
-      );
+    final controller = widget.configController;
+    if (controller != null) {
+      await controller.boot();
+    } else {
+      final firebase = FirebaseConfigController(widget.appDependencyProvider);
+      _firebaseConfig = firebase;
       if (WidgetsBinding.instance.lifecycleState != null &&
           WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-        _configRefresh!.pause();
+        firebase.pause();
       }
-      await _configRefresh!.refresh();
-      if (mounted) await requestNotificationPermissions();
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('[PlaybackAdConfig] initialization failed: $error');
-      }
-      // The persisted app configuration remains usable while Firebase is
-      // temporarily unavailable.
+      await firebase.start();
     }
     if (mounted) {
-      _remoteConfigSubscription = _remoteConfig.onConfigUpdated.listen(
-        _onRemoteConfigUpdated,
-        onError: (Object error) {
-          if (kDebugMode) {
-            debugPrint('[PlaybackAdConfig] real-time update error: $error');
-          }
-        },
-      );
-    }
-  }
-
-  Future<bool> _fetchConfig() async {
-    var fetched = false;
-    try {
-      final activated = await _remoteConfig.fetchAndActivate();
-      fetched =
-          _remoteConfig.lastFetchStatus == RemoteConfigFetchStatus.success;
-      if (kDebugMode) {
-        debugPrint('[PlaybackAdConfig] fetch '
-            'status=${_remoteConfig.lastFetchStatus.name} '
-            'lastFetch=${_remoteConfig.lastFetchTime.toUtc().toIso8601String()} '
-            'activated=$activated');
-      }
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('[PlaybackAdConfig] fetch failed: $error; '
-            'using previously activated/default values');
-      }
-      // Cached/default values still provide a safe startup when offline.
-    }
-    if (mounted) {
-      AppRemoteConfig.apply(_remoteConfig, widget.appDependencyProvider);
+      // The first check can run before config supplies the proxy URL.
       unawaited(_checkTmdb());
-    }
-    return fetched;
-  }
-
-  Future<void> _onRemoteConfigUpdated(RemoteConfigUpdate update) async {
-    try {
-      final activated = await _remoteConfig.activate();
-      if (kDebugMode) {
-        debugPrint('[PlaybackAdConfig] real-time update '
-            'keys=${update.updatedKeys.join(',')} activated=$activated');
-      }
-      if (mounted) {
-        AppRemoteConfig.apply(_remoteConfig, widget.appDependencyProvider);
-        unawaited(_checkTmdb());
-      }
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('[PlaybackAdConfig] real-time activation failed: $error');
-      }
-      // Keep the last successfully activated configuration.
+      await requestNotificationPermissions();
+      if (mounted) await widget.notifications?.devices.onResume();
     }
   }
 
@@ -158,10 +98,12 @@ class _FlixQuestState extends State<FlixQuest>
 
   Future<void> _refreshConfigAfterReload() async {
     try {
-      // Hot reload preserves initState and the provider's old catalog. Fetch
-      // and apply the current remote values without repeating permissions.
-      await AppRemoteConfig.configure(_remoteConfig);
-      await _configRefresh?.refresh();
+      final controller = widget.configController;
+      if (controller != null) {
+        await controller.onResume();
+      } else {
+        await _firebaseConfig?.refresh();
+      }
     } catch (error) {
       if (kDebugMode) {
         debugPrint('[PlaybackAdConfig] reload refresh failed: $error');
@@ -188,10 +130,17 @@ class _FlixQuestState extends State<FlixQuest>
       onError: (Object _) {},
     );
     _initConfig();
+    unawaited(widget.adsController?.boot());
     fileDelete();
-    InAppMessagingService.initialize();
+    InAppMessagingService.initialize(
+        onConfigHint: widget.configController?.onPushData,
+        messages: widget.notifications?.messages,
+        messaging: widget.notifications?.messaging,
+        onMessage: widget.notifications?.receive);
+    unawaited(widget.notifications?.boot());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       DeepLinkDispatcher.onAppReady();
+      unawaited(widget.notifications?.messages.onReady());
       unawaited(_refreshHomeWidgets());
     });
   }
@@ -222,17 +171,27 @@ class _FlixQuestState extends State<FlixQuest>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      _configRefresh?.pause();
+      _firebaseConfig?.pause();
       // Leaving the app is the last chance to hand off progress saved by the
       // player, so push it now instead of waiting out the debounce.
       unawaited(RecentlyWatchedSyncService.instance.flushPending());
+      if (SyncRuntime.enabled) {
+        unawaited(WellnessProvider.instance.flushPending());
+      }
       return;
     }
     DeepLinkDispatcher.onAppReady();
     unawaited(_checkTmdb());
+    unawaited(widget.configController?.onResume());
+    unawaited(_firebaseConfig?.resume());
+    unawaited(widget.adsController?.onResume());
+    unawaited(widget.notifications?.onResume());
     unawaited(_refreshHomeWidgets());
     unawaited(RecentlyWatchedSyncService.instance.autoSyncIfSignedIn());
-    unawaited(_configRefresh?.resume());
+    if (SyncRuntime.enabled) {
+      unawaited(BookmarkSyncService.instance.autoSyncIfSignedIn());
+      unawaited(WellnessProvider.instance.autoSyncIfSignedIn());
+    }
   }
 
   @override
@@ -241,10 +200,13 @@ class _FlixQuestState extends State<FlixQuest>
     WellnessProvider.instance.removeListener(_scheduleLocalWidgetRefresh);
     widget.bookmarkProvider.removeListener(_scheduleLocalWidgetRefresh);
     _widgetRefreshDebounce?.cancel();
-    _configRefresh?.dispose();
-    _remoteConfigSubscription?.cancel();
     _tmdbNetworkSubscription?.cancel();
     TmdbConnectivity.instance.proxyUrlSource = null;
+    _firebaseConfig?.dispose();
+    widget.configController?.dispose();
+    unawaited(widget.adsController?.dispose());
+    InAppMessagingService.dispose();
+    widget.notifications?.dispose();
     super.dispose();
   }
 
@@ -381,7 +343,7 @@ class FlixQuestHomePage extends StatelessWidget {
 
 /*
 
-String? appVersion = _remoteConfig.getString('latest_version');
+String? appVersion = widget.appDependencyProvider.latestAppVersion;
       SharedPreferences sharedPrefsSingleton = await SharedPreferences.getInstance();
       String? ignoreVersion = sharedPrefsSingleton.getString('ignore_version') ?? '';
       if (mounted &&

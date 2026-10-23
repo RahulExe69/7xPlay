@@ -5,6 +5,7 @@ import 'package:flixquest/widgets/playback_action.dart';
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+import '../../data/sync/library_scope.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flixquest/models/tv_stream_metadata.dart';
@@ -303,6 +304,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _wellnessTracker = WellnessPlaybackTracker(
       id: _analyticsSessionId,
       createdAt: _analyticsSessionStartedAt,
+      libraryGeneration: LibraryScope.generation,
     );
 
     // Initialize episode selection with current season

@@ -1,5 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../presentation/session/auth_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
@@ -30,14 +30,11 @@ class BookmarkScreen extends StatefulWidget {
 }
 
 class _BookmarkScreenState extends State<BookmarkScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  User? user;
   int _selectedKind = 0;
 
   @override
   void initState() {
     super.initState();
-    getData();
     _triggerAutoSync();
   }
 
@@ -48,10 +45,6 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
         context.read<BookmarkProvider>().fetchBookmarks();
       }
     }
-  }
-
-  void getData() async {
-    user = _auth.currentUser;
   }
 
   @override
@@ -145,7 +138,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
   }
 
   void _syncBookmarks() {
-    if (user == null || user!.isAnonymous) {
+    if (AuthRuntime.maybeSession?.user == null) {
       GlobalMethods.showCustomScaffoldMessage(
         SnackBar(
           content: Text(

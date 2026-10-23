@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../models/banner_ad.dart';
 import '../provider/app_dependency_provider.dart';
 import '../services/hosted_ads_repository.dart';
+import 'ad_impression_tracker.dart';
 import '../services/device_presentation_service.dart';
 import 'network_banner_widget.dart';
 
@@ -183,12 +184,16 @@ class HostedAdsBanner extends StatelessWidget {
     required this.ads,
     this.variant = HostedBannerVariant.standard,
     this.interactive = true,
+    this.onClick,
+    this.onImpression,
     this.padding = const EdgeInsets.fromLTRB(20, 14, 20, 6),
     super.key,
   });
 
   final List<BannerAd> ads;
   final HostedBannerVariant variant;
+  final Future<void> Function(String id)? onClick;
+  final Future<void> Function(String id)? onImpression;
 
   /// The widest a banner grows, so a tablet doesn't stretch it edge to edge.
   static const _maxWidth = 640.0;
@@ -227,8 +232,10 @@ class HostedAdsBanner extends StatelessWidget {
 
     // The banner keeps the image's own shape, so nothing is cropped, and
     // sits centred. A remotely set width or height only caps its size.
-    final maxWidth = config.width ?? _maxWidth;
-    final maxHeight = config.height ?? (variant.isTall ? 420.0 : 320.0);
+    final maxWidth = config.width ?? shownAds.first.width ?? _maxWidth;
+    final maxHeight = config.height ??
+        shownAds.first.height ??
+        (variant.isTall ? 420.0 : 320.0);
     Widget banner = _AdImageRatio(
       imageUrl: shownAds.first.imageUrl,
       fallback: ratio,
@@ -248,6 +255,11 @@ class HostedAdsBanner extends StatelessWidget {
                 width: width,
                 height: height,
                 interactive: interactive,
+                onClick: onClick ?? HostedAdsRepository.instance.reportClick,
+                onImpression: onImpression ??
+                    (HostedAdsRepository.instance.telemetryEnabled
+                        ? HostedAdsRepository.instance.reportImpression
+                        : null),
               ),
             ),
           );
@@ -327,9 +339,15 @@ class _AdImageRatioState extends State<_AdImageRatio> {
       widget.builder(context, _ratio ?? widget.fallback);
 }
 
-Future<void> _open(String url) async {
+Future<void> _open(BannerAd ad, Future<void> Function(String) onClick) async {
+  final url = ad.targetUrl;
   final uri = Uri.tryParse(url);
-  if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) return;
+  if (uri == null ||
+      uri.host.isEmpty ||
+      (uri.scheme != 'https' && uri.scheme != 'http')) {
+    return;
+  }
+  unawaited(onClick(ad.id).catchError((Object _) {}));
   try {
     await launchUrlString(url, mode: LaunchMode.externalApplication);
   } catch (_) {
@@ -343,12 +361,16 @@ class _CachedAdCarousel extends StatefulWidget {
     required this.width,
     required this.height,
     required this.interactive,
+    required this.onClick,
+    required this.onImpression,
   });
 
   final List<BannerAd> ads;
   final double width;
   final double height;
   final bool interactive;
+  final Future<void> Function(String) onClick;
+  final Future<void> Function(String)? onImpression;
 
   @override
   State<_CachedAdCarousel> createState() => _CachedAdCarouselState();
@@ -358,6 +380,7 @@ class _CachedAdCarouselState extends State<_CachedAdCarousel> {
   final PageController _controller = PageController();
   Timer? _rotationTimer;
   int _index = 0;
+  final _impressions = <String>{};
 
   @override
   void initState() {
@@ -395,7 +418,7 @@ class _CachedAdCarouselState extends State<_CachedAdCarousel> {
           final ad = widget.ads[index];
           return GestureDetector(
             onTap: widget.interactive
-                ? () => unawaited(_open(ad.targetUrl))
+                ? () => unawaited(_open(ad, widget.onClick))
                 : null,
             child: Semantics(
               label: ad.altText.isEmpty ? ad.name : ad.altText,
@@ -404,6 +427,18 @@ class _CachedAdCarouselState extends State<_CachedAdCarousel> {
                 imageUrl: ad.imageUrl,
                 cacheManager: _adImageCache,
                 fit: BoxFit.cover,
+                imageBuilder: widget.onImpression == null
+                    ? null
+                    : (context, image) => AdImpressionTracker(
+                          key: ValueKey(ad.id),
+                          onImpression: () {
+                            if (_impressions.add(ad.id)) {
+                              unawaited(widget.onImpression!(ad.id)
+                                  .catchError((Object _) {}));
+                            }
+                          },
+                          child: Image(image: image, fit: BoxFit.cover),
+                        ),
                 placeholder: (_, __) => const SizedBox.shrink(),
                 errorWidget: (_, __, ___) => const SizedBox.shrink(),
               ),

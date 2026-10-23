@@ -1,28 +1,28 @@
+import 'package:flixquest/services/flixquest_auth_service.dart';
+
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../provider/settings_provider.dart';
-import '../../services/flixquest_auth_service.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_focusable.dart';
 import '../widgets/tv_poster_wall.dart';
 import 'tv_auth_screen.dart';
 import '../../widgets/app_logo.dart';
 
-class TvLandingScreen extends StatefulWidget {
-  const TvLandingScreen({super.key});
+class LaravelTvLandingScreen extends StatefulWidget {
+  const LaravelTvLandingScreen({super.key});
 
   static const screenKey = Key('tv-landing-screen');
 
   @override
-  State<TvLandingScreen> createState() => _TvLandingScreenState();
+  State<LaravelTvLandingScreen> createState() => _TvLandingScreenState();
 }
 
-class _TvLandingScreenState extends State<TvLandingScreen> {
+class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
   final _authService = FlixQuestAuthService();
   bool _isEnteringAsGuest = false;
   bool _isGoogleSigningIn = false;
@@ -37,9 +37,9 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('google');
-      // UserState owns the destination. Its auth stream replaces this landing
+      // UserState owns the destination. Its session gate replaces this landing
       // screen with TvHomeShell when the Google session becomes active.
-    } on FirebaseAuthException catch (error) {
+    } on AuthActionException catch (error) {
       if (mounted) {
         _showError(_googleAuthMessage(error));
       }
@@ -66,9 +66,8 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('anonymous');
-      // UserState owns the destination. Its auth stream replaces this landing
-      // screen with TvHomeShell when the anonymous session becomes active.
-    } on FirebaseAuthException catch (error) {
+      // UserState owns the destination; the local guest session opens TvHomeShell.
+    } on AuthActionException catch (error) {
       if (mounted) {
         _showError(_authMessage(error));
       }
@@ -93,16 +92,15 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
     );
   }
 
-  String _googleAuthMessage(FirebaseAuthException error) {
+  String _googleAuthMessage(AuthActionException error) {
     return switch (error.code) {
-      'account-exists-with-different-credential' => tr(
-          'tv_that_email_is_already_used_by_an_email_and_password_account_sign_in_with_your_email_and_password_instead'),
+      'account-exists-with-different-credential' => error.message,
       'network-request-failed' =>
         tr('tv_check_your_internet_connection_and_retry'),
       'operation-not-allowed' =>
         tr('tv_google_sign_in_is_currently_unavailable'),
       'invalid-credential' => tr('google_signin_failed'),
-      _ => error.message ?? tr('tv_unable_to_sign_in_with_google'),
+      _ => error.message,
     };
   }
 
@@ -125,12 +123,12 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
     return tr('tv_google_unavailable_device', namedArgs: {'detail': detail});
   }
 
-  String _authMessage(FirebaseAuthException error) {
+  String _authMessage(AuthActionException error) {
     return switch (error.code) {
       'operation-not-allowed' => tr('tv_guest_access_is_currently_unavailable'),
       'network-request-failed' =>
         tr('tv_check_your_internet_connection_and_retry'),
-      _ => error.message ?? tr('tv_unable_to_continue_as_guest'),
+      _ => error.message,
     };
   }
 
@@ -139,7 +137,7 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
     Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     return Scaffold(
-      key: TvLandingScreen.screenKey,
+      key: LaravelTvLandingScreen.screenKey,
       backgroundColor: TvDesign.surfaceFor(context),
       body: Stack(
         fit: StackFit.expand,
@@ -438,4 +436,11 @@ class _TvLandingActionState extends State<_TvLandingAction> {
       ),
     );
   }
+}
+
+class TvLandingScreen extends StatelessWidget {
+  const TvLandingScreen({super.key});
+  static const screenKey = LaravelTvLandingScreen.screenKey;
+  @override
+  Widget build(BuildContext context) => const LaravelTvLandingScreen();
 }
