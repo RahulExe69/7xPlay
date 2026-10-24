@@ -107,6 +107,7 @@ void main() {
 
     harness.adapter.enqueueJson(authFixture(id: 41, token: '41|member'));
     await harness.session.restore();
+    await harness.session.validation;
     expect(harness.adapter.requests.last.path, 'user/profile',
         reason: 'the upgraded session restores as an account, not a guest');
     expect(harness.session.user?.id, 41);

@@ -81,6 +81,68 @@ void main() {
     await h.session.restore();
     expect(h.session.user, null);
   });
+  test('a signed-in launch opens on the cached profile before Laravel answers',
+      () async {
+    await signIn();
+    final profile = Completer<void>();
+    final updated = authFixture();
+    (updated['user'] as Map)['name'] = 'Fresh name';
+    h.adapter.enqueueJson(updated);
+    h.dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+      profile.future.then((_) => handler.next(options));
+    }));
+    await h.session.restore();
+    expect(h.session.user?.id, 7, reason: 'the gate never waits on profile');
+    profile.complete();
+    await h.session.validation;
+    expect(h.session.user?.name, 'Fresh name');
+  });
+  for (final (label, respond) in <(String, void Function(SessionHarness))>[
+    ('connection failure', (h) => h.adapter.enqueueError()),
+    ('Caddy 502 page', (h) => h.adapter.enqueueText('Bad gateway', statusCode: 502)),
+    (
+      'Laravel 503',
+      (h) => h.adapter.enqueueJson(
+          {'success': false, 'message': 'Service Unavailable'},
+          statusCode: 503)
+    ),
+    ('Cloudflare 403 challenge', (h) => h.adapter.enqueueText('<html>Just a moment...</html>', statusCode: 403)),
+    ('edge 401 page', (h) => h.adapter.enqueueText('<html>401</html>', statusCode: 401)),
+    ('maintenance page served as 200', (h) => h.adapter.enqueueText('<html>Maintenance</html>', statusCode: 200)),
+    ('missing route', (h) => h.adapter.enqueueText('Not found', statusCode: 404)),
+  ]) {
+    test('a $label at launch keeps the signed-in session', () async {
+      await signIn();
+      respond(h);
+      await h.session.restore();
+      await h.session.validation;
+      expect(h.session.user?.id, 7);
+      expect(h.session.state, isA<AuthenticatedSession>());
+      expect(h.tokens.value, '7|sanitized-test-token');
+      expect(h.tokens.clears, 0);
+    });
+  }
+  test('a revoked token found by the background check still signs out',
+      () async {
+    await signIn();
+    h.adapter.enqueueJson({'success': false, 'message': 'Unauthenticated.'},
+        statusCode: 401);
+    await h.session.restore();
+    expect(h.session.user?.id, 7);
+    await h.session.validation;
+    expect(h.session.state, const SessionState.guest());
+    expect(h.tokens.value, null);
+    expect(h.session.ownerId.value, null);
+  });
+  test('an edge 401 on a protected request never expires the session',
+      () async {
+    await signIn();
+    h.adapter.enqueueText('<html>Unauthorized</html>', statusCode: 401);
+    final result = await h.session.repository.profile();
+    expect((result as Err).failure, isA<ServerFailure>());
+    expect(h.session.user?.id, 7);
+    expect(h.tokens.value, '7|sanitized-test-token');
+  });
   test('guest browsing works offline and survives boot without creating a user',
       () async {
     await h.session.enterGuest();

@@ -96,40 +96,71 @@ class SessionViewModel extends ChangeNotifier {
         if (browsing) unawaited(ensureGuestAccount());
         return;
       }
-      final result = await repository.profile();
-      if (revision != _revision) {
-        // The interceptor may have expired this boot token before profile returns.
-        if (result is Err<AppUser> &&
-            result.failure is UnauthorizedFailure &&
-            _state is ExpiredSession &&
-            _token == null) {
-          _publish(const SessionState.guest());
-        }
+      // The cached profile opens the app at once and the backend only
+      // confirms it, so launching never waits on, or signs out over, an outage.
+      final cached = _cachedUser();
+      if (cached != null) {
+        _publish(SessionState.authenticated(cached));
+        _validation =
+            _validate(revision, cached: true).catchError((Object _) {});
         return;
       }
-      await result.when(
-          ok: (user) async => _serialize(() => _persistUser(user, revision)),
-          err: (failure) async {
-            if (failure is UnauthorizedFailure || failure is ForbiddenFailure) {
-              await _clear(const SessionState.guest());
-            } else {
-              final saved = preferences.getJson('session.user');
-              if (saved is Map<String, dynamic> &&
-                  (failure is NetworkFailure || failure is TimeoutFailure)) {
-                final user = AppUser.fromJson(saved);
-                if (preferences.getString('session.owner') ==
-                    'user:${user.id}') {
-                  _publish(SessionState.authenticated(user));
-                  return;
-                }
-              }
-              // Retain the token for a later successful restore; grant no account access.
-              _publish(const SessionState.guest());
-            }
-          });
+      await _validate(revision, cached: false);
     } catch (_) {
       if (revision == _revision) _publish(const SessionState.guest());
     }
+  }
+
+  /// The background profile check started by the last cached [restore].
+  @visibleForTesting
+  Future<void>? get validation => _validation;
+  Future<void>? _validation;
+
+  /// Bounds the launch wait when there is no cached profile to open with.
+  static const _restoreTimeout = Duration(seconds: 8);
+
+  AppUser? _cachedUser() {
+    final saved = preferences.getJson('session.user');
+    if (saved is! Map<String, dynamic>) return null;
+    try {
+      final user = AppUser.fromJson(saved);
+      return preferences.getString('session.owner') == 'user:${user.id}'
+          ? user
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _validate(int revision, {required bool cached}) async {
+    var profile = repository.profile();
+    if (!cached) {
+      profile = profile.timeout(_restoreTimeout,
+          onTimeout: () => const Result.err(Failure.timeout()));
+    }
+    final result = await profile;
+    if (revision != _revision) {
+      // The interceptor may have expired this boot token before profile returns.
+      if (result is Err<AppUser> &&
+          result.failure is UnauthorizedFailure &&
+          _state is ExpiredSession &&
+          _token == null) {
+        _publish(const SessionState.guest());
+      }
+      return;
+    }
+    await result.when(
+        ok: (user) async => _serialize(() => _persistUser(user, revision)),
+        err: (failure) async {
+          // Only Laravel itself can end a session; outages, edge errors and
+          // malformed responses keep the cached one.
+          if (failure is UnauthorizedFailure || failure is ForbiddenFailure) {
+            await _clear(const SessionState.guest());
+          } else if (!cached) {
+            // Retain the token for a later successful restore; grant no account access.
+            _publish(const SessionState.guest());
+          }
+        });
   }
 
   Future<void> _persistUser(AppUser user, int revision) async {

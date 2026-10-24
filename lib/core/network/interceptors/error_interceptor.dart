@@ -3,6 +3,11 @@ import 'package:flixquest/core/error/failure.dart';
 import 'package:flixquest/data/models/api_error.dart';
 import 'retry_interceptor.dart';
 
+/// Laravel (and TMDB) answer every outcome with a `success` envelope. A 401 or
+/// 403 without one comes from the edge (a Cloudflare challenge, Caddy), not
+/// from an account decision, so it must never end a session.
+bool isApiEnvelope(Object? data) => data is Map && data['success'] is bool;
+
 Failure failureForDio(DioException error) {
   if (error.error is Failure) return error.error as Failure;
   final status = error.response?.statusCode;
@@ -23,6 +28,8 @@ Failure failureForDio(DioException error) {
         message: api.message);
   }
   return switch (status) {
+    final int code when (code == 401 || code == 403) && !isApiEnvelope(data) =>
+      Failure.server(status: code, message: api.message),
     401 => Failure.unauthorized(message: api.message),
     403 => Failure.forbidden(message: api.message),
     404 => Failure.notFound(message: api.message),

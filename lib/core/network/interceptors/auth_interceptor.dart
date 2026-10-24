@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flixquest/presentation/session/session_view_model.dart';
+import 'error_interceptor.dart';
 
 class AuthInterceptor extends Interceptor {
   AuthInterceptor(this.session, String apiUrl) : _api = Uri.parse(apiUrl);
@@ -39,7 +40,9 @@ class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final rejected = err.requestOptions.extra['sessionToken'];
-    if (err.response?.statusCode == 401 && rejected is String) {
+    if (err.response?.statusCode == 401 &&
+        isApiEnvelope(err.response?.data) &&
+        rejected is String) {
       try {
         await session.expire(rejected);
       } catch (_) {/* Gate is already expired. */}

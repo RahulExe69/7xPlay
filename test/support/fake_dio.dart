@@ -25,6 +25,13 @@ class FakeDioAdapter implements HttpClientAdapter {
         ));
   }
 
+  /// A non-API body, such as an HTML error page from Cloudflare or Caddy.
+  void enqueueText(String body, {required int statusCode}) {
+    _responses.add((_) => ResponseBody.fromString(body, statusCode, headers: {
+          Headers.contentTypeHeader: ['text/html; charset=UTF-8'],
+        }));
+  }
+
   void enqueue(Response<dynamic> response) => enqueueJson(
         response.data,
         statusCode: response.statusCode ?? 200,

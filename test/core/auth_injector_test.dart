@@ -74,6 +74,7 @@ void main() {
     addTearDown(next.dispose);
     expect(next.session.state, const SessionState.initializing());
     await next.session.restore();
+    await next.session.validation;
     expect(next.session.ownerId.value, 'user:7');
     expect(next.session.user?.username, 'beamlak');
     expect(restoredAdapter.requests.single.uri.path, '/api/v1/user/profile');
