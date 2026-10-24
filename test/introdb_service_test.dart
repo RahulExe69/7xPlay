@@ -11,7 +11,7 @@ void main() {
       client: MockClient((request) async {
         requestedUri = request.url;
         return http.Response(
-          '{"tmdb_id":42,'
+          '{"tvdb_id":169,"type":"movie",'
           '"intro":[{"start_ms":null,"end_ms":90000}],'
           '"recap":[{"start_ms":1000,"end_ms":12000}],'
           '"credits":[{"start_ms":600000,"end_ms":null}],'
@@ -28,7 +28,7 @@ void main() {
     );
 
     expect(requestedUri.origin, 'https://api.theintrodb.org');
-    expect(requestedUri.path, '/v3/media');
+    expect(requestedUri.path, '/v4/media');
     expect(requestedUri.queryParameters, {
       'tmdb_id': '42',
       'duration_ms': '630000',

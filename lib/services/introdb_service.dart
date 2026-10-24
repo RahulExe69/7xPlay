@@ -28,7 +28,7 @@ class IntroDbService {
         _ownsClient = client == null;
 
   static final Uri _mediaEndpoint = Uri.parse(
-    'https://api.theintrodb.org/v3/media',
+    'https://api.theintrodb.org/v4/media',
   );
 
   final http.Client _client;
