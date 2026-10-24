@@ -10,8 +10,12 @@ class AuthInterceptor extends Interceptor {
     final uri = options.uri;
     final allowed = uri.origin == _api.origin && uri.path.startsWith(_api.path);
     options.extra.remove('sessionToken');
-    final syncOwner = options.extra['sessionOwner'] ?? options.extra['syncOwner'];
-    if (syncOwner != null && syncOwner != session.ownerId.value) {
+    // Device requests belong to the account (guests included); sync requests
+    // belong to the signed-in owner whose library they carry.
+    final sessionOwner = options.extra['sessionOwner'];
+    final syncOwner = options.extra['syncOwner'];
+    if ((sessionOwner != null && sessionOwner != session.accountId.value) ||
+        (syncOwner != null && syncOwner != session.ownerId.value)) {
       handler.reject(DioException(requestOptions: options,
           type: DioExceptionType.cancel, message: 'Sync account changed.'));
       return;

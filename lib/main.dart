@@ -298,7 +298,7 @@ void main() async {
       messaging,
       pushMessages: PushMessageController(
           PushMessageRepository(injector.laravelDio), messages,
-          currentOwner: () => injector.session.ownerId.value,
+          currentOwner: () => injector.session.accountId.value,
           currentToken: () => injector.session.token),
     );
   }

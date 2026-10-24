@@ -56,16 +56,33 @@ void main() {
     });
   });
   test(
-      'guests never read or upload an FCM token, and login registers immediately',
+      'guests without an account read no token; with one they register, and login re-registers',
       () async {
+    h.adapter.enqueueError();
     await h.session.enterGuest();
+    await h.session.ensureGuestAccount();
     await controller.boot();
     push.tokens.add('refreshed-guest-token');
     await controller.onResume();
-    expect(h.adapter.requests, isEmpty);
+    expect(h.adapter.requests.map((r) => r.path), ['auth/guest']);
     expect(push.tokenReads, 0);
+
+    h.adapter.enqueueJson({
+      'success': true,
+      'token': 'guest-41',
+      'user': {'id': 41, 'name': 'Guest', 'email': null, 'is_guest': true}
+    }, statusCode: 201);
+    registered();
+    await h.session.ensureGuestAccount();
+    await controller.onResume();
+    expect(h.adapter.requests.last.uri.path, '/api/v1/devices/register');
+    expect(h.adapter.requests.last.headers['Authorization'], 'Bearer guest-41');
+    expect(h.preferences.getJson('notifications.device.registration'),
+        containsPair('owner', 'guest:41'));
+
     await login(register: true);
     await controller.onResume();
+    expect(h.adapter.requests.last.headers['Authorization'], 'Bearer auth-7');
     expect(h.adapter.requests.last.data['fcm_token'], 'refreshed-guest-token');
   });
 

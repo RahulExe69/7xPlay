@@ -45,15 +45,31 @@ class AuthRepository {
     return session;
   }
 
-  Future<Result<AuthSession>> signIn(LoginRequest request) =>
+  /// A credential-less account the backend tracks, like a Firebase anonymous
+  /// user. Signing in with its token upgrades or replaces it.
+  Future<Result<({int id, String token})>> createGuest() =>
+      _result(() async {
+        final body = await api.request('auth/guest',
+            method: 'POST', authenticated: false);
+        final token = body['token'];
+        final id = (body['user'] as Map<String, dynamic>)['id'];
+        if (token is! String || token.trim().isEmpty || id is! int) {
+          throw const FormatException('Missing guest account');
+        }
+        return (id: id, token: token);
+      });
+  Future<Result<AuthSession>> signIn(LoginRequest request,
+          {String? guestToken}) =>
       _result(() async => _session(await api.request('auth/login',
               method: 'POST',
               authenticated: false,
               data: {
                 ...request.toJson(),
-                'email': request.email.trim().toLowerCase()
+                'email': request.email.trim().toLowerCase(),
+                if (guestToken != null) 'guest_token': guestToken
               })));
-  Future<Result<AuthSession>> signUp(RegisterRequest request) =>
+  Future<Result<AuthSession>> signUp(RegisterRequest request,
+          {String? guestToken}) =>
       _result(() async => _session(await api.request('auth/register',
               method: 'POST',
               authenticated: false,
@@ -61,13 +77,18 @@ class AuthRepository {
                 ...request.toJson(),
                 'name': request.name.trim(),
                 'email': request.email.trim().toLowerCase(),
-                'username': request.username.trim().toLowerCase()
+                'username': request.username.trim().toLowerCase(),
+                if (guestToken != null) 'guest_token': guestToken
               })));
-  Future<Result<AuthSession>> signInWithGoogle(String idToken) =>
+  Future<Result<AuthSession>> signInWithGoogle(String idToken,
+          {String? guestToken}) =>
       _result(() async => _session(await api.request('auth/google',
           method: 'POST',
           authenticated: false,
-          data: {'id_token': idToken})));
+          data: {
+            'id_token': idToken,
+            if (guestToken != null) 'guest_token': guestToken
+          })));
   Future<Result<AuthSession>> exchangeFirebaseSession(String idToken) =>
       _result(() async => _session(await api.request('auth/firebase/exchange',
           method: 'POST',

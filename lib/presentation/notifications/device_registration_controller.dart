@@ -34,7 +34,7 @@ class DeviceRegistrationController {
     if (_disposed) return Future.value();
     if (!_started) {
       _started = true;
-      _owner = session.ownerId.value;
+      _owner = session.accountId.value;
       _sessionToken = session.token;
       session.addListener(_sessionChanged);
       try {
@@ -50,10 +50,10 @@ class DeviceRegistrationController {
   }
 
   void _sessionChanged() {
-    if (_owner == session.ownerId.value && _sessionToken == session.token) {
+    if (_owner == session.accountId.value && _sessionToken == session.token) {
       return;
     }
-    _owner = session.ownerId.value;
+    _owner = session.accountId.value;
     _sessionToken = session.token;
     _generation++;
     _forceRegistration = true;
@@ -71,7 +71,7 @@ class DeviceRegistrationController {
   Future<void> _run() async {
     do {
       _pending = false;
-      final owner = session.ownerId.value;
+      final owner = session.accountId.value;
       final authToken = session.token;
       if (_disposed || owner == null || authToken == null) return;
       final generation = _generation;
@@ -81,7 +81,7 @@ class DeviceRegistrationController {
             : _token ?? await messaging.getToken();
         if (_disposed ||
             generation != _generation ||
-            session.ownerId.value != owner ||
+            session.accountId.value != owner ||
             session.token != authToken) {
           continue;
         }
@@ -121,7 +121,7 @@ class DeviceRegistrationController {
             owner: owner, provider: provider);
         if (!_disposed &&
             generation == _generation &&
-            session.ownerId.value == owner &&
+            session.accountId.value == owner &&
             session.token == authToken &&
             result is Ok<void>) {
           await store.setJson(_receiptKey, receipt);

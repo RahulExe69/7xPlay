@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flixquest/core/cache/http_cache.dart';
 import 'package:flixquest/core/error/failure.dart';
@@ -35,6 +37,13 @@ class SessionViewModel extends ChangeNotifier {
   final void Function(String?)? _onOwnerChanged;
   final ValueNotifier<String?> ownerId = ValueNotifier(null);
   final ValueNotifier<String?> gateIdentity = ValueNotifier(null);
+
+  /// The backend account behind this install: `user:<id>`, or `guest:<id>`
+  /// for a tracked guest that never syncs. Push registration follows it.
+  final ValueNotifier<String?> accountId = ValueNotifier(null);
+  int? _guestId;
+  Future<void>? _guestWork;
+  String? get _guestToken => _guestId == null ? null : _token;
   SessionState _state = const SessionState.initializing();
   SessionState get state => _state;
   AppUser? get user =>
@@ -55,6 +64,11 @@ class SessionViewModel extends ChangeNotifier {
     _state = state;
     _onOwnerChanged?.call(user == null ? null : 'user:${user!.id}');
     ownerId.value = user == null ? null : 'user:${user!.id}';
+    accountId.value = user != null
+        ? 'user:${user!.id}'
+        : _guestId != null && _token != null
+            ? 'guest:$_guestId'
+            : null;
     gateIdentity.value = state.maybeWhen(
         guest: (browsing) => browsing ? 'guest' : null,
         authenticated: (user) => 'user:${user.id}',
@@ -69,9 +83,17 @@ class SessionViewModel extends ChangeNotifier {
       final restoredToken = await tokens.read();
       if (revision != _revision) return;
       _token = restoredToken;
+      _guestId = null;
+      final browsing = preferences.getBool('session.guest') ?? false;
+      final guestId = preferences.getInt('session.guest_id');
+      if (_token != null && browsing && guestId != null) {
+        _guestId = guestId;
+        _publish(const SessionState.guest(browsing: true));
+        return;
+      }
       if (_token == null) {
-        _publish(SessionState.guest(
-            browsing: preferences.getBool('session.guest') ?? false));
+        _publish(SessionState.guest(browsing: browsing));
+        if (browsing) unawaited(ensureGuestAccount());
         return;
       }
       final result = await repository.profile();
@@ -135,6 +157,8 @@ class SessionViewModel extends ChangeNotifier {
               await tokens.write(session.token);
               if (revision != _revision) return;
               _token = session.token;
+              _guestId = null;
+              await preferences.remove('session.guest_id');
               await preferences.setBool('session.guest', false);
               await cache.clearScope('user');
               await _persistUser(session.user, revision);
@@ -155,10 +179,12 @@ class SessionViewModel extends ChangeNotifier {
         });
   }
 
-  Future<Result<AuthSession>> signIn(LoginRequest request) =>
-      _authenticate(() => repository.signIn(request), mergeGuest: true);
-  Future<Result<AuthSession>> signUp(RegisterRequest request) =>
-      _authenticate(() => repository.signUp(request), mergeGuest: true);
+  Future<Result<AuthSession>> signIn(LoginRequest request) => _authenticate(
+      () => repository.signIn(request, guestToken: _guestToken),
+      mergeGuest: true);
+  Future<Result<AuthSession>> signUp(RegisterRequest request) => _authenticate(
+      () => repository.signUp(request, guestToken: _guestToken),
+      mergeGuest: true);
   /// Signs in an upgraded install from the Firebase session it still holds.
   Future<Result<AuthSession>> signInWithFirebaseSession(String idToken) =>
       _authenticate(() => repository.exchangeFirebaseSession(idToken),
@@ -172,7 +198,7 @@ class SessionViewModel extends ChangeNotifier {
     }
     if (idToken == null) return const Result.ok(null);
     final result = await _authenticate(
-        () => repository.signInWithGoogle(idToken),
+        () => repository.signInWithGoogle(idToken, guestToken: _guestToken),
         mergeGuest: true);
     return result.when(
         ok: (session) => Result.ok(session),
@@ -180,16 +206,47 @@ class SessionViewModel extends ChangeNotifier {
   }
 
   Future<void> enterGuest() async {
+    if (_guestId != null && _token != null) {
+      await preferences.setBool('session.guest', true);
+      _publish(const SessionState.guest(browsing: true));
+      return;
+    }
     await _clear(const SessionState.guest(browsing: true));
     await preferences.setBool('session.guest', true);
+    unawaited(ensureGuestAccount());
+  }
+
+  /// Gives a browsing guest its backend account, like a Firebase anonymous
+  /// sign-in. Offline guests keep browsing; launch and resume retry.
+  Future<void> ensureGuestAccount() =>
+      _guestWork ??= _createGuestAccount().whenComplete(() => _guestWork = null);
+
+  Future<void> _createGuestAccount() async {
+    final browsing = _state.maybeWhen(guest: (b) => b, orElse: () => false);
+    if (!browsing || _token != null) return;
+    final revision = _revision;
+    final result = await repository.createGuest();
+    await result.when(
+        ok: (guest) => _serialize(() async {
+              if (revision != _revision || _token != null) return;
+              await tokens.write(guest.token);
+              await preferences.setInt('session.guest_id', guest.id);
+              if (revision != _revision) return;
+              _token = guest.token;
+              _guestId = guest.id;
+              _publish(const SessionState.guest(browsing: true));
+            }),
+        err: (_) async {});
   }
 
   Future<void> _clear(SessionState next) async {
     ++_revision;
     _token = null;
+    _guestId = null;
     _publish(next);
     await _serialize(() async {
       await tokens.clear();
+      await preferences.remove('session.guest_id');
       await preferences.remove('session.user');
       await preferences.remove('session.owner');
       await preferences.setBool('session.guest', false);
@@ -199,6 +256,13 @@ class SessionViewModel extends ChangeNotifier {
 
   Future<void> expire(String rejectedToken) async {
     if (_token == null || _token != rejectedToken) return;
+    if (_guestId != null) {
+      // A revoked guest account is replaced while the guest keeps browsing.
+      await _clear(const SessionState.guest(browsing: true));
+      await preferences.setBool('session.guest', true);
+      unawaited(ensureGuestAccount());
+      return;
+    }
     await _clear(const SessionState.expired());
   }
 
@@ -276,6 +340,7 @@ class SessionViewModel extends ChangeNotifier {
     _disposed = true;
     ownerId.dispose();
     gateIdentity.dispose();
+    accountId.dispose();
     super.dispose();
   }
 }

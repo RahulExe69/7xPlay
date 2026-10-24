@@ -79,17 +79,24 @@ void main() {
     expect(legacy.reads, 1, reason: 'a finished bridge never runs again');
   });
 
-  test('4.2.x guests keep browsing instead of seeing sign-in', () async {
+  test('4.2.x guests keep browsing as tracked guest accounts', () async {
+    harness.adapter.enqueueJson({
+      'success': true,
+      'token': '41|guest',
+      'user': {'id': 41, 'name': 'Guest', 'email': null, 'is_guest': true}
+    }, statusCode: 201);
     final legacy = FakeLegacySession(
         const LegacyFirebaseUser(uid: 'anon', anonymous: true));
 
     await bridge(legacy).run();
+    await harness.session.ensureGuestAccount();
 
     expect(
         harness.session.state
             .maybeWhen(guest: (browsing) => browsing, orElse: () => false),
         isTrue);
-    expect(harness.adapter.requests, isEmpty);
+    expect(harness.adapter.requests.map((r) => r.path), ['auth/guest']);
+    expect(harness.session.accountId.value, 'guest:41');
     expect(legacy.signOuts, 1);
     expect(done(), isTrue);
   });

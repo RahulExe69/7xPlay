@@ -1,4 +1,5 @@
 import 'presentation/session/firebase_session_bridge.dart';
+import 'presentation/session/session_view_model.dart';
 import 'presentation/notifications/notification_controller.dart';
 import 'data/sync/sync_runtime.dart';
 import 'services/bookmark_sync_service.dart';
@@ -190,6 +191,8 @@ class _FlixQuestState extends State<FlixQuest>
     unawaited(widget.adsController?.onResume());
     unawaited(widget.notifications?.onResume());
     unawaited(widget.firebaseSession?.run());
+    // An offline guest gets its tracked account once the network is back.
+    unawaited(context.read<SessionViewModel?>()?.ensureGuestAccount());
     unawaited(_refreshHomeWidgets());
     unawaited(RecentlyWatchedSyncService.instance.autoSyncIfSignedIn());
     if (SyncRuntime.enabled) {

@@ -226,8 +226,10 @@ void main() {
     await tester.tap(guest);
     await tester.pumpAndSettle();
     expect(find.text('account home'), findsOneWidget);
-    expect(h.adapter.requests, isEmpty);
+    // Only the guest account request goes out; offline, it fails silently.
+    expect(h.adapter.requests.map((r) => r.path), ['auth/guest']);
     expect(h.session.ownerId.value, null);
+    expect(h.session.accountId.value, null);
     expect(tester.takeException(), null);
   });
   authTest(
