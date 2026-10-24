@@ -12,7 +12,7 @@
 ///
 /// flix.quest is this app's own short form of a TMDB address: `/m/550` is a film, and `/t/1396`,
 /// `/t/1396.4` and `/t/1396.4.13` are a series, one of its seasons and one of its episodes, and
-/// `/l/51` is a live TV channel. Being our domain, it is the one Android verifies, so these open the
+/// `/l/51` is a live TV channel and `/c/FQ-AB12CD34` a FlixQuest Plus code to redeem. Being our domain, it is the one Android verifies, so these open the
 /// app straight from a tap.
 class MediaLink {
   const MediaLink._();
@@ -44,6 +44,9 @@ class MediaLink {
   /// A live channel is the live TV provider's own id for it, which is not a TMDB number.
   static final RegExp _flixquestChannel = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
 
+  /// A Plus code as Filament accepts it: letters, digits and dashes.
+  static final RegExp _flixquestCoupon = RegExp(r'^[A-Za-z0-9][A-Za-z0-9-]{2,39}$');
+
   /// Shareable addresses for catalog titles and episodes on FlixQuest's verified domain.
   static Uri movieUrl(int movieId) => Uri.https(_flixquest, '/m/$movieId');
 
@@ -60,6 +63,11 @@ class MediaLink {
       _flixquestChannel.hasMatch(channelId)
           ? Uri.https(_flixquest, '/l/$channelId')
           : null;
+
+  /// A shareable address that opens the app ready to redeem [code].
+  static Uri? couponUrl(String code) => _flixquestCoupon.hasMatch(code.trim())
+      ? Uri.https(_flixquest, '/c/${code.trim().toUpperCase()}')
+      : null;
 
   /// Reads whatever link [value] carries.
   ///
@@ -202,6 +210,10 @@ class MediaLink {
         return _flixquestChannel.hasMatch(value)
             ? LiveChannelLink(channelId: value)
             : null;
+      case 'c':
+        return _flixquestCoupon.hasMatch(value)
+            ? CouponLink(code: value.toUpperCase())
+            : null;
     }
     return null;
   }
@@ -338,6 +350,13 @@ class LiveChannelLink extends MediaLinkTarget {
   const LiveChannelLink({required this.channelId});
 
   final String channelId;
+}
+
+/// A FlixQuest Plus code to redeem, normalised to upper case as Laravel stores it.
+class CouponLink extends MediaLinkTarget {
+  const CouponLink({required this.code});
+
+  final String code;
 }
 
 class ImdbNameLink extends MediaLinkTarget {

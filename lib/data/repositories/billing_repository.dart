@@ -129,6 +129,22 @@ class BillingRepository {
   WalletTopup _topup(Map<String, dynamic> body) => _parse(() =>
       WalletTopup.fromJson(Map<String, dynamic>.from(body['topup'] as Map)));
 
+  /// A short-lived link a phone opens to add funds to this account, which a
+  /// TV shows as a QR code. Only an HTTPS link is accepted.
+  Future<({Uri url, DateTime expiresAt})> topupLink() async {
+    final body = await _request('wallet/topup-link', method: 'POST');
+    return _parse(() {
+      final url = Uri.parse(body['url'] as String);
+      if (url.scheme != 'https' || url.host.isEmpty) {
+        throw const FormatException('Insecure top-up link');
+      }
+      return (
+        url: url,
+        expiresAt: DateTime.parse(body['expires_at'] as String),
+      );
+    });
+  }
+
   /// Turns wallet renewal on under [termsVersion]; buys a period at once
   /// only when there is no paid time left.
   Future<PlusAccount> enableWalletRenewal(String termsVersion) async {

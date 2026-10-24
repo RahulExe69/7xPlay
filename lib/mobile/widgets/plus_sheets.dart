@@ -340,26 +340,30 @@ class _Disclosure extends StatelessWidget {
 }
 
 /// Enter a code: free Plus days now, or a discount on the coming renewals.
-Future<void> showRedeemSheet(BuildContext context) {
+/// [code], from a link, arrives typed in; the viewer still taps Redeem.
+Future<void> showRedeemSheet(BuildContext context, {String? code}) {
   final plus = context.read<PlusController>();
   return showAppSheet<void>(
     context,
     builder: (_) => ChangeNotifierProvider<PlusController>.value(
       value: plus,
-      child: const _RedeemSheet(),
+      child: _RedeemSheet(code: code),
     ),
   );
 }
 
 class _RedeemSheet extends StatefulWidget {
-  const _RedeemSheet();
+  const _RedeemSheet({this.code});
+
+  final String? code;
 
   @override
   State<_RedeemSheet> createState() => _RedeemSheetState();
 }
 
 class _RedeemSheetState extends State<_RedeemSheet> {
-  final TextEditingController _code = TextEditingController();
+  late final TextEditingController _code =
+      TextEditingController(text: widget.code);
   bool _busy = false;
   String? _error;
   CouponRedemption? _done;
@@ -465,7 +469,7 @@ class _RedeemSheetState extends State<_RedeemSheet> {
                           gutter, AppSpace.lg, gutter, AppSpace.lg),
                       child: TextField(
                         controller: _code,
-                        autofocus: true,
+                        autofocus: widget.code == null,
                         textCapitalization: TextCapitalization.characters,
                         textInputAction: TextInputAction.done,
                         autocorrect: false,

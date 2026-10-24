@@ -159,6 +159,23 @@ void main() {
   });
 
   group('flix.quest addresses', () {
+    test('a Plus code link opens ready to redeem that code', () {
+      final target = MediaLink.parse('https://flix.quest/c/fq-ab12cd34');
+      expect(target, isA<CouponLink>());
+      expect((target! as CouponLink).code, 'FQ-AB12CD34');
+      expect(MediaLink.parse('Free Plus for you: flix.quest/c/WELCOME14!'),
+          isA<CouponLink>().having((link) => link.code, 'code', 'WELCOME14'));
+      expect(MediaLink.couponUrl('welcome14').toString(),
+          'https://flix.quest/c/WELCOME14');
+    });
+
+    test('a malformed code is not a link', () {
+      expect(MediaLink.parse('https://flix.quest/c/-bad'), isNull);
+      expect(MediaLink.parse('https://flix.quest/c/ab'), isNull);
+      expect(MediaLink.parse('https://flix.quest/c/a b'), isNull);
+      expect(MediaLink.couponUrl('no spaces allowed'), isNull);
+    });
+
     test('a film is its id', () {
       final target = MediaLink.parse('https://flix.quest/m/123');
       expect(target, isA<TmdbMovieLink>());

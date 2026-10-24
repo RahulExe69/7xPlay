@@ -146,6 +146,15 @@ class _PlusScreenState extends State<PlusScreen> {
                   onSignIn: () => unawaited(_signIn()),
                 ),
               ),
+              if (plus.pendingCoupon != null && !plus.signedIn) ...<Widget>[
+                const SizedBox(height: AppSpace.lg),
+                _Notice(
+                  icon: PhosphorIcons.ticket(),
+                  title: tr('plus_code_waiting_title',
+                      args: [plus.pendingCoupon!]),
+                  body: tr('plus_code_waiting_body'),
+                ),
+              ],
               if (pending != null) ...<Widget>[
                 const SizedBox(height: AppSpace.lg),
                 _Notice(
@@ -395,7 +404,11 @@ class _Hero extends StatelessWidget {
                       const PlusWordmark(size: 28),
                       const SizedBox(height: 16),
                       Text(
-                        active ? tr('plus_youre_ad_free') : tr('plus_headline'),
+                        active
+                            ? tr('plus_youre_ad_free')
+                            : plus.signedIn
+                                ? tr('plus_cta_member')
+                                : tr('plus_cta_guest'),
                         style: const TextStyle(
                           fontFamily: 'FigtreeBold',
                           fontSize: 24,
@@ -455,7 +468,7 @@ class _Hero extends StatelessWidget {
             const SizedBox(height: 20),
             if (!plus.signedIn)
               PillButton(
-                label: tr('plus_sign_in_to_get'),
+                label: tr('plus_sign_up_or_in'),
                 icon: PhosphorIcons.signIn(),
                 primary: true,
                 onArtwork: true,

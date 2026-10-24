@@ -17,9 +17,10 @@ import '../app/tv_design.dart';
 import '../widgets/tv_dialog.dart';
 import '../widgets/tv_pill_button.dart';
 
-/// FlixQuest Plus on Android TV. Nobody types a wallet address with a
-/// remote: the TV shows a large QR code of this account's own checkout, the
-/// viewer pays on their phone, and the TV waits for Laravel to confirm.
+/// FlixQuest Plus on Android TV. Nobody types amounts or a wallet address
+/// with a remote: the TV shows a QR code that opens this account's top-up
+/// page on a phone, the viewer pays there, and the TV follows the payment
+/// until Laravel confirms it.
 class TvPlusScreen extends StatefulWidget {
   const TvPlusScreen({super.key});
 
@@ -31,18 +32,105 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
   String? _message;
   bool _working = false;
 
+  /// The phone link on the QR code, renewed before it expires.
+  ({Uri url, DateTime expiresAt})? _link;
+  BillingError? _linkError;
+  bool _linkLoading = false;
+  String? _linkOwner;
+  Timer? _linkRenewal;
+
+  /// Checks for a top-up started on the phone while this screen is open.
+  Timer? _watch;
+  late DateTime _openedAt;
+  late final PlusController _plus = context.read<PlusController>();
+
+  /// How often the TV looks for the phone's payment, and for how long.
+  static const _watchEvery = Duration(seconds: 8);
+  static const _watchFor = Duration(minutes: 45);
+
   @override
   void initState() {
     super.initState();
+    _openedAt = _plus.serverNow;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final plus = context.read<PlusController>();
-      unawaited(plus.refresh(full: true));
-      if (plus.catalog == null) unawaited(plus.refreshCatalog());
+      unawaited(_plus.refresh(full: true));
+      if (_plus.catalog == null) unawaited(_plus.refreshCatalog());
       unawaited(prepareDates(context).then((_) {
         if (mounted) setState(() {});
       }));
     });
+    final stopAt = DateTime.now().add(_watchFor);
+    _watch = Timer.periodic(_watchEvery, (timer) {
+      if (!mounted || DateTime.now().isAfter(stopAt)) {
+        timer.cancel();
+        return;
+      }
+      unawaited(_lookForPhonePayment());
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final plus = context.watch<PlusController>();
+    // A new account (or a sign-out) gets its own code, never the last one's.
+    if (plus.owner != _linkOwner) {
+      _linkOwner = plus.owner;
+      _link = null;
+      _linkError = null;
+      _linkRenewal?.cancel();
+      if (plus.signedIn) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _newLink());
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _watch?.cancel();
+    _linkRenewal?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _newLink() async {
+    if (!mounted || _linkLoading || !_plus.signedIn) return;
+    final owner = _plus.owner;
+    setState(() {
+      _linkLoading = true;
+      _linkError = null;
+    });
+    try {
+      final link = await _plus.topupLink();
+      if (!mounted || owner != _plus.owner) return;
+      setState(() => _link = link);
+      _linkRenewal?.cancel();
+      final renewIn = link.expiresAt.difference(DateTime.now().toUtc()) -
+          const Duration(minutes: 1);
+      _linkRenewal = Timer(
+          renewIn.isNegative ? const Duration(seconds: 30) : renewIn,
+          () => unawaited(_newLink()));
+    } on BillingError catch (error) {
+      if (mounted) setState(() => _linkError = error);
+    } finally {
+      if (mounted) setState(() => _linkLoading = false);
+    }
+  }
+
+  /// A top-up the phone started after this screen opened is followed until
+  /// it settles; the celebration then shows if it started Plus.
+  Future<void> _lookForPhonePayment() async {
+    if (!_plus.signedIn || _plus.topup != null) return;
+    await _plus.refresh(full: true);
+    if (!mounted || _plus.topup != null) return;
+    final since = _openedAt.subtract(const Duration(minutes: 2));
+    for (final topup in _plus.account?.pendingTopups ?? const <WalletTopup>[]) {
+      final created = topup.createdAt;
+      if (topup.isOpen && created != null && created.isAfter(since)) {
+        _plus.followTopup(topup);
+        return;
+      }
+    }
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -65,32 +153,6 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
 
   int _interval(PlusController plus) =>
       plus.plan?.intervalDays ?? plus.renewal?.intervalDays ?? 31;
-
-  Future<void> _topUp(PlusController plus, int cents) async {
-    var activate = false;
-    if (!plus.adFree && plus.renewal?.autoRenew != true) {
-      final choice = await showTvDialog<bool>(
-        context: context,
-        title: tr('plus_tv_start_with_topup', args: [formatUsd(cents)]),
-        content: Text(tr('plus_start_when_confirmed_consent',
-            args: [formatUsd(_price(plus)), '${_interval(plus)}'])),
-        actions: <TvDialogAction>[
-          TvDialogAction(
-            label: tr('plus_tv_topup_and_start'),
-            isPrimary: true,
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-          TvDialogAction(
-            label: tr('plus_tv_only_add_funds'),
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-        ],
-      );
-      if (choice == null || !mounted) return;
-      activate = choice;
-    }
-    await _run(() => plus.startTopup(cents, activatePlus: activate));
-  }
 
   Future<void> _enable(PlusController plus) async {
     final chargesNow = !plus.adFree;
@@ -208,12 +270,17 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(tr('plus_tv_sign_in_title'), style: title),
+          Text(tr('plus_cta_guest'), style: title),
           const SizedBox(height: 12),
           Text(tr('plus_tv_sign_in_body'), style: body),
+          if (plus.pendingCoupon != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Text(tr('plus_code_waiting_title', args: [plus.pendingCoupon!]),
+                style: body.copyWith(color: palette.foreground)),
+          ],
           const SizedBox(height: 26),
           TvPillButton(
-            label: tr('plus_sign_in_to_get'),
+            label: tr('plus_sign_up_or_in'),
             icon: PhosphorIcons.signIn(),
             autofocus: true,
             prominent: true,
@@ -238,81 +305,147 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
       );
     }
 
-    final suggested =
-        (plus.catalog?.wallet ?? const TopupLimits()).offeredCents;
     final fundable = (plus.wallet?.spendableCents ?? 0) >= _price(plus);
     final open = plus.catalog?.purchasesEnabled ?? false;
     final renewing = plus.renewal?.autoRenew == true;
     final frozen = plus.wallet?.frozen == true;
+    final link = _link;
+    final qrSize = compact ? 176.0 : 260.0;
+    final buttons = <Widget>[
+      if (!plus.adFree && fundable)
+        TvPillButton(
+          label: tr('plus_start_from_balance', args: [formatUsd(_price(plus))]),
+          leading: const PlusMark(),
+          autofocus: true,
+          prominent: true,
+          enabled: !_working,
+          onActivate: () => _enable(plus),
+        ),
+      if (plus.adFree || renewing)
+        TvPillButton(
+          label: renewing
+              ? tr('plus_turn_off_renewal')
+              : tr('plus_turn_on_renewal'),
+          icon: renewing
+              ? PhosphorIcons.pause()
+              : PhosphorIcons.arrowsClockwise(),
+          autofocus: plus.adFree || !fundable,
+          enabled: !_working,
+          onActivate: () => renewing ? _disable(plus) : _enable(plus),
+        ),
+      if (open && !frozen)
+        TvPillButton(
+          label: tr('plus_tv_phone_refresh'),
+          icon: PhosphorIcons.qrCode(),
+          autofocus: !fundable && !plus.adFree && !renewing,
+          enabled: !_linkLoading,
+          onActivate: _newLink,
+        ),
+    ];
+    if (!open || frozen) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(tr('plus_add_funds'), style: title),
+          const SizedBox(height: 10),
+          Text(frozen ? tr('plus_wallet_on_hold_body') : tr('plus_not_on_sale'),
+              style: body),
+          if (buttons.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 24),
+            Wrap(spacing: 12, runSpacing: 12, children: buttons),
+          ],
+          message,
+        ],
+      );
+    }
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        if (!plus.adFree && fundable) ...<Widget>[
-          Text(tr('plus_tv_ready_title'), style: title),
-          const SizedBox(height: 10),
-          Text(
-              tr('plus_tv_ready_body', args: [
-                formatUsd(plus.wallet?.spendableCents ?? 0),
-                formatUsd(_price(plus))
-              ]),
-              style: body),
-          const SizedBox(height: 22),
-          TvPillButton(
-            label:
-                tr('plus_start_from_balance', args: [formatUsd(_price(plus))]),
-            leading: const PlusMark(),
-            autofocus: true,
-            prominent: true,
-            enabled: !_working,
-            onActivate: () => _enable(plus),
-          ),
-          const SizedBox(height: 30),
-        ],
-        Text(tr('plus_add_funds'), style: title),
-        const SizedBox(height: 10),
-        Text(
-          frozen
-              ? tr('plus_wallet_on_hold_body')
-              : open
-                  ? tr('plus_tv_add_funds_body')
-                  : tr('plus_not_on_sale'),
-          style: body,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            Container(
+              width: qrSize,
+              height: qrSize,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(TvDesign.cardRadius * 2),
+              ),
+              alignment: Alignment.center,
+              child: link != null
+                  ? Semantics(
+                      label: tr('plus_tv_phone_step1'),
+                      image: true,
+                      child: QrImageView(
+                        data: link.url.toString(),
+                        size: qrSize,
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.all(16),
+                      ),
+                    )
+                  : _linkError != null
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            billingMessage(_linkError!),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        )
+                      : const SizedBox.square(
+                          dimension: 28,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: Colors.black45),
+                        ),
+            ),
+            SizedBox(width: compact ? 20 : 32),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(tr('plus_tv_phone_title'), style: title),
+                  SizedBox(height: compact ? 12 : 18),
+                  for (final (index, key) in const <String>[
+                    'plus_tv_phone_step1',
+                    'plus_tv_phone_step2',
+                    'plus_tv_phone_step3',
+                  ].indexed)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            width: compact ? 22 : 26,
+                            height: compact ? 22 : 26,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: palette.idleFill,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text('${index + 1}',
+                                style: body.copyWith(
+                                    color: palette.foreground,
+                                    fontFamily: 'FigtreeSB',
+                                    fontSize: compact ? 12 : 14)),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(tr(key), style: body)),
+                        ],
+                      ),
+                    ),
+                  Text(tr('plus_tv_phone_expires'),
+                      style: body.copyWith(fontSize: compact ? 12 : 14)),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        if (open && !frozen)
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: <Widget>[
-              for (var i = 0; i < suggested.length; i++)
-                TvPillButton(
-                  label: formatPrice(suggested[i]),
-                  autofocus: i == 0 && (plus.adFree || !fundable),
-                  prominent: suggested[i] == 1000,
-                  enabled: !_working,
-                  onActivate: () => _topUp(plus, suggested[i]),
-                ),
-            ],
-          ),
-        if (plus.adFree || renewing) ...<Widget>[
-          const SizedBox(height: 30),
-          TvPillButton(
-            label: renewing
-                ? tr('plus_turn_off_renewal')
-                : tr('plus_turn_on_renewal'),
-            icon: renewing
-                ? PhosphorIcons.pause()
-                : PhosphorIcons.arrowsClockwise(),
-            autofocus: !open || frozen,
-            enabled: !_working,
-            onActivate: () => renewing ? _disable(plus) : _enable(plus),
-          ),
-        ],
+        SizedBox(height: compact ? 20 : 28),
+        Wrap(spacing: 12, runSpacing: 12, children: buttons),
         message,
-        const SizedBox(height: 22),
-        Text(tr('plus_tv_redeem_hint'),
-            style: body.copyWith(fontSize: compact ? 12 : 14)),
       ],
     );
   }
@@ -380,7 +513,11 @@ class _StatusPanel extends StatelessWidget {
               SizedBox(height: compact ? 18 : 26),
             ],
             Text(
-              plus.adFree ? tr('plus_youre_ad_free') : tr('plus_headline'),
+              plus.adFree
+                  ? tr('plus_youre_ad_free')
+                  : plus.signedIn
+                      ? tr('plus_cta_member')
+                      : tr('plus_cta_guest'),
               style: TextStyle(
                 fontFamily: 'FigtreeBold',
                 fontSize: compact ? 28 : 38,
@@ -444,10 +581,6 @@ class _CheckoutPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = TvPalette.of(context);
-    final url = topup.checkoutUrl;
-    final scannable = topup.isOpen &&
-        topup.nextAction == 'open_checkout' &&
-        isTrustedCheckout(url);
     final title = TextStyle(
       fontFamily: 'FigtreeBold',
       fontSize: compact ? 24 : 30,
@@ -473,96 +606,70 @@ class _CheckoutPanel extends StatelessWidget {
             ? (tr('plus_payment_failed'), tr('plus_payment_nothing_charged'))
             : topup.status == 'partially_paid'
                 ? (tr('plus_payment_partial'), tr('plus_payment_partial_body'))
-                : scannable
-                    ? (
-                        tr('plus_tv_scan_title',
-                            args: [formatUsd(topup.amountCents)]),
-                        tr('plus_tv_scan_body')
-                      )
-                    : (
-                        tr('plus_payment_preparing'),
-                        tr('plus_payment_preparing_body')
-                      );
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+                : (
+                    tr('plus_tv_phone_paying_title'),
+                    tr('plus_tv_phone_paying_body',
+                        args: [formatUsd(topup.amountCents)])
+                  );
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        if (scannable) ...<Widget>[
-          Semantics(
-            label:
-                tr('plus_tv_scan_title', args: [formatUsd(topup.amountCents)]),
-            image: true,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(TvDesign.cardRadius * 2),
-              ),
-              child: QrImageView(
-                data: url!,
-                size: compact ? 176 : 300,
-                backgroundColor: Colors.white,
-                padding: const EdgeInsets.all(18),
-              ),
+        if (topup.isOpen)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: SizedBox.square(
+              dimension: 28,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2.5, color: palette.mutedText),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: Icon(
+              topup.settled
+                  ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                  : PhosphorIcons.xCircle(PhosphorIconsStyle.fill),
+              size: 40,
+              color: topup.settled ? PlusColors.gold : palette.mutedText,
             ),
           ),
-          SizedBox(width: compact ? 20 : 36),
+        Text(heading, style: title),
+        const SizedBox(height: 10),
+        Text(detail, style: body),
+        if (topup.isOpen && plus.topupWatchExpired) ...<Widget>[
+          const SizedBox(height: 14),
+          Text(tr('plus_payment_still_waiting_body'),
+              style: body.copyWith(fontSize: compact ? 12 : 14)),
         ],
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              if (!scannable && topup.isOpen)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 18),
-                  child: SizedBox.square(
-                    dimension: 28,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2.5, color: palette.mutedText),
-                  ),
-                ),
-              Text(heading, style: title),
-              const SizedBox(height: 10),
-              Text(detail, style: body),
-              if (topup.isOpen) ...<Widget>[
-                const SizedBox(height: 14),
-                Text(
-                  plus.topupWatchExpired
-                      ? tr('plus_payment_still_waiting_body')
-                      : tr('plus_tv_waiting_line'),
-                  style: body.copyWith(fontSize: compact ? 12 : 14),
-                ),
-              ],
-              message,
-              const SizedBox(height: 24),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: <Widget>[
-                  if (topup.isOpen)
-                    TvPillButton(
-                      label: tr('plus_check_now'),
-                      icon: PhosphorIcons.arrowsClockwise(),
-                      autofocus: true,
-                      prominent: true,
-                      onActivate: () => plus.checkTopup(manual: true),
-                    ),
-                  TvPillButton(
-                    label: topup.isOpen
-                        ? tr('plus_tv_pay_later')
-                        : tr('plus_done'),
-                    autofocus: !topup.isOpen,
-                    prominent: !topup.isOpen,
-                    onActivate: plus.dismissTopup,
-                  ),
-                ],
+        message,
+        const SizedBox(height: 24),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: <Widget>[
+            if (topup.isOpen)
+              TvPillButton(
+                label: tr('plus_check_now'),
+                icon: PhosphorIcons.arrowsClockwise(),
+                autofocus: true,
+                prominent: true,
+                onActivate: () => plus.checkTopup(manual: true),
               ),
-              const SizedBox(height: 18),
-              Text(
-                tr('plus_reference', args: [topup.id]),
-                style: body.copyWith(fontSize: compact ? 11 : 13),
-              ),
-            ],
-          ),
+            TvPillButton(
+              label:
+                  topup.isOpen ? tr('plus_tv_back_to_code') : tr('plus_done'),
+              autofocus: !topup.isOpen,
+              prominent: !topup.isOpen,
+              onActivate: plus.dismissTopup,
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Text(
+          tr('plus_reference', args: [topup.id]),
+          style: body.copyWith(fontSize: compact ? 11 : 13),
         ),
       ],
     );

@@ -270,10 +270,7 @@ class _PlusLine extends StatelessWidget {
     if (until != null) {
       text = tr('plus_ad_free_until', args: [formatDay(context, until)]);
     } else if (plus.shouldSuggest) {
-      text = tr('plus_price_line', args: [
-        formatPrice(plus.plan?.amountCents ?? 200),
-        '${plus.plan?.intervalDays ?? 31}'
-      ]);
+      text = plus.signedIn ? tr('plus_cta_member') : tr('plus_cta_guest');
     } else {
       return const SizedBox.shrink();
     }

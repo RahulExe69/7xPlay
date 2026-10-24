@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../design/app_tokens.dart';
 import '../../presentation/billing/plus_controller.dart';
 import '../../services/plus_navigation.dart';
 import '../../widgets/plus/plus_format.dart';
+import '../../widgets/plus/plus_reminder.dart';
 import '../../widgets/plus/plus_visuals.dart';
 
 /// My FlixQuest's Plus card. Members get a living card (the aurora drifting
@@ -228,10 +228,13 @@ class _InviteCard extends StatelessWidget {
     final interval = plus.plan?.intervalDays ?? 31;
     final ended =
         plus.renewal?.mode != null && plus.entitlement?.expiresAt != null;
-    final title = ended ? tr('plus_come_back') : tr('plus_headline');
-    final subtitle = !plus.signedIn
-        ? tr('plus_invite_guest', args: [formatPrice(price), '$interval'])
-        : tr('plus_price_line', args: [formatPrice(price), '$interval']);
+    final title = ended
+        ? tr('plus_come_back')
+        : plus.signedIn
+            ? tr('plus_cta_member')
+            : tr('plus_cta_guest');
+    final subtitle =
+        tr('plus_price_line', args: [formatPrice(price), '$interval']);
     return _Pressable(
       label: title,
       onTap: () => unawaited(openPlus(context)),
@@ -307,10 +310,9 @@ class _InviteCard extends StatelessWidget {
   }
 }
 
-/// An occasional Plus invitation between Home's rows: shown on a day it is
-/// due (at most every [_every]), for the rest of that session, and pushed
-/// back for weeks when dismissed. Never for members, or while Plus is not
-/// on sale.
+/// An occasional Plus reminder between Home's rows, on the schedule
+/// [PlusReminderSchedule] keeps. Never for members, or while Plus is not on
+/// sale.
 class PlusSpotlight extends StatefulWidget {
   const PlusSpotlight({super.key});
 
@@ -319,62 +321,32 @@ class PlusSpotlight extends StatefulWidget {
 }
 
 class _PlusSpotlightState extends State<PlusSpotlight> {
-  static const _key = 'plus.spotlight.next_at';
-  static const _every = Duration(days: 5);
-  static const _afterDismiss = Duration(days: 21);
-
-  /// Decided once per session, so the card never pops in and out.
-  static bool? _dueThisSession;
-  static bool _dismissed = false;
+  final _schedule = PlusReminderSchedule.instance;
 
   @override
   void initState() {
     super.initState();
-    if (_dueThisSession == null) unawaited(_decide());
-  }
-
-  Future<void> _decide() async {
-    try {
-      final preferences = await SharedPreferences.getInstance();
-      final next = preferences.getInt(_key) ?? 0;
-      final now = DateTime.now().millisecondsSinceEpoch;
-      _dueThisSession = now >= next;
-    } catch (_) {
-      _dueThisSession = false;
+    if (_schedule.due == null) {
+      _schedule.decide().then((_) {
+        if (mounted) setState(() {});
+      });
     }
-    if (mounted) setState(() {});
   }
-
-  Future<void> _push(Duration wait) async {
-    try {
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.setInt(
-          _key, DateTime.now().add(wait).millisecondsSinceEpoch);
-    } catch (_) {/* It may show again next session. */}
-  }
-
-  bool _recorded = false;
 
   @override
   Widget build(BuildContext context) {
     final plus = context.watch<PlusController?>();
-    final show = _dueThisSession == true &&
-        !_dismissed &&
-        plus != null &&
-        plus.shouldSuggest;
-    if (show && !_recorded) {
-      _recorded = true;
-      unawaited(_push(_every));
-    }
+    final show = _schedule.due == true && plus != null && plus.shouldSuggest;
+    if (show) _schedule.shown();
     if (!show) return const SizedBox.shrink();
     final price = plus.plan?.amountCents ?? 200;
     final interval = plus.plan?.intervalDays ?? 31;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
       child: _Pressable(
-        label: tr('plus_spotlight_title'),
+        label: plus.signedIn ? tr('plus_cta_member') : tr('plus_cta_guest'),
         onTap: () {
-          unawaited(_push(const Duration(days: 10)));
+          _schedule.opened();
           unawaited(openPlus(context));
         },
         child: PlusAurora(
@@ -391,7 +363,9 @@ class _PlusSpotlightState extends State<PlusSpotlight> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        tr('plus_spotlight_title'),
+                        plus.signedIn
+                            ? tr('plus_cta_member')
+                            : tr('plus_cta_guest'),
                         style: const TextStyle(
                           fontFamily: 'FigtreeBold',
                           fontSize: 15,
@@ -414,10 +388,7 @@ class _PlusSpotlightState extends State<PlusSpotlight> {
                 ),
                 IconButton(
                   tooltip: tr('plus_not_now'),
-                  onPressed: () {
-                    setState(() => _dismissed = true);
-                    unawaited(_push(_afterDismiss));
-                  },
+                  onPressed: () => setState(_schedule.dismissed),
                   icon: Icon(PhosphorIcons.x(),
                       size: 18, color: PlusColors.mutedInk),
                 ),

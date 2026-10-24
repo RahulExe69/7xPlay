@@ -126,6 +126,24 @@ class PlusController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? _pendingCoupon;
+
+  /// A code from a flix.quest/c/… link, kept until someone signed in can
+  /// redeem it (a guest who taps one signs in first).
+  String? get pendingCoupon => _pendingCoupon;
+
+  void offerCoupon(String code) {
+    _pendingCoupon = code;
+    notifyListeners();
+  }
+
+  /// The prompt for [pendingCoupon] was shown; it is not offered again.
+  void takePendingCoupon() {
+    if (_pendingCoupon == null) return;
+    _pendingCoupon = null;
+    notifyListeners();
+  }
+
   // ---- lifecycle ---------------------------------------------------------
 
   /// Restores the cached answer for the current account (so a paying viewer
@@ -423,6 +441,10 @@ class PlusController extends ChangeNotifier {
     _publish();
     unawaited(refresh(full: true));
   }
+
+  /// A link for a phone to add funds to this account; TVs show it as a QR.
+  Future<({Uri url, DateTime expiresAt})> topupLink() =>
+      _owned(_repository.topupLink);
 
   Future<WalletHistoryPage> history({String? cursor}) =>
       _owned(() => _repository.transactions(cursor: cursor));

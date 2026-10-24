@@ -107,6 +107,17 @@ class _Billing extends BillingRepository {
   @override
   Future<WalletTopup> reconcileTopup(String id) async => _pending;
 
+  int links = 0;
+
+  @override
+  Future<({Uri url, DateTime expiresAt})> topupLink() async {
+    links++;
+    return (
+      url: Uri.parse('https://backend.flix.quest/plus/topup/link-$links'),
+      expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 30)),
+    );
+  }
+
   @override
   Future<(PlusAccount, CouponRedemption)> redeemCoupon(String code) async =>
       (_member(), const CouponRedemption(type: 'free_plus', freeDays: 14));
@@ -217,7 +228,7 @@ void main() {
         size: const Size(320, 640),
         textScale: 1.3);
     expect(tester.takeException(), isNull);
-    expect(find.text('Watch without ads'), findsOneWidget);
+    expect(find.text('Subscribe to Plus to get rid of ads'), findsOneWidget);
     await done(tester);
   });
 
@@ -253,20 +264,40 @@ void main() {
     await done(tester);
   });
 
-  testWidgets('Android TV shows a QR code of the checkout', (tester) async {
+  testWidgets('Android TV shows a QR code that opens the phone top-up page',
+      (tester) async {
     plus =
         await tester.runAsync(() => controllerFor(_free())) as PlusController;
-    plus.followTopup(_pending);
     for (final size in const [Size(1920, 1080), Size(960, 540)]) {
       await pump(tester, const TvPlusScreen(), size: size);
       expect(tester.takeException(), isNull);
-      expect(find.byType(QrImageView), findsOneWidget);
+      final qr = tester.widget<QrImageView>(find.byType(QrImageView));
+      expect(qr, isNotNull);
+      expect(find.text('Add funds from your phone'), findsOneWidget);
+      expect(find.text('New code'), findsOneWidget);
     }
-    plus.dismissTopup();
+
+    // The phone started paying: the TV waits for it, without a code.
+    plus.followTopup(_pending);
     await tester.pump();
     expect(find.byType(QrImageView), findsNothing);
-    expect(find.text('Add funds'), findsOneWidget);
+    expect(find.text('Finish paying on your phone'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    plus.dismissTopup();
+    await tester.pump();
+    expect(find.byType(QrImageView), findsOneWidget);
+    await done(tester);
+  });
+
+  testWidgets('Android TV asks guests to sign up first', (tester) async {
+    plus = await tester.runAsync(() => controllerFor(null)) as PlusController;
+    await pump(tester, const TvPlusScreen(), size: const Size(960, 540));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Sign up and subscribe to Plus to get rid of ads'),
+        findsWidgets);
+    expect(find.byType(QrImageView), findsNothing);
     await done(tester);
   });
 

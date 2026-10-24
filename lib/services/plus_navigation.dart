@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +17,16 @@ Future<void> openPlus(BuildContext context) {
     settings: const RouteSettings(name: '/plus'),
     builder: (_) => television ? const TvPlusScreen() : const PlusScreen(),
   ));
+}
+
+/// A flix.quest/c/… link: the code waits in the controller, and
+/// PlusCouponPrompt offers it once someone signed in can redeem it. A guest
+/// is taken to Plus, which asks them to sign up first.
+void openCouponLink(NavigatorState navigator, String code) {
+  final plus = Provider.of<PlusController?>(navigator.context, listen: false);
+  if (plus == null) return;
+  plus.offerCoupon(code);
+  if (!plus.signedIn) unawaited(openPlus(navigator.context));
 }
 
 /// Lets ad surfaces offer Plus ("Remove ads", the ad-blocker prompt) only

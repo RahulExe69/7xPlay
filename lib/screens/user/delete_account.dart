@@ -56,7 +56,7 @@ class DeleteAccountScreenState extends State<LaravelDeleteAccountScreen> {
       } on AuthActionException catch (error) {
         if (error.code != 'wallet-credit-remaining' || !mounted) rethrow;
         // Prepaid credit is never dropped silently: the viewer sees what is
-        // left and the reference support needs for a refund, then decides.
+        // left, and that deleting removes it, then decides.
         if (!await _acknowledgeCredit(error.message) || !mounted) return;
         await _auth.deleteAccount(acknowledgeWalletCredit: true);
       }
@@ -82,9 +82,7 @@ class DeleteAccountScreenState extends State<LaravelDeleteAccountScreen> {
       if (wallet != null && wallet.balanceCents > 0)
         tr('plus_delete_balance', args: [formatUsd(wallet.balanceCents)]),
       if (pending > 0) tr('plus_delete_pending'),
-      if (wallet?.id != null)
-        tr('plus_wallet_reference', args: [wallet!.id!]),
-      tr('plus_delete_refund_hint'),
+      tr('plus_delete_balance_lost'),
     ];
     final confirmed = await showConfirmDialog(
       context,

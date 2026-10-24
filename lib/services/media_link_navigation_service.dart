@@ -11,6 +11,7 @@ import 'deep_link_dispatcher.dart';
 import 'deep_link_routes.dart';
 import 'live_channel_focus.dart';
 import 'media_link.dart';
+import 'plus_navigation.dart';
 import 'device_presentation_service.dart';
 import 'home_widget_navigation_service.dart';
 
@@ -70,9 +71,11 @@ class MediaLinkNavigationService {
     }
     DeepLinkDispatcher.submit(
       key: value,
-      open: (navigator) => target is LiveChannelLink
-          ? _openChannel(navigator, target)
-          : navigator.push(_route(target)),
+      open: (navigator) => switch (target) {
+        LiveChannelLink() => _openChannel(navigator, target),
+        CouponLink() => openCouponLink(navigator, target.code),
+        _ => navigator.push(_route(target)),
+      },
     );
   }
 
@@ -139,6 +142,7 @@ class MediaLinkNavigationService {
         ImdbNameLink() => DeepLinkRoutes.imdbName(imdbId: target.imdbId),
         LiveChannelLink() =>
           throw StateError('Live channels open via _openChannel'),
+        CouponLink() => throw StateError('Codes open via openCouponLink'),
       };
 
   /// Text handed over with no address in it that this app knows.

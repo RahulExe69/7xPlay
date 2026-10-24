@@ -2,6 +2,7 @@ import 'presentation/session/firebase_session_bridge.dart';
 import 'presentation/session/session_view_model.dart';
 import 'presentation/billing/plus_controller.dart';
 import 'widgets/plus/plus_celebration.dart';
+import 'widgets/plus/plus_coupon_prompt.dart';
 import 'presentation/notifications/notification_controller.dart';
 import 'data/sync/sync_runtime.dart';
 import 'services/bookmark_sync_service.dart';
@@ -312,6 +313,10 @@ class _FlixQuestState extends State<FlixQuest>
                           MobileUpdateGate(
                               child: child ?? const SizedBox.shrink()),
                         PlusCelebration(
+                          television: devicePresentation ==
+                              DevicePresentation.television,
+                        ),
+                        PlusCouponPrompt(
                           television: devicePresentation ==
                               DevicePresentation.television,
                         ),
