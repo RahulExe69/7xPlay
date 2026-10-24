@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../catalog/details_controller.dart';
 import '../catalog/episode_choice.dart';
 import '../catalog/media_item.dart';
+import '../data/ads/content_ads.dart';
 import '../catalog/up_next.dart';
 import '../functions/function.dart';
 import '../models/movie.dart';
@@ -121,7 +122,8 @@ abstract final class MobilePlayback {
   }) async {
     // The host must be current before presenting a before-loader ad.
     if (onReady?.call() == false) return;
-    if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context) ||
+    if (!await AdsterraPlaybackAdsService.instance
+            .beforeLoader(context, content: AdContent.of(item)) ||
         !context.mounted) {
       return;
     }
@@ -141,6 +143,7 @@ abstract final class MobilePlayback {
           int.tryParse(item.year ?? '') ?? item.recentMovie?.releaseYear ?? 0,
       isAdult: movie?.adult,
       releaseDate: item.releaseDate ?? movie?.releaseDate,
+      genreIds: item.genreIds,
     );
     return Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -181,7 +184,8 @@ abstract final class MobilePlayback {
       );
       if (choice == null || !context.mounted) return;
       if (onReady?.call() == false) return;
-      if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context) ||
+      if (!await AdsterraPlaybackAdsService.instance
+              .beforeLoader(context, content: AdContent.of(item)) ||
           !context.mounted) {
         return;
       }
@@ -201,6 +205,7 @@ abstract final class MobilePlayback {
               seriesName: item.title,
               tvId: item.id,
               airDate: episode.airDate,
+              genreIds: item.genreIds,
               seasonEpisodes: choice.seasonEpisodes
                   .where((episode) => episode.episodeId != null)
                   .map(EpisodeMetadata.fromEpisodeList)

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../data/ads/ads_policy.dart';
+import '../data/ads/content_ads.dart';
 import '../models/banner_ad.dart';
 import '../provider/app_dependency_provider.dart';
 import '../services/hosted_ads_repository.dart';
@@ -68,10 +69,13 @@ class _RemoteHostedAdsBannerState extends State<RemoteHostedAdsBanner> {
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<bool>(
         valueListenable: AdsPolicy.listenable,
-        // Plus collapses the slot before anything is requested, and a
-        // banner already on screen goes the moment Plus starts.
+        // Plus, or a Kids or Family title's screen, collapses the slot
+        // before anything is requested, and a banner already on screen
+        // goes the moment either applies.
         builder: (context, adFree, _) =>
-            adFree ? const SizedBox.shrink() : _slot(context),
+            adFree || ContentAdScope.adFreeAt(context, listen: true)
+                ? const SizedBox.shrink()
+                : _slot(context),
       );
 
   Widget _slot(BuildContext context) {
@@ -216,7 +220,9 @@ class HostedAdsBanner extends StatelessWidget {
   Widget build(BuildContext context) => ValueListenableBuilder<bool>(
         valueListenable: AdsPolicy.listenable,
         builder: (context, adFree, _) =>
-            adFree ? const SizedBox.shrink() : _banner(context),
+            adFree || ContentAdScope.adFreeAt(context, listen: true)
+                ? const SizedBox.shrink()
+                : _banner(context),
       );
 
   Widget _banner(BuildContext context) {

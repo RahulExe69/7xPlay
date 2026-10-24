@@ -1404,6 +1404,8 @@ abstract class  LocaleKeys {
   static const tv_play_from_first_episode = 'tv_play_from_first_episode';
   static const tv_some_details_could_not_be_loaded = 'tv_some_details_could_not_be_loaded';
   static const tv_more_like_this = 'tv_more_like_this';
+  static const tv_videos_could_not_be_loaded = 'tv_videos_could_not_be_loaded';
+  static const tv_video_could_not_open = 'tv_video_could_not_open';
   static const tv_specials = 'tv_specials';
   static const tv_no_episodes_are_listed_for_this_season_yet = 'tv_no_episodes_are_listed_for_this_season_yet';
   static const tv_hold_ok_for_episode_info = 'tv_hold_ok_for_episode_info';

@@ -1,4 +1,5 @@
 import 'package:flixquest/widgets/adsterra_playback_gate.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 import 'package:flixquest/widgets/playback_action.dart';
@@ -582,7 +583,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // The ad request runs alongside the intro lookup; neither waits on the
       // other, and a missing ad never delays the content.
       final adFuture = _prerollAd.load(_appDependencies.vastPreroll,
-          cancelled: () => !mounted || _adBlockStopped);
+          cancelled: () => !mounted || _adBlockStopped,
+          adFreeContent: ContentAdScope.adFreeAt(context));
       StreamIntroConfig intro = const StreamIntroConfig.disabled();
       try {
         intro = await _introService.fetch(_resolveScraperApiUrl());
@@ -2492,6 +2494,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           MaterialPageRoute<void>(
             builder: (context) => AdsterraPlaybackGate.buildLoader(context,
                 television: widget.useTvControls,
+                content: _seriesAdContent,
                 builder: (context) => TVVideoLoader(
                       download: false,
                       useTvPlayer: widget.useTvControls,
@@ -2521,11 +2524,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               : DateTime.tryParse(movie.releaseDate!)?.year,
           isAdult: false,
           elapsed: 0,
+          genreIds: movie.genreIds,
         );
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (context) => AdsterraPlaybackGate.buildLoader(context,
                 television: widget.useTvControls,
+                content: AdContent(
+                    series: false, id: movie.movieId, genreIds: movie.genreIds),
                 builder: (context) => MovieVideoLoader(
                       download: false,
                       useTvPlayer: widget.useTvControls,
@@ -2536,6 +2542,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           ),
         );
       });
+
+  /// The series this player is in, for the ad rules of its next episode.
+  AdContent? get _seriesAdContent {
+    final metadata = widget.tvMetadata;
+    final id = metadata?.tvId;
+    return id == null
+        ? null
+        : AdContent(series: true, id: id, genreIds: metadata?.genreIds);
+  }
 
   TVStreamMetadata _metadataForTvEpisode(EpisodeMetadata episode) {
     final current = widget.tvMetadata!;
@@ -2551,6 +2566,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       tvId: current.tvId,
       airDate: episode.airDate,
       genres: current.genres,
+      genreIds: current.genreIds,
       languages: current.languages,
       countries: current.countries,
       seasonEpisodes: current.seasonEpisodes,
@@ -3423,6 +3439,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         MaterialPageRoute<void>(
           builder: (context) => AdsterraPlaybackGate.buildLoader(context,
               television: widget.useTvControls,
+              content: _seriesAdContent,
               builder: (context) => TVVideoLoader(
                     download: false,
                     metadata: _metadataForTvEpisode(next),
@@ -3488,12 +3505,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           ...measurement.parameters(totalBytes: bytes),
         });
     final watched = Duration(milliseconds: _wellnessTracker.watchedMs());
+    // Leaving a Kids or Family title opens no popup, owed or not.
+    final adFree = ContentAdScope.adFreeAt(context);
     scheduleStreamFeedbackAfterExit(
       context,
       measurement: measurement,
       parameters: parameters,
       onReturned: widget.onTvPlayerExit,
-      beforePrompt: widget.useTvControls
+      beforePrompt: widget.useTvControls || adFree
           ? null
           : (context) => AdsterraPlaybackAdsService.instance
               .playerExit(context, watched: watched),

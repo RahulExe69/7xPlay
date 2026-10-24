@@ -1424,6 +1424,8 @@
   "tv_play_from_first_episode": "सीज़न {season} एपिसोड 1 से चलाएं",
   "tv_some_details_could_not_be_loaded": "कुछ जानकारी लोड नहीं हुई।",
   "tv_more_like_this": "इसी तरह के और",
+  "tv_videos_could_not_be_loaded": "वीडियो लोड नहीं हो सके।",
+  "tv_video_could_not_open": "यह वीडियो नहीं खुल सका। YouTube इंस्टॉल करें और फिर से कोशिश करें।",
   "tv_specials": "विशेष एपिसोड",
   "tv_no_episodes_are_listed_for_this_season_yet": "इस सीज़न के एपिसोड अभी नहीं हैं।",
   "tv_hold_ok_for_episode_info": "एपिसोड की जानकारी के लिए OK दबाकर रखें",

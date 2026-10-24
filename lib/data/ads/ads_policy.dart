@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import 'content_ads.dart';
+
 /// Whether FlixQuest may show its ads right now. FlixQuest Plus turns every
 /// placement off: banners, playback popups, VAST pre-rolls and the ad-blocker
 /// checks that exist only to protect them.
@@ -16,6 +18,12 @@ abstract final class AdsPolicy {
   static ValueListenable<bool> get listenable => _adFree;
 
   static bool get adFree => _adFree.value;
+
+  /// Whether no ad may show at [context]: Plus, or a Kids or Family title's
+  /// screens (see [ContentAdScope]). The title's exemption stays with its
+  /// own screens and never changes [adFree].
+  static bool adFreeAt(BuildContext context) =>
+      adFree || ContentAdScope.adFreeAt(context);
 
   static void update({required bool adFree}) => _adFree.value = adFree;
 

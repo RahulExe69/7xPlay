@@ -1424,6 +1424,8 @@
   "tv_play_from_first_episode": "Reproducir desde T{season}:E1",
   "tv_some_details_could_not_be_loaded": "No se pudieron cargar algunos detalles.",
   "tv_more_like_this": "Más como esto",
+  "tv_videos_could_not_be_loaded": "No se pudieron cargar los videos.",
+  "tv_video_could_not_open": "No se pudo abrir este video. Instala YouTube y vuelve a intentarlo.",
   "tv_specials": "Especiales",
   "tv_no_episodes_are_listed_for_this_season_yet": "Aún no hay episodios para esta temporada.",
   "tv_hold_ok_for_episode_info": "Mantén pulsado OK para ver información del episodio",

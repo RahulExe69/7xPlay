@@ -8,6 +8,10 @@ class MovieStreamMetadata {
   bool? isAdult;
   String? releaseDate;
   List<String> genres;
+
+  /// TMDB genre ids, when the caller has them; they settle whether the
+  /// movie is ad-free without asking TMDB.
+  List<int>? genreIds;
   List<String> languages;
   List<String> countries;
   List<MovieRecommendation>? recommendations; // Top 10 recommended movies
@@ -23,6 +27,7 @@ class MovieStreamMetadata {
     required this.isAdult,
     required this.releaseDate,
     this.genres = const <String>[],
+    this.genreIds,
     this.languages = const <String>[],
     this.countries = const <String>[],
     this.recommendations,
@@ -39,6 +44,7 @@ class MovieRecommendation {
   final String? overview;
   final num? voteAverage;
   final String? releaseDate;
+  final List<int>? genreIds;
 
   MovieRecommendation({
     required this.movieId,
@@ -48,6 +54,7 @@ class MovieRecommendation {
     this.overview,
     this.voteAverage,
     this.releaseDate,
+    this.genreIds,
   });
 
   factory MovieRecommendation.fromMovie(dynamic movie) {
@@ -59,6 +66,7 @@ class MovieRecommendation {
       overview: movie.overview,
       voteAverage: movie.voteAverage,
       releaseDate: movie.releaseDate,
+      genreIds: movie.genreIds,
     );
   }
 }

@@ -270,6 +270,7 @@ class _HomeScreenState extends State<HomeScreen>
         kicker: kicker.toUpperCase(),
         logoAsset: collection.logoAsset,
         adPlacement: adPlacement ?? collection.adPlacement,
+        adFree: collection.adFree,
         loadPage: collection.loadPage,
       );
 

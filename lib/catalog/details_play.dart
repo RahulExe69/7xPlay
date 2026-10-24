@@ -1,3 +1,4 @@
+import '../constants/api_constants.dart' show YOUTUBE_BASE_URL;
 import '../models/credits.dart';
 import '../models/movie.dart' show MovieDetails;
 import '../models/recently_watched.dart';
@@ -157,13 +158,33 @@ Iterable<String> _names(Iterable<String?> names) {
       .where((name) => name.isNotEmpty && seen.add(name));
 }
 
+/// A YouTube video id, and nothing that could turn into more of a URL.
+final _youTubeKey = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
+
+/// [videos] that open in YouTube: hosted there, with a key that is only a
+/// video id, each once, in TMDB's order. A video on another site has no
+/// YouTube page, so it is left out rather than opened as one.
+List<Results> youTubeVideos(Videos? videos) {
+  final seen = <String>{};
+  return (videos?.result ?? const <Results>[]).where((video) {
+    final key = video.videoLink ?? '';
+    final site = video.site?.trim().toLowerCase();
+    return (site == null || site == 'youtube') &&
+        _youTubeKey.hasMatch(key) &&
+        seen.add(key);
+  }).toList(growable: false);
+}
+
+/// [video]'s YouTube page, or null for one [youTubeVideos] leaves out.
+Uri? youTubeWatchUrl(Results video) =>
+    youTubeVideos(Videos(result: <Results>[video])).isEmpty
+        ? null
+        : Uri.parse('$YOUTUBE_BASE_URL${video.videoLink}');
+
 /// The video the Trailer button plays: a YouTube trailer, else a teaser,
 /// else any YouTube video. Null when there is none.
 Results? pickTrailer(Videos? videos) {
-  final playable = (videos?.result ?? const <Results>[])
-      .where((video) => (video.videoLink ?? '').isNotEmpty)
-      .where((video) => video.site == null || video.site == 'YouTube')
-      .toList();
+  final playable = youTubeVideos(videos);
   bool named(Results video, String word) =>
       (video.name ?? '').toLowerCase().contains(word);
   return playable.where((video) => video.type == 'Trailer').firstOrNull ??

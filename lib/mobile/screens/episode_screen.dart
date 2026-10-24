@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../catalog/details_controller.dart';
+import '../../data/ads/content_ads.dart';
 import '../../catalog/details_play.dart';
 import '../../catalog/media_item.dart';
 import '../../catalog/season_source.dart';
@@ -238,8 +239,14 @@ class _EpisodeScreenState extends State<EpisodeScreen>
     return season == null || number == null ? null : 'S$season:E$number';
   }
 
+  /// A Kids or Family series' pages show no ads.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ContentAdGate(
+        content: AdContent.of(widget.series),
+        child: Builder(builder: _page),
+      );
+
+  Widget _page(BuildContext context) {
     final palette = AppPalette.of(context);
     final history = _history(context);
     final title = (_episode.name ?? '').trim().isEmpty

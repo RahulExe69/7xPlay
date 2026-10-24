@@ -1456,6 +1456,8 @@
   "tv_play_from_first_episode": "التشغيل من الموسم {season} الحلقة 1",
   "tv_some_details_could_not_be_loaded": "تعذر تحميل بعض التفاصيل.",
   "tv_more_like_this": "محتوى مشابه",
+  "tv_videos_could_not_be_loaded": "تعذّر تحميل الفيديوهات.",
+  "tv_video_could_not_open": "تعذّر فتح هذا الفيديو. ثبّت YouTube ثم حاول مرة أخرى.",
   "tv_specials": "حلقات خاصة",
   "tv_no_episodes_are_listed_for_this_season_yet": "لا توجد حلقات مدرجة لهذا الموسم بعد.",
   "tv_hold_ok_for_episode_info": "اضغط مطولاً على OK لمعلومات الحلقة",

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
+import '../data/ads/content_ads.dart';
 import '../provider/app_dependency_provider.dart';
 import '../services/device_presentation_service.dart';
 import '../tv/widgets/tv_dialog.dart';
@@ -60,6 +61,7 @@ class _AdBlockPlaybackGuardState extends State<AdBlockPlaybackGuard>
     if (!mounted ||
         _handled ||
         _checking ||
+        ContentAdScope.adFreeAt(context) ||
         _provider?.adBlockGateEnabled != true ||
         (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
       return;
@@ -94,6 +96,7 @@ class _AdBlockPlaybackGuardState extends State<AdBlockPlaybackGuard>
     if (!mounted ||
         _handled ||
         provider == null ||
+        ContentAdScope.adFreeAt(context) ||
         !_gate.blocksPlayback(provider)) {
       return;
     }

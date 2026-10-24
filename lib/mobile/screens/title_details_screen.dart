@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../catalog/details_controller.dart';
+import '../../data/ads/content_ads.dart';
 import '../../catalog/details_play.dart';
 import '../../catalog/episode_choice.dart';
 import '../../catalog/media_item.dart';
@@ -327,11 +328,12 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
       isAdult: item.movie?.adult,
       releaseDate: item.releaseDate,
       genres: insights.genres,
+      genreIds: item.genreIds,
       languages: insights.languages,
       countries: insights.countries,
     );
-    if (!await AdsterraPlaybackAdsService.instance
-            .beforeLoader(context, download: download) ||
+    if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context,
+            download: download, content: AdContent.of(item)) ||
         !mounted) {
       return;
     }
@@ -558,9 +560,13 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
               ],
             ),
     );
-    return widget.showTitleLogos
-        ? TitleLogoScope(logos: _logosFor(context), child: page)
-        : page;
+    // A Kids or Family title's page, and the loader it opens, show no ads.
+    return ContentAdGate(
+      content: AdContent.of(_item),
+      child: widget.showTitleLogos
+          ? TitleLogoScope(logos: _logosFor(context), child: page)
+          : page,
+    );
   }
 
   Widget _adSlot() =>
@@ -1182,9 +1188,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
                   onRetry: _retry,
                 );
               }
-              final videos = (snapshot.data?.result ?? const <Results>[])
-                  .where((video) => (video.videoLink ?? '').isNotEmpty)
-                  .toList(growable: false);
+              final videos = youTubeVideos(snapshot.data);
               if (videos.isEmpty) {
                 return DetailsMessage(message: tr('nothing_here_yet'));
               }

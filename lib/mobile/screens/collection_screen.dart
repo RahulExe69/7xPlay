@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../catalog/catalog_controller.dart';
+import '../../data/ads/content_ads.dart';
 import '../../catalog/media_item.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
@@ -181,8 +182,14 @@ class _CollectionGridState extends State<_CollectionGrid> {
     return false;
   }
 
+  /// A Kids or Family genre's titles show no ads, nor do the ones they open
+  /// from the grid's sheets.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => widget.collection.adFree
+      ? ContentAdScope(adFree: true, child: Builder(builder: _grid))
+      : _grid(context);
+
+  Widget _grid(BuildContext context) {
     final palette = AppPalette.of(context);
     final gutter = widget.gutter;
     final columns = posterGridColumns(context);

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../catalog/details_play.dart';
 import '../catalog/media_item.dart';
+import '../data/ads/content_ads.dart';
 import '../functions/function.dart';
 import '../models/tv.dart';
 import '../models/tv_stream_metadata.dart';
@@ -33,8 +34,8 @@ Future<bool> playEpisode(
     return false;
   }
   if (!context.mounted) return false;
-  if (!await AdsterraPlaybackAdsService.instance
-          .beforeLoader(context, download: download) ||
+  if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context,
+          download: download, content: AdContent.of(series)) ||
       !context.mounted) {
     return false;
   }
@@ -54,6 +55,7 @@ Future<bool> playEpisode(
           tvId: series.id,
           airDate: episode.airDate,
           genres: insights?.genres ?? const <String>[],
+          genreIds: series.genreIds,
           languages: insights?.languages ?? const <String>[],
           countries: insights?.countries ?? const <String>[],
           seasonEpisodes: seasonEpisodes

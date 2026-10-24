@@ -1,4 +1,5 @@
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 import 'package:flixquest/widgets/ad_block_gate.dart';
 // ignore_for_file: use_build_context_synchronously
@@ -39,7 +40,9 @@ import '../../screens/common/download_selection_sheets.dart';
 import '../../screens/common/manual_source_picker.dart';
 import '../../tv/player/tv_player_screen.dart';
 
-class TVVideoLoader extends StatefulWidget {
+/// Finds a stream for a series' episode. A Kids or Family series' loader,
+/// and the player it opens, are in its [ContentAdScope]: no ad is asked for.
+class TVVideoLoader extends StatelessWidget {
   const TVVideoLoader(
       {required this.metadata,
       required this.download,
@@ -52,16 +55,48 @@ class TVVideoLoader extends StatefulWidget {
   final bool download;
   final bool useTvPlayer;
   final VoidCallback? onTvPlayerExit;
+  final PlaybackAdStage adStage;
+
+  @override
+  Widget build(BuildContext context) {
+    final loader = _TVVideoLoader(
+        metadata: metadata,
+        download: download,
+        useTvPlayer: useTvPlayer,
+        onTvPlayerExit: onTvPlayerExit,
+        adStage: adStage);
+    final id = metadata.tvId;
+    if (id == null) return loader;
+    return ContentAdGate(
+      content: AdContent(series: true, id: id, genreIds: metadata.genreIds),
+      holdChild: true,
+      child: loader,
+    );
+  }
+}
+
+class _TVVideoLoader extends StatefulWidget {
+  const _TVVideoLoader(
+      {required this.metadata,
+      required this.download,
+      this.useTvPlayer = false,
+      this.onTvPlayerExit,
+      this.adStage = PlaybackAdStage.streamFound});
+
+  final TVStreamMetadata metadata;
+  final bool download;
+  final bool useTvPlayer;
+  final VoidCallback? onTvPlayerExit;
 
   /// The popup once a source is found: [PlaybackAdStage.episodeSwitch] or
   /// [PlaybackAdStage.movieSwitch] when the player itself started this load.
   final PlaybackAdStage adStage;
 
   @override
-  State<TVVideoLoader> createState() => _TVVideoLoaderState();
+  State<_TVVideoLoader> createState() => _TVVideoLoaderState();
 }
 
-class _TVVideoLoaderState extends State<TVVideoLoader> {
+class _TVVideoLoaderState extends State<_TVVideoLoader> {
   RecentlyWatchedEpisodeController recentlyWatchedEpisodeController =
       RecentlyWatchedEpisodeController();
 

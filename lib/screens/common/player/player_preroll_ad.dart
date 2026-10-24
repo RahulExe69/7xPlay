@@ -44,11 +44,12 @@ class PlayerPrerollAd {
   /// The ad playing now, or null.
   VastAdSession? get session => _session;
 
-  /// The first ad from the networks `vast_preroll_network` lists.
+  /// The first ad from the networks `vast_preroll_network` lists. A Kids or
+  /// Family title passes [adFreeContent], and asks for none.
   Future<VastPreroll?> load(VastPrerollConfig config,
-      {bool Function()? cancelled}) async {
+      {bool Function()? cancelled, bool adFreeContent = false}) async {
     // Plus asks no network for an ad, and drops one that arrives late.
-    if (AdsPolicy.adFree) return null;
+    if (AdsPolicy.adFree || adFreeContent) return null;
     final sources = config.sourcesFor(television: television);
     if (sources.isEmpty) return null;
     try {

@@ -1424,6 +1424,8 @@
   "tv_play_from_first_episode": "Play from S{season}:E1",
   "tv_some_details_could_not_be_loaded": "Some details could not be loaded.",
   "tv_more_like_this": "More like this",
+  "tv_videos_could_not_be_loaded": "Videos could not be loaded.",
+  "tv_video_could_not_open": "This video could not be opened. Install YouTube and try again.",
   "tv_specials": "Specials",
   "tv_no_episodes_are_listed_for_this_season_yet": "No episodes are listed for this season yet.",
   "tv_hold_ok_for_episode_info": "Hold OK for episode info",

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/ads/ads_policy.dart';
+import '../data/ads/content_ads.dart';
 import '../models/adsterra_playback_ads_config.dart';
 import '../provider/app_dependency_provider.dart';
 import '../widgets/ad_block_gate.dart';
@@ -67,8 +68,11 @@ class AdsterraPlaybackAdsService {
   bool _busy = false;
 
   /// Lets route builders omit the waiting frame when no interstitial can run.
-  bool needsBeforeLoader(BuildContext context, {bool television = false}) =>
+  /// [content] is the title about to load, when the route has one.
+  bool needsBeforeLoader(BuildContext context,
+          {bool television = false, AdContent? content}) =>
       _eligible(context, television: television) &&
+      (content == null || ContentAds.known(content) != true) &&
       context
               .read<AppDependencyProvider?>()
               ?.adsterraPlaybackAds
@@ -79,7 +83,7 @@ class AdsterraPlaybackAdsService {
       {bool download = false, bool television = false}) {
     final state = WidgetsBinding.instance.lifecycleState;
     return context.mounted &&
-        !AdsPolicy.adFree &&
+        !AdsPolicy.adFreeAt(context) &&
         (state == null || state == AppLifecycleState.resumed) &&
         !download &&
         !television &&
@@ -90,10 +94,17 @@ class AdsterraPlaybackAdsService {
   }
 
   /// The ad blocker check runs first, so a blocked viewer is not kept
-  /// waiting on an interstitial that cannot load.
+  /// waiting on an interstitial that cannot load. [content], the title about
+  /// to load, skips both when it is a Kids or Family title.
   Future<bool> beforeLoader(BuildContext context,
-      {bool download = false, bool television = false}) async {
-    if (AdsPolicy.adFree) return context.mounted;
+      {bool download = false,
+      bool television = false,
+      AdContent? content}) async {
+    if (AdsPolicy.adFreeAt(context)) return context.mounted;
+    if (content != null && await ContentAds.resolve(context, content)) {
+      return context.mounted;
+    }
+    if (!context.mounted) return false;
     if (!await AdBlockGate.instance.allowPlayback(context,
             download: download, television: television) ||
         !context.mounted) {
@@ -127,6 +138,8 @@ class AdsterraPlaybackAdsService {
   /// around [routeContext] has gone, so Back itself is never held.
   void _afterRouteGone(BuildContext routeContext,
       Future<void> Function(BuildContext context) present) {
+    // A Kids or Family title's player or download leaves nothing owed.
+    if (ContentAdScope.adFreeAt(routeContext)) return;
     final navigator = Navigator.of(routeContext);
     final route = ModalRoute.of(routeContext);
     void showPopup() {
@@ -160,6 +173,8 @@ class AdsterraPlaybackAdsService {
       await _settleOwedPlayerExit();
       return;
     }
+    // Owed or not, it never opens over a Kids or Family title.
+    if (ContentAdScope.adFreeAt(context)) return;
     final exit = context
         .read<AppDependencyProvider?>()
         ?.popupTrigger(PlaybackAdStage.playerExit);
@@ -182,7 +197,9 @@ class AdsterraPlaybackAdsService {
   /// player-exit popup, that is saved at once, before the viewer can close
   /// the app instead of leaving the player.
   void notePlayerWatch(BuildContext context, Duration watched) {
-    if (_playerExitOwed || !context.mounted || AdsPolicy.adFree) return;
+    if (_playerExitOwed || !context.mounted || AdsPolicy.adFreeAt(context)) {
+      return;
+    }
     final provider = context.read<AppDependencyProvider?>();
     final exit = provider?.popupTrigger(PlaybackAdStage.playerExit);
     if (provider == null ||
@@ -209,6 +226,8 @@ class AdsterraPlaybackAdsService {
   Future<void> showOwedPlayerExitOnLaunch(BuildContext context) async {
     if (_launchChecked || !context.mounted) return;
     _launchChecked = true;
+    // A launch straight into a Kids or Family title keeps it for later.
+    if (ContentAdScope.adFreeAt(context)) return;
     final provider = context.read<AppDependencyProvider?>();
     if (provider == null) return;
     final host = ModalRoute.of(context);
@@ -307,7 +326,7 @@ class AdsterraPlaybackAdsService {
       PlaybackAdStage stage = PlaybackAdStage.streamFound}) {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (!context.mounted ||
-        AdsPolicy.adFree ||
+        AdsPolicy.adFreeAt(context) ||
         download ||
         _busy ||
         (lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
@@ -362,6 +381,11 @@ class AdsterraPlaybackAdsService {
       _logSkip(requested, 'FlixQuest Plus');
       return true;
     }
+    if (ContentAdScope.adFreeAt(context)) {
+      preload?.dispose();
+      _logSkip(requested, 'Kids or Family title');
+      return true;
+    }
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
       _logSkip(requested, 'app lifecycle=${lifecycle.name}');
@@ -405,7 +429,9 @@ class AdsterraPlaybackAdsService {
         provider.popupTrigger(stage) != trigger;
     // Plus that starts while the ad is loading or showing skips it; the
     // content still plays.
-    bool plusStarted() => AdsPolicy.adFree;
+    bool plusStarted() =>
+        AdsPolicy.adFree ||
+        (context.mounted && ContentAdScope.adFreeAt(context));
     final frequencyMinutes = _frequencyFor(provider, stage, tv);
     try {
       if (stage != PlaybackAdStage.beforeLoader && frequencyMinutes > 0) {

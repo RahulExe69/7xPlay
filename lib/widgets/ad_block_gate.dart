@@ -69,7 +69,9 @@ class AdBlockGate {
 
   Future<void> warmUp(BuildContext context) async {
     final provider = context.read<AppDependencyProvider?>();
-    if (provider == null || !provider.adBlockGateEnabled || AdsPolicy.adFree) {
+    if (provider == null ||
+        !provider.adBlockGateEnabled ||
+        AdsPolicy.adFreeAt(context)) {
       invalidate();
       return;
     }
@@ -81,9 +83,12 @@ class AdBlockGate {
   Future<bool> allowPlayback(BuildContext context,
       {bool download = false, bool television = false}) async {
     final provider = context.read<AppDependencyProvider?>();
-    if (provider == null || !provider.adBlockGateEnabled || AdsPolicy.adFree) {
+    if (provider == null ||
+        !provider.adBlockGateEnabled ||
+        AdsPolicy.adFreeAt(context)) {
       invalidate();
-      debugPrint('[AdBlockGate] skipped: gate disabled, Plus or no provider');
+      debugPrint(
+          '[AdBlockGate] skipped: gate disabled, ad-free or no provider');
       return true;
     }
     final tv = television || DevicePresentationService.instance.isTelevision;

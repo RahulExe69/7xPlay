@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../catalog/continue_watching.dart';
 import '../../catalog/details_controller.dart';
 import '../../catalog/media_item.dart';
+import '../../data/ads/content_ads.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../functions/function.dart';
@@ -105,7 +106,8 @@ class _ContinueSheet extends StatelessWidget {
     if (picked == null || !host.mounted) return;
     await PlaybackAction.run(host, () async {
       if (!await checkConnection() || !host.mounted) return;
-      if (!await AdsterraPlaybackAdsService.instance.beforeLoader(host) ||
+      if (!await AdsterraPlaybackAdsService.instance
+              .beforeLoader(host, content: AdContent.of(item)) ||
           !host.mounted) {
         return;
       }
