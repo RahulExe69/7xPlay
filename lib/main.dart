@@ -26,6 +26,7 @@ import 'services/auth_session_controller.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:provider/provider.dart';
+import 'core/config/app_environment.dart';
 import 'core/di/injector.dart';
 import 'core/network/network_runtime.dart';
 import 'dart:ui' show PlatformDispatcher;
@@ -126,10 +127,12 @@ Future<DevicePresentation> appInitialize({
     DeviceOrientation.landscapeRight,
   ]);
 
-  // ByteData data =
-  //     await PlatformAssetBundle().load('assets/ca/lets-encrypt-r3.pem');
-  // SecurityContext.defaultContext
-  //     .setTrustedCertificatesBytes(data.buffer.asUint8List());
+  // Android 7.0 predates ISRG Root X1, which anchors the API's certificate.
+  try {
+    final root = await rootBundle.load('assets/ca/isrg-root-x1.pem');
+    SecurityContext.defaultContext
+        .setTrustedCertificatesBytes(root.buffer.asUint8List());
+  } catch (_) {/* The platform already trusts it. */}
   await dotenv.load(fileName: '.env');
   await EasyLocalization.ensureInitialized();
   // Seed the shared version with the installed build so any synchronous reader
@@ -190,8 +193,12 @@ Future<DevicePresentation> appInitialize({
 
 void main() async {
   final devicePresentation = await appInitialize();
-  HttpOverrides.global = MyHttpOverrides();
-  final injector = await buildInjector(deleteLocalData: (owner) async {
+  final environment = AppEnvironment.fromRuntime();
+  HttpOverrides.global = MyHttpOverrides(
+      verifiedHosts: {Uri.parse(environment.laravelApiUrl).host});
+  final injector = await buildInjector(
+      environment: environment,
+      deleteLocalData: (owner) async {
     await LocalAccountData.delete(owner);
     await bookmarkProvider.fetchBookmarks();
     await recentProvider.fetchMovies();
