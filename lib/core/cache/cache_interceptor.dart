@@ -83,11 +83,7 @@ class CacheInterceptor extends cache.DioCacheInterceptor {
     final uncacheable = control.noStore ||
         (control.privacy == 'private' && cacheOwnerIsPublic(selection.key)) ||
         response.headers['set-cookie'] != null ||
-        response.headers
-                .value('vary')
-                ?.split(',')
-                .any((part) => part.trim() == '*') ==
-            true;
+        _variesOnEverything(response.headers);
     if (uncacheable) {
       await httpCache.store.delete(selection.key);
       handler.next(response);
@@ -136,7 +132,7 @@ class CacheInterceptor extends cache.DioCacheInterceptor {
       if (control.noStore ||
           (control.privacy == 'private' && cacheOwnerIsPublic(selection.key)) ||
           response.headers['set-cookie'] != null ||
-          response.headers.value('vary')?.trim() == '*') {
+          _variesOnEverything(response.headers)) {
         final stored = await httpCache.store.get(selection.key);
         await httpCache.store.delete(selection.key);
         if (stored != null) {
@@ -157,6 +153,11 @@ class CacheInterceptor extends cache.DioCacheInterceptor {
 
 bool cacheOwnerIsPublic(String key) =>
     ResponseCacheStore.keyParts(key)[1] == 'public';
+
+/// CDNs may repeat Vary, so every header value and list item is checked.
+bool _variesOnEverything(Headers headers) => (headers['vary'] ?? const [])
+    .expand((value) => value.split(','))
+    .any((part) => part.trim() == '*');
 
 class _CacheErrorHandler extends ErrorInterceptorHandler {
   _CacheErrorHandler(this.delegate, this.diagnostic);

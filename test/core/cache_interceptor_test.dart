@@ -27,6 +27,35 @@ void main() {
     expect(adapter.requests, hasLength(1));
   });
 
+  test('responses with several Vary headers are delivered and cached',
+      () async {
+    // TMDB's CDN sends Vary twice; reading it as one value used to throw.
+    final cache = HttpCache(MemCacheStore());
+    final adapter = FakeDioAdapter()
+      ..enqueueJson({'title': 'Example'}, headers: {
+        'vary': ['Origin', 'Accept-Encoding']
+      })
+      ..enqueueJson({'title': 'Uncached'}, headers: {
+        'vary': ['Origin', 'Accept-Encoding, *']
+      });
+    final dio = createPublicDio(AppEnvironment.resolve(isDebug: true),
+        httpCache: cache, debugLogging: false);
+    dio.httpClientAdapter = adapter;
+    addTearDown(dio.close);
+    addTearDown(cache.close);
+    const cached = 'https://api.themoviedb.org/3/movie/7';
+    expect((await dio.get<Map<String, dynamic>>(cached)).data!['title'],
+        'Example');
+    expect((await dio.get<Object>(cached)).extra['cache'], 'hit');
+
+    const wildcard = 'https://api.themoviedb.org/3/movie/8';
+    expect((await dio.get<Map<String, dynamic>>(wildcard)).data!['title'],
+        'Uncached');
+    final key =
+        normalizedCacheKey(RequestOptions(path: wildcard), scope: 'tmdb');
+    expect(await cache.store.get(key), isNull);
+  });
+
   test('stale metadata revalidates with ETag and serves the stored body',
       () async {
     final cache = HttpCache(MemCacheStore());
