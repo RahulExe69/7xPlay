@@ -266,8 +266,8 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
     await _signOut();
   }
 
-  /// Guests sign in by discarding the anonymous account, as the old profile
-  /// page did.
+  /// Guests go to the sign-in screens keeping their guest account, which a
+  /// sign-up then upgrades in place.
   Future<void> _leaveGuestSession() async {
     if (_signingIn) return;
     setState(() => _signingIn = true);

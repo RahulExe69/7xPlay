@@ -112,6 +112,27 @@ void main() {
     expect(harness.session.user?.id, 41);
   });
 
+  test('leaving guest mode keeps the account for sign-up and reuse', () async {
+    harness.adapter.enqueueJson(guestFixture(), statusCode: 201);
+    await harness.session.enterGuest();
+    await harness.session.ensureGuestAccount();
+
+    await harness.session.signOut();
+    expect(harness.adapter.requests.map((r) => r.path), ['auth/guest'],
+        reason: 'the guest token is not revoked');
+    expect(browsing(), isFalse);
+    expect(harness.session.accountId.value, 'guest:41');
+
+    await harness.session.restore();
+    expect(browsing(), isFalse);
+    expect(harness.session.token, '41|guest');
+
+    await harness.session.enterGuest();
+    await harness.session.ensureGuestAccount();
+    expect(browsing(), isTrue);
+    expect(harness.adapter.requests, hasLength(1));
+  });
+
   test('a rejected guest token is replaced without leaving guest mode',
       () async {
     harness.adapter.enqueueJson(guestFixture(), statusCode: 201);

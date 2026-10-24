@@ -86,9 +86,9 @@ class SessionViewModel extends ChangeNotifier {
       _guestId = null;
       final browsing = preferences.getBool('session.guest') ?? false;
       final guestId = preferences.getInt('session.guest_id');
-      if (_token != null && browsing && guestId != null) {
+      if (_token != null && guestId != null) {
         _guestId = guestId;
-        _publish(const SessionState.guest(browsing: true));
+        _publish(SessionState.guest(browsing: browsing));
         return;
       }
       if (_token == null) {
@@ -216,6 +216,14 @@ class SessionViewModel extends ChangeNotifier {
     unawaited(ensureGuestAccount());
   }
 
+  /// Returns to the sign-in screens without discarding the guest account, as
+  /// Firebase keeps an anonymous user until it is linked or replaced: signing
+  /// up upgrades it and Continue anonymously reuses it.
+  Future<void> leaveGuest() async {
+    await preferences.setBool('session.guest', false);
+    _publish(const SessionState.guest());
+  }
+
   /// Gives a browsing guest its backend account, like a Firebase anonymous
   /// sign-in. Offline guests keep browsing; launch and resume retry.
   Future<void> ensureGuestAccount() =>
@@ -267,6 +275,7 @@ class SessionViewModel extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    if (_guestId != null && user == null) return leaveGuest();
     final revision = ++_revision;
     try {
       if (_token != null) await repository.signOut();
