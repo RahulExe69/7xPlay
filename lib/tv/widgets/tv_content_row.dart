@@ -20,6 +20,22 @@ typedef TvContentItemLeadingBuilder<T> = Widget Function(
   int index,
 );
 
+/// A tile after a row's last item that leads somewhere rather than to an
+/// item, such as See all.
+class TvContentRowAction {
+  const TvContentRowAction({
+    required this.semanticLabel,
+    required this.builder,
+    required this.onActivate,
+    this.onFocused,
+  });
+
+  final String semanticLabel;
+  final WidgetBuilder builder;
+  final VoidCallback onActivate;
+  final VoidCallback? onFocused;
+}
+
 class TvContentRow<T> extends StatefulWidget {
   const TvContentRow({
     required this.title,
@@ -39,9 +55,14 @@ class TvContentRow<T> extends StatefulWidget {
     this.itemFocusScale = 1.04,
     this.itemFocusRadius = TvDesign.cardRadius + 2,
     this.trailingInset = 0,
+    this.trailingAction,
     this.controller,
     super.key,
   });
+
+  /// The id [trailingAction] goes by in focus memory and focus labels; item
+  /// ids never take it.
+  static const trailingActionId = '#trailing-action';
 
   final String title;
   final String scopeId;
@@ -85,6 +106,9 @@ class TvContentRow<T> extends StatefulWidget {
   /// Clearance after the last item, such as the screen's overscan margin for
   /// a row that runs to the edge.
   final double trailingInset;
+
+  /// Reached by Right from the last item, and remembered like one.
+  final TvContentRowAction? trailingAction;
   final TvContentRowController? controller;
 
   @override
@@ -187,9 +211,7 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
     _syncFocusNodes();
     if (focusedId != null && !_focusNodes.containsKey(focusedId)) {
       _cancelHold();
-      final oldIds =
-          oldWidget.items.map(oldWidget.itemId).toList(growable: false);
-      _restoreFocusNear(oldIds.indexOf(focusedId));
+      _restoreFocusNear(_trackIdsOf(oldWidget).indexOf(focusedId));
     }
     if (oldWidget.autofocus != widget.autofocus) {
       _scheduledInitialFocus = false;
@@ -214,7 +236,15 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
         ),
       );
     }
-    final currentIds = ids.toSet();
+    if (widget.trailingAction != null) {
+      _focusNodes.putIfAbsent(
+        TvContentRow.trailingActionId,
+        () => FocusNode(
+          debugLabel: '${widget.scopeId}:${TvContentRow.trailingActionId}',
+        ),
+      );
+    }
+    final currentIds = _trackIds.toSet();
     final removedIds =
         _focusNodes.keys.where((id) => !currentIds.contains(id)).toList();
     for (final id in removedIds) {
@@ -222,6 +252,14 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
       _leadingKeys.remove(id);
     }
   }
+
+  /// Every focusable stop along the row, the trailing action last.
+  List<String> get _trackIds => _trackIdsOf(widget);
+
+  List<String> _trackIdsOf(TvContentRow<T> row) => <String>[
+        ...row.items.map(row.itemId),
+        if (row.trailingAction != null) TvContentRow.trailingActionId,
+      ];
 
   String? _focusedItemId() {
     for (final entry in _focusNodes.entries) {
@@ -238,7 +276,7 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
   }
 
   void _restoreFocusNear(int removedIndex) {
-    final ids = widget.items.map(widget.itemId).toList(growable: false);
+    final ids = _trackIds;
     if (ids.isEmpty) return;
     final targetIndex = removedIndex.clamp(0, ids.length - 1);
     final node = _focusNodes[ids[targetIndex]];
@@ -368,7 +406,7 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
   /// Moves focus [delta] items along from [node], or reports that the row
   /// ends there.
   bool _stepFrom(FocusNode node, int delta) {
-    final ids = widget.items.map(widget.itemId).toList(growable: false);
+    final ids = _trackIds;
     final index = ids.indexWhere((id) => identical(_focusNodes[id], node));
     final target = index + delta;
     if (index < 0 || target < 0 || target >= ids.length) return false;
@@ -405,8 +443,7 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
 
   void _measureTrailingGrowth() {
     if (!mounted || !widget.pinFocusedItem || widget.items.isEmpty) return;
-    final lastId = widget.itemId(widget.items.last);
-    final box = _focusNodes[lastId]?.context?.findRenderObject();
+    final box = _focusNodes[_trackIds.last]?.context?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
     final growth = box.size.width * (widget.itemFocusScale - 1);
     if ((growth - _trailingGrowth).abs() >= 0.5) {
@@ -556,14 +593,47 @@ class _TvContentRowState<T> extends State<TvContentRow<T>> {
                       );
                     },
                   ),
-                  if (index != widget.items.length - 1)
+                  if (index != widget.items.length - 1 ||
+                      widget.trailingAction != null)
                     SizedBox(width: widget.itemSpacing),
                 ],
+                if (widget.trailingAction case final action?)
+                  _buildTrailingAction(action, memory),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  /// Focused, laid out and scrolled to like an item, so Right reaches it,
+  /// Back to the row returns to it, and it pins like any card.
+  Widget _buildTrailingAction(
+    TvContentRowAction action,
+    TvFocusMemory? memory,
+  ) {
+    const id = TvContentRow.trailingActionId;
+    return TvFocusable(
+      key: ValueKey<String>('${widget.scopeId}:$id'),
+      focusNode: _focusNodes[id],
+      semanticLabel: action.semanticLabel,
+      onFocusChanged: (hasFocus) {
+        if (hasFocus) {
+          memory?.remember(scopeId: widget.scopeId, itemId: id);
+          action.onFocused?.call();
+          if (widget.pinFocusedItem) _pinItem(id);
+        }
+        _handleItemFocusChanged(id: id, hasFocus: hasFocus);
+      },
+      onActivate: action.onActivate,
+      padding: const EdgeInsets.all(_itemFocusPadding),
+      scrollAlignment: widget.pinFocusedItem ? null : 0.6,
+      focusScale: widget.itemFocusScale,
+      focusAlignment:
+          widget.pinFocusedItem ? Alignment.centerLeft : Alignment.center,
+      borderRadius: BorderRadius.circular(widget.itemFocusRadius),
+      child: action.builder(context),
     );
   }
 }

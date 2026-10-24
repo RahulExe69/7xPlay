@@ -80,6 +80,27 @@ class _TvCatalogScreenState extends State<TvCatalogScreen> {
     });
   }
 
+  /// Opens the whole of [list] behind a row named [title].
+  TvRowSeeAll _seeAll(
+    CatalogList list,
+    String title, {
+    String? label,
+    String? description,
+  }) =>
+      TvRowSeeAll(
+        label: label,
+        description: description,
+        onActivate: () => widget.onOpenCollection(
+          _controller.catalogListCollection(
+            kind: widget.kind,
+            list: list,
+            title: title,
+            settings: context.read<SettingsProvider>(),
+            dependencies: context.read<AppDependencyProvider>(),
+          ),
+        ),
+      );
+
   void _openService(AppStreamingService service) {
     widget.onOpenCollection(_controller.serviceCollection(
       kind: widget.kind,
@@ -156,21 +177,36 @@ class _TvCatalogScreenState extends State<TvCatalogScreen> {
 
   List<TvBrowseRow> _rows(TvCatalogData data) {
     final kind = widget.kind.name;
+    final trendingTitle = tr('tv_trending_now');
+    final popularTitle = tr(_isMovie ? 'popular_movies' : 'popular_series');
+    final topRatedTitle = tr('tv_top_rated');
+    final freshTitle = _isMovie ? tr('tv_coming_soon') : tr('new_episodes');
     return <TvBrowseRow>[
       TvTopTenRow(
         title: tr(_isMovie ? 'top_10_movies_today' : 'top_10_series_today'),
         scopeId: '$kind-top-ten',
         items: data.topTen,
+        // The day's whole trending list, the one the ten are ranked from.
+        seeAll: _seeAll(
+          CatalogList.trendingToday,
+          tr(_isMovie
+              ? 'tv_trending_movies_today'
+              : 'tv_trending_series_today'),
+          label: tr('tv_see_all_trending_today'),
+          description: tr('tv_see_all_trending_today_description'),
+        ),
       ),
       TvMediaRow(
-        title: tr('tv_trending_now'),
+        title: trendingTitle,
         scopeId: '$kind-trending',
         items: data.trending,
+        seeAll: _seeAll(CatalogList.trendingWeek, trendingTitle),
       ),
       TvMediaRow(
-        title: tr(_isMovie ? 'popular_movies' : 'popular_series'),
+        title: popularTitle,
         scopeId: '$kind-popular',
         items: data.popular,
+        seeAll: _seeAll(CatalogList.popular, popularTitle),
       ),
       TvShortcutRow(
         title: tr('streaming_services'),
@@ -191,16 +227,18 @@ class _TvCatalogScreenState extends State<TvCatalogScreen> {
         ],
       ),
       TvMediaRow(
-        title: tr('tv_top_rated'),
+        title: topRatedTitle,
         scopeId: '$kind-top-rated',
         items: data.topRated,
+        seeAll: _seeAll(CatalogList.topRated, topRatedTitle),
       ),
       TvMediaRow(
-        title: _isMovie ? tr('tv_coming_soon') : tr('new_episodes'),
+        title: freshTitle,
         scopeId: '$kind-fresh',
         items: data.fresh,
         // Every card here would say New episodes.
         showBadges: _isMovie,
+        seeAll: _seeAll(CatalogList.fresh, freshTitle),
       ),
       TvShortcutRow(
         title: tr('genres'),
@@ -232,6 +270,8 @@ class _TvCatalogScreenState extends State<TvCatalogScreen> {
               tr('tv_popular_on', namedArgs: {'service': shelf.service.name}),
           scopeId: '$kind-on-${shelf.service.providerId}',
           items: shelf.items,
+          // The same catalog as the service's tile.
+          seeAll: TvRowSeeAll(onActivate: () => _openService(shelf.service)),
         ),
     ];
   }

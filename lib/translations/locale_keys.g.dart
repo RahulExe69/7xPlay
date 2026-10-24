@@ -1417,6 +1417,13 @@ abstract class  LocaleKeys {
   static const tv_google_unavailable_device = 'tv_google_unavailable_device';
   static const tv_search_no_matches = 'tv_search_no_matches';
   static const tv_collection_empty = 'tv_collection_empty';
+  static const tv_see_all_semantics = 'tv_see_all_semantics';
+  static const tv_see_all_description = 'tv_see_all_description';
+  static const tv_trending_movies_today = 'tv_trending_movies_today';
+  static const tv_trending_series_today = 'tv_trending_series_today';
+  static const tv_see_all_trending_today = 'tv_see_all_trending_today';
+  static const tv_see_all_trending_today_description = 'tv_see_all_trending_today_description';
+  static const tv_collection_load_more_failed = 'tv_collection_load_more_failed';
   static const tv_service_description = 'tv_service_description';
   static const tv_genre_description = 'tv_genre_description';
   static const tv_popular_on = 'tv_popular_on';
