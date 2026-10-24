@@ -1701,5 +1701,33 @@ abstract class  LocaleKeys {
   static const plus_tv_back_to_code = 'plus_tv_back_to_code';
   static const plus_tv_reminder_body = 'plus_tv_reminder_body';
   static const plus_delete_balance_lost = 'plus_delete_balance_lost';
+  static const flix_ai_history = 'flix_ai_history';
+  static const flix_ai_no_history = 'flix_ai_no_history';
+  static const flix_ai_delete = 'flix_ai_delete';
+  static const flix_ai_new_chat = 'flix_ai_new_chat';
+  static const flix_ai_remaining = 'flix_ai_remaining';
+  static const flix_ai_more_with_plus = 'flix_ai_more_with_plus';
+  static const flix_ai_thinking = 'flix_ai_thinking';
+  static const flix_ai_limit = 'flix_ai_limit';
+  static const flix_ai_busy = 'flix_ai_busy';
+  static const flix_ai_error = 'flix_ai_error';
+  static const flix_ai_retry = 'flix_ai_retry';
+  static const flix_ai_refresh = 'flix_ai_refresh';
+  static const flix_ai_unavailable = 'flix_ai_unavailable';
+  static const flix_ai_reset = 'flix_ai_reset';
+  static const flix_ai_hint = 'flix_ai_hint';
+  static const flix_ai_send = 'flix_ai_send';
+  static const flix_ai_privacy = 'flix_ai_privacy';
+  static const flix_ai_sign_in = 'flix_ai_sign_in';
+  static const flix_ai_intro = 'flix_ai_intro';
+  static const flix_ai_subtitle = 'flix_ai_subtitle';
+  static const flix_ai_example_romance = 'flix_ai_example_romance';
+  static const flix_ai_example_tv = 'flix_ai_example_tv';
+  static const flix_ai_example_thriller = 'flix_ai_example_thriller';
+  static const flix_ai_broadened = 'flix_ai_broadened';
+  static const flix_ai_no_matches = 'flix_ai_no_matches';
+  static const flix_ai_search_cta = 'flix_ai_search_cta';
+  static const flix_ai_try = 'flix_ai_try';
+  static const flix_ai_delete_message = 'flix_ai_delete_message';
 
 }

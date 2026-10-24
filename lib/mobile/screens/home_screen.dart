@@ -40,6 +40,7 @@ import '../widgets/page_kit.dart' show EmptyState;
 import '../widgets/plus_card.dart';
 import '../widgets/skeletons.dart';
 import 'collection_screen.dart';
+import 'flix_ai_screen.dart';
 
 /// Finds a colour to tint the top of Home with, from an image URL.
 typedef TintFinder = Future<Color?> Function(String imageUrl);
@@ -689,6 +690,15 @@ class _HomeHeader extends StatelessWidget {
                     color: palette.foreground,
                     onPressed: onDownloads,
                     icon: Icon(PhosphorIcons.downloadSimple(), size: 24),
+                  ),
+                  IconButton(
+                    tooltip: 'FlixAI',
+                    color: palette.foreground,
+                    onPressed: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                            settings: const RouteSettings(name: '/flix-ai'),
+                            builder: (_) => const FlixAiScreen())),
+                    icon: Icon(PhosphorIcons.sparkle(), size: 24),
                   ),
                   // Search last, at the bar's far end.
                   IconButton(
