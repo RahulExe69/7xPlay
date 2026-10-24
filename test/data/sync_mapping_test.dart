@@ -48,6 +48,8 @@ void main() {
       () {
     final row = WellnessViewingSession.fromMap(session('a', 100));
     final payload = row.toLaravelMap();
+    // Laravel upserts sessions by id; Firestore kept it as the document key.
+    expect(payload['id'], 'a');
     expect(payload['updated_at_utc'], 100);
     expect(payload.containsKey('updatedAtUtc'), isFalse);
     expect(payload['segments'], isA<List>());

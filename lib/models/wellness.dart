@@ -212,6 +212,7 @@ class WellnessViewingSession {
 
   Map<String, dynamic> toLaravelMap() => {
     ...toCloudMap()..remove('updatedAtUtc')..remove('deletedAtUtc'),
+    'id': id,
     'updated_at_utc': updatedAtUtc.millisecondsSinceEpoch > 0 ? updatedAtUtc.millisecondsSinceEpoch : 1,
     'deleted_at_utc': deletedAtUtc?.millisecondsSinceEpoch,
   };
