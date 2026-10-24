@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../constants/app_constants.dart';
 import '../../design/app_tokens.dart';
@@ -26,6 +25,7 @@ import '../../services/adsterra_playback_ads_service.dart';
 import '../../widgets/ad_block_playback_guard.dart';
 import '../../services/analytics_service.dart';
 import '../../services/daddylive_service.dart';
+import '../../services/playback_wake_lock.dart';
 import '../../services/stream_intro_service.dart';
 import 'player/player_preroll_ad.dart';
 import 'player/player_sheet_ui.dart';
@@ -122,6 +122,10 @@ class _LivePlayerState extends State<LivePlayer> {
   final _feedbackConnection = StreamFeedbackConnection();
   bool _exitingPlayer = false;
   bool _adBlockStopped = false;
+
+  /// Set by an explicit pause (the remote, or the app going to the
+  /// background) and cleared by play; the screen may sleep meanwhile.
+  bool _pausedByUser = false;
   int _feedbackChannelSwitches = 0;
   String? _initialFeedbackChannel;
   String? _currentChannelId;
@@ -208,10 +212,10 @@ class _LivePlayerState extends State<LivePlayer> {
       currentUrl: _currentVideoUrl,
     );
 
-    // Playback owns the screen for the whole session on both surfaces. Better
-    // Player only holds a wakelock inside its own fullscreen route, which TV
-    // and the inline portrait layout never enter.
-    unawaited(WakelockPlus.enable());
+    // Playback owns the screen from the start, on both surfaces; see
+    // _syncWakeLock for when it lets go.
+    _playbackFailure.addListener(_syncWakeLock);
+    _syncWakeLock();
     betterPlayerBufferingConfiguration = liveBufferingConfiguration;
 
     betterPlayerControlsConfiguration =
@@ -223,7 +227,10 @@ class _LivePlayerState extends State<LivePlayer> {
       autoDetectFullscreenAspectRatio: !widget.useTvControls,
       looping: false,
       autoPlay: true,
-      allowedScreenSleep: false,
+      // PlaybackWakeLock keeps the screen on for the whole session. Better
+      // Player's own hold covers only its fullscreen route and clears the flag
+      // on the way out, under whatever else still needs it.
+      allowedScreenSleep: true,
       fit: BoxFit.contain,
       // Sampling video frames for glow is costly on TV GPUs.
       enableAmbientGlow: !widget.useTvControls,
@@ -264,6 +271,19 @@ class _LivePlayerState extends State<LivePlayer> {
     _betterPlayerController.setBetterPlayerGlobalKey(_betterPlayerKey);
     _watchdogTimer = Timer.periodic(
         const Duration(seconds: 2), (_) => _checkPlaybackProgress());
+  }
+
+  /// Keeps the screen on while live playback is expected: playing, buffering,
+  /// or reconnecting. A pause, a stream that gave up reconnecting, or the
+  /// ad-block stop lets the TV's screen saver and sleep take over again, as
+  /// Fire TV requires.
+  void _syncWakeLock() {
+    final failure = _playbackFailure.value;
+    final terminalFailure = failure != null && !failure.retrying;
+    PlaybackWakeLock.instance.set(
+      this,
+      wanted: !_pausedByUser && !terminalFailure && !_adBlockStopped,
+    );
   }
 
   void _checkPlaybackProgress() {
@@ -940,6 +960,8 @@ class _LivePlayerState extends State<LivePlayer> {
         _startWatchClock();
         _wellnessTracker.play();
         _trackPlayerEvent('play');
+        _pausedByUser = false;
+        _syncWakeLock();
         break;
       case BetterPlayerEventType.pause:
         if (_betterPlayerController.isPreRollActive) _prerollAd.onPause();
@@ -947,6 +969,8 @@ class _LivePlayerState extends State<LivePlayer> {
         _stopWatchClock();
         _wellnessTracker.pause();
         _trackPlayerEvent('pause');
+        _pausedByUser = true;
+        _syncWakeLock();
         break;
       case BetterPlayerEventType.bufferingStart:
         _wasPlayingBeforeBuffering = _playingStartedAt != null;
@@ -1010,12 +1034,6 @@ class _LivePlayerState extends State<LivePlayer> {
         break;
       case BetterPlayerEventType.hideFullscreen:
         _trackPlayerEvent('fullscreen_closed');
-        // Leaving Better Player's fullscreen route unconditionally clears the
-        // screen-on flag. Re-asserting on the next frame lands after that
-        // cleanup and restores the player-lifetime hold.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) unawaited(WakelockPlus.enable());
-        });
         break;
       case BetterPlayerEventType.pipStart:
         _trackPlayerEvent('pip_started');
@@ -1337,7 +1355,8 @@ class _LivePlayerState extends State<LivePlayer> {
     _watchdogTimer?.cancel();
     _watchdogClock.stop();
     _cancelPlaybackRecovery();
-    unawaited(WakelockPlus.disable());
+    _playbackFailure.removeListener(_syncWakeLock);
+    PlaybackWakeLock.instance.release(this);
     _betterPlayerController.removeEventsListener(_onPlayerEvent);
     _playbackFailure.dispose();
     _stopWatchClock();
@@ -1374,6 +1393,7 @@ class _LivePlayerState extends State<LivePlayer> {
   void _stopForAdBlocker() {
     if (_adBlockStopped) return;
     _adBlockStopped = true;
+    _syncWakeLock();
     _adoptStreamDiscovery(null);
     _exitingPlayer = true;
     _sourceOperationGeneration++;
