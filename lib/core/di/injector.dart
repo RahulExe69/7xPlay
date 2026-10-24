@@ -7,6 +7,8 @@ import '../../data/sync/laravel_sync_coordinator.dart';
 import '../../data/sync/library_scope.dart';
 import 'package:flixquest/data/repositories/ads_repository.dart';
 import 'package:flixquest/data/repositories/auth_repository.dart';
+import 'package:flixquest/data/repositories/billing_repository.dart';
+import 'package:flixquest/presentation/billing/plus_controller.dart';
 import 'package:flixquest/data/repositories/config_repository.dart';
 import 'package:flixquest/data/sources/laravel_api.dart';
 import 'package:flixquest/data/sources/google_identity_client.dart';
@@ -45,6 +47,8 @@ class AppInjector {
     required this.announcementRepository,
     required this.session,
     required this.syncCoordinator,
+    required this.billingRepository,
+    required this.plus,
   });
 
   final AppEnvironment environment;
@@ -64,8 +68,13 @@ class AppInjector {
   final AnnouncementRepository announcementRepository;
   final SessionViewModel session;
   final LaravelSyncCoordinator syncCoordinator;
+  final BillingRepository billingRepository;
+
+  /// FlixQuest Plus for the signed-in account; it also drives AdsPolicy.
+  final PlusController plus;
 
   Future<void> dispose() async {
+    plus.dispose();
     session.dispose();
     syncCoordinator.dispose();
     await adsRepository.dispose();
@@ -131,6 +140,7 @@ Future<AppInjector> buildInjector({
       } : null,
       mergeGuestData: syncEnabled ? (user) => sync.mergeGuest('user:${user.id}') : null);
   laravelClient.interceptors.insert(0, AuthInterceptor(session, config.laravelApiUrl));
+  final billing = BillingRepository(laravelClient);
   return AppInjector._(
     environment: config,
     migrationFlags: flags,
@@ -148,5 +158,8 @@ Future<AppInjector> buildInjector({
     announcementRepository: AnnouncementRepository(laravelClient),
     session: session,
     syncCoordinator: sync,
+    billingRepository: billing,
+    plus: PlusController(
+        repository: billing, store: preferences, owner: session.ownerId),
   );
 }

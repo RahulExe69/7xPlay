@@ -37,6 +37,7 @@ import '../widgets/hero_card.dart';
 import '../widgets/media_art.dart';
 import '../widgets/media_rows.dart';
 import '../widgets/page_kit.dart' show EmptyState;
+import '../widgets/plus_card.dart';
 import '../widgets/skeletons.dart';
 import 'collection_screen.dart';
 
@@ -386,6 +387,10 @@ class _HomeScreenState extends State<HomeScreen>
         onOpenService: _openService,
         onOpenList: _openList,
       );
+      // Now and then, a Plus invitation a few rows down (never the top).
+      if (_filter == HomeFilter.all && rows.length > 3) {
+        rows.insert(3, const HomeOptionalRow(child: PlusSpotlight()));
+      }
       content = <Widget>[
         SliverFadeTransition(
           opacity: _fade,

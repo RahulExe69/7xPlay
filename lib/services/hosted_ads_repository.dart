@@ -1,3 +1,4 @@
+import '../data/ads/ads_policy.dart';
 import '../models/banner_ad.dart';
 import '../data/repositories/ads_repository.dart';
 
@@ -28,11 +29,17 @@ class HostedAdsRepository {
     clear();
   }
 
-  Future<void> reportImpression(String id) async =>
-      await _laravel?.reportImpression(id);
-  Future<void> reportClick(String id) async => await _laravel?.reportClick(id);
+  Future<void> reportImpression(String id) async {
+    if (!AdsPolicy.adFree) await _laravel?.reportImpression(id);
+  }
 
+  Future<void> reportClick(String id) async {
+    if (!AdsPolicy.adFree) await _laravel?.reportClick(id);
+  }
+
+  /// Plus members get no catalog, so no ad image is ever fetched for them.
   Future<List<BannerAd>> load(String apiUrl) {
+    if (AdsPolicy.adFree) return Future.value(const <BannerAd>[]);
     if (_laravel != null) return _laravel!.load();
     final cached = _entries[apiUrl];
     if (cached != null && !cached.isStale) return cached.ads;

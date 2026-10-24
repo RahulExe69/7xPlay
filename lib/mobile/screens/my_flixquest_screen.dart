@@ -28,10 +28,15 @@ import '../../screens/common/sync_screen.dart';
 import '../../screens/common/update_screen.dart';
 import '../../screens/user/edit_profile.dart';
 import '../../screens/wellness/wellness_screen.dart';
+import '../../presentation/billing/plus_controller.dart';
 import '../../services/auth_navigation_service.dart';
+import '../../services/plus_navigation.dart';
+import '../../widgets/plus/plus_visuals.dart';
 import '../widgets/media_rows.dart';
 import '../widgets/page_kit.dart';
 import '../widgets/pill_button.dart';
+import '../widgets/plus_card.dart';
+import '../widgets/verified_badge.dart';
 import '../widgets/section_header.dart';
 
 /// The phone library and account tab. Local media is useful immediately and
@@ -146,7 +151,13 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 onProfile: () => _push(const ProfileEdit()),
                 onSignIn: _leaveGuestSession,
                 signingIn: _signingIn,
+                plus: context.watch<PlusController?>()?.adFree ?? false,
               ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  AppSpace.gutter(context), AppSpace.xl, AppSpace.gutter(context), 0),
+              child: const PlusCard(),
             ),
             if (continueWatching.isNotEmpty) ...<Widget>[
               const SizedBox(height: AppSpace.xxl),
@@ -194,6 +205,12 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
               ),
             ),
             const SizedBox(height: AppSpace.xxl),
+            if (_isSignedIn)
+              ListRow(
+                leading: PlusMark(size: 22, color: palette.mutedText),
+                label: tr('plus_name'),
+                onTap: () => unawaited(openPlus(context)),
+              ),
             ListRow(
               icon: PhosphorIcons.slidersHorizontal(),
               label: tr('settings'),
@@ -297,12 +314,16 @@ class _ProfileHeader extends StatelessWidget {
     required this.onProfile,
     required this.onSignIn,
     this.signingIn = false,
+    this.plus = false,
   });
 
   final AppUser? user;
   final VoidCallback onProfile;
   final VoidCallback onSignIn;
   final bool signingIn;
+
+  /// A Plus member: a foil ring round the avatar and "FlixQuest Plus".
+  final bool plus;
 
   @override
   Widget build(BuildContext context) {
@@ -328,10 +349,12 @@ class _ProfileHeader extends StatelessWidget {
           name: user.name,
           photoUrl: user.photoUrl ?? '',
           profileId: user.profileId),
-      status: tr('signed_in'),
+      verified: user.isAccountVerified,
+      status: plus ? tr('plus_name') : tr('signed_in'),
       actionLabel: tr('profile'),
       actionIcon: PhosphorIcons.user(),
       onAction: onProfile,
+      plus: plus,
     );
   }
 
@@ -352,14 +375,20 @@ class _ProfileHeaderContent extends StatelessWidget {
     required this.actionIcon,
     required this.onAction,
     this.busy = false,
+    this.plus = false,
+    this.verified = false,
   });
 
   final _ProfileSnapshot profile;
+
+  /// The admin-granted badge: a tick after the name.
+  final bool verified;
   final String status;
   final String actionLabel;
   final IconData actionIcon;
   final VoidCallback onAction;
   final bool busy;
+  final bool plus;
 
   @override
   Widget build(BuildContext context) {
@@ -375,25 +404,47 @@ class _ProfileHeaderContent extends StatelessWidget {
             .clamp(0.0, double.infinity);
         return Row(
           children: <Widget>[
-            _ProfileAvatar(profile: profile),
+            _ProfileAvatar(profile: profile, plus: plus),
             const SizedBox(width: AppSpace.lg),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    profile.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppType.sectionHeader.copyWith(
-                      color: palette.foreground,
-                    ),
+                  Row(
+                    children: <Widget>[
+                      Flexible(
+                        child: Text(
+                          profile.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppType.sectionHeader.copyWith(
+                            color: palette.foreground,
+                          ),
+                        ),
+                      ),
+                      if (verified) ...<Widget>[
+                        const SizedBox(width: 5),
+                        const VerifiedBadge(size: 19),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    status,
-                    style: AppType.metadata.copyWith(color: palette.mutedText),
-                  ),
+                  if (plus)
+                    PlusSheen(
+                      child: Text(
+                        status,
+                        style: AppType.metadata.copyWith(
+                          fontFamily: AppType.semiBold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      status,
+                      style:
+                          AppType.metadata.copyWith(color: palette.mutedText),
+                    ),
                 ],
               ),
             ),
@@ -415,11 +466,12 @@ class _ProfileHeaderContent extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.profile});
+  const _ProfileAvatar({required this.profile, this.plus = false});
 
   static const size = 64.0;
 
   final _ProfileSnapshot profile;
+  final bool plus;
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +490,15 @@ class _ProfileAvatar extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: palette.hairline),
+        border: plus ? null : Border.all(color: palette.hairline),
+        gradient: plus
+            ? const SweepGradient(colors: <Color>[
+                PlusColors.gold,
+                PlusColors.coral,
+                PlusColors.violet,
+                PlusColors.gold,
+              ])
+            : null,
       ),
       child: ClipOval(
         child: profile.photoUrl.trim().isEmpty

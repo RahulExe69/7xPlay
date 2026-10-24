@@ -29,6 +29,9 @@ mixin _$AppUser {
   String? get photoUrl => throw _privateConstructorUsedError;
   String get provider => throw _privateConstructorUsedError;
   bool get isVerified => throw _privateConstructorUsedError;
+
+  /// The admin-granted verified badge; unrelated to email verification.
+  bool get isAccountVerified => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
   DateTime? get updatedAt => throw _privateConstructorUsedError;
 
@@ -56,6 +59,7 @@ abstract class $AppUserCopyWith<$Res> {
       String? photoUrl,
       String provider,
       bool isVerified,
+      bool isAccountVerified,
       DateTime? createdAt,
       DateTime? updatedAt});
 }
@@ -84,6 +88,7 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     Object? photoUrl = freezed,
     Object? provider = null,
     Object? isVerified = null,
+    Object? isAccountVerified = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
   }) {
@@ -124,6 +129,10 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
           ? _value.isVerified
           : isVerified // ignore: cast_nullable_to_non_nullable
               as bool,
+      isAccountVerified: null == isAccountVerified
+          ? _value.isAccountVerified
+          : isAccountVerified // ignore: cast_nullable_to_non_nullable
+              as bool,
       createdAt: freezed == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -153,6 +162,7 @@ abstract class _$$AppUserImplCopyWith<$Res> implements $AppUserCopyWith<$Res> {
       String? photoUrl,
       String provider,
       bool isVerified,
+      bool isAccountVerified,
       DateTime? createdAt,
       DateTime? updatedAt});
 }
@@ -179,6 +189,7 @@ class __$$AppUserImplCopyWithImpl<$Res>
     Object? photoUrl = freezed,
     Object? provider = null,
     Object? isVerified = null,
+    Object? isAccountVerified = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
   }) {
@@ -219,6 +230,10 @@ class __$$AppUserImplCopyWithImpl<$Res>
           ? _value.isVerified
           : isVerified // ignore: cast_nullable_to_non_nullable
               as bool,
+      isAccountVerified: null == isAccountVerified
+          ? _value.isAccountVerified
+          : isAccountVerified // ignore: cast_nullable_to_non_nullable
+              as bool,
       createdAt: freezed == createdAt
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
@@ -244,6 +259,7 @@ class _$AppUserImpl implements _AppUser {
       this.photoUrl,
       this.provider = 'email',
       this.isVerified = false,
+      this.isAccountVerified = false,
       this.createdAt,
       this.updatedAt});
 
@@ -271,6 +287,11 @@ class _$AppUserImpl implements _AppUser {
   @override
   @JsonKey()
   final bool isVerified;
+
+  /// The admin-granted verified badge; unrelated to email verification.
+  @override
+  @JsonKey()
+  final bool isAccountVerified;
   @override
   final DateTime? createdAt;
   @override
@@ -278,7 +299,7 @@ class _$AppUserImpl implements _AppUser {
 
   @override
   String toString() {
-    return 'AppUser(id: $id, name: $name, email: $email, username: $username, joinedAt: $joinedAt, profileId: $profileId, photoUrl: $photoUrl, provider: $provider, isVerified: $isVerified, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'AppUser(id: $id, name: $name, email: $email, username: $username, joinedAt: $joinedAt, profileId: $profileId, photoUrl: $photoUrl, provider: $provider, isVerified: $isVerified, isAccountVerified: $isAccountVerified, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -301,6 +322,8 @@ class _$AppUserImpl implements _AppUser {
                 other.provider == provider) &&
             (identical(other.isVerified, isVerified) ||
                 other.isVerified == isVerified) &&
+            (identical(other.isAccountVerified, isAccountVerified) ||
+                other.isAccountVerified == isAccountVerified) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -320,6 +343,7 @@ class _$AppUserImpl implements _AppUser {
       photoUrl,
       provider,
       isVerified,
+      isAccountVerified,
       createdAt,
       updatedAt);
 
@@ -350,6 +374,7 @@ abstract class _AppUser implements AppUser {
       final String? photoUrl,
       final String provider,
       final bool isVerified,
+      final bool isAccountVerified,
       final DateTime? createdAt,
       final DateTime? updatedAt}) = _$AppUserImpl;
 
@@ -373,6 +398,10 @@ abstract class _AppUser implements AppUser {
   String get provider;
   @override
   bool get isVerified;
+
+  /// The admin-granted verified badge; unrelated to email verification.
+  @override
+  bool get isAccountVerified;
   @override
   DateTime? get createdAt;
   @override

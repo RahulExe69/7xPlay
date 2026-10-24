@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/ads/ads_policy.dart';
 import '../models/adsterra_playback_ads_config.dart';
 import '../provider/app_dependency_provider.dart';
 import '../widgets/ad_block_gate.dart';
@@ -28,8 +29,18 @@ class AdsterraPlaybackAdsService {
     this.continueTap,
     DateTime Function()? now,
   })  : _preferences = preferences ?? SharedPreferences.getInstance,
-        _now = now ?? DateTime.now;
+        _now = now ?? DateTime.now {
+    AdsPolicy.addListener(_onPlusChanged);
+  }
   static final instance = AdsterraPlaybackAdsService();
+
+  /// A popup owed from before Plus started is settled, never replayed
+  /// later when Plus ends.
+  void _onPlusChanged() {
+    if (AdsPolicy.adFree && _playerExitOwed) {
+      unawaited(_settleOwedPlayerExit());
+    }
+  }
   static String _lastPopupShownKey(PlaybackAdStage stage) =>
       stage == PlaybackAdStage.streamFound
           ? 'playback_ads.last_popup_shown_at'
@@ -68,6 +79,7 @@ class AdsterraPlaybackAdsService {
       {bool download = false, bool television = false}) {
     final state = WidgetsBinding.instance.lifecycleState;
     return context.mounted &&
+        !AdsPolicy.adFree &&
         (state == null || state == AppLifecycleState.resumed) &&
         !download &&
         !television &&
@@ -81,6 +93,7 @@ class AdsterraPlaybackAdsService {
   /// waiting on an interstitial that cannot load.
   Future<bool> beforeLoader(BuildContext context,
       {bool download = false, bool television = false}) async {
+    if (AdsPolicy.adFree) return context.mounted;
     if (!await AdBlockGate.instance.allowPlayback(context,
             download: download, television: television) ||
         !context.mounted) {
@@ -143,6 +156,10 @@ class AdsterraPlaybackAdsService {
   Future<void> playerExit(BuildContext context,
       {required Duration watched}) async {
     if (!context.mounted) return;
+    if (AdsPolicy.adFree) {
+      await _settleOwedPlayerExit();
+      return;
+    }
     final exit = context
         .read<AppDependencyProvider?>()
         ?.popupTrigger(PlaybackAdStage.playerExit);
@@ -165,7 +182,7 @@ class AdsterraPlaybackAdsService {
   /// player-exit popup, that is saved at once, before the viewer can close
   /// the app instead of leaving the player.
   void notePlayerWatch(BuildContext context, Duration watched) {
-    if (_playerExitOwed || !context.mounted) return;
+    if (_playerExitOwed || !context.mounted || AdsPolicy.adFree) return;
     final provider = context.read<AppDependencyProvider?>();
     final exit = provider?.popupTrigger(PlaybackAdStage.playerExit);
     if (provider == null ||
@@ -203,6 +220,11 @@ class AdsterraPlaybackAdsService {
       return;
     }
     if (owedAtMs == null) return;
+    if (AdsPolicy.adFree) {
+      _logSkip(PlaybackAdStage.playerExit, 'owed popup dropped for Plus');
+      await _settleOwedPlayerExit();
+      return;
+    }
     if (!await _configApplied(provider)) {
       _logSkip(PlaybackAdStage.playerExit,
           'owed popup: Remote Config not ready; kept for a later launch');
@@ -285,6 +307,7 @@ class AdsterraPlaybackAdsService {
       PlaybackAdStage stage = PlaybackAdStage.streamFound}) {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (!context.mounted ||
+        AdsPolicy.adFree ||
         download ||
         _busy ||
         (lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
@@ -306,13 +329,19 @@ class AdsterraPlaybackAdsService {
     if (placement == null) return null;
     late final PlaybackAdPreload preload;
     void onConfigChanged() {
-      if (provider.playbackAdsSelection != selection) preload.dispose();
+      if (provider.playbackAdsSelection != selection || AdsPolicy.adFree) {
+        preload.dispose();
+      }
     }
 
     provider.addListener(onConfigChanged);
+    AdsPolicy.addListener(onConfigChanged);
     preload = PlaybackAdPreload(
       placement: placement,
-      onReleased: () => provider.removeListener(onConfigChanged),
+      onReleased: () {
+        provider.removeListener(onConfigChanged);
+        AdsPolicy.removeListener(onConfigChanged);
+      },
     );
     return preload;
   }
@@ -324,6 +353,14 @@ class AdsterraPlaybackAdsService {
     if (!context.mounted) {
       _logSkip(requested, 'playback screen disposed');
       return false;
+    }
+    if (AdsPolicy.adFree) {
+      preload?.dispose();
+      if (requested == PlaybackAdStage.playerExit) {
+        await _settleOwedPlayerExit();
+      }
+      _logSkip(requested, 'FlixQuest Plus');
+      return true;
     }
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
@@ -366,6 +403,9 @@ class AdsterraPlaybackAdsService {
     bool configChanged() =>
         provider.playbackAdsSelection != selection ||
         provider.popupTrigger(stage) != trigger;
+    // Plus that starts while the ad is loading or showing skips it; the
+    // content still plays.
+    bool plusStarted() => AdsPolicy.adFree;
     final frequencyMinutes = _frequencyFor(provider, stage, tv);
     try {
       if (stage != PlaybackAdStage.beforeLoader && frequencyMinutes > 0) {
@@ -375,6 +415,10 @@ class AdsterraPlaybackAdsService {
         if (!context.mounted) return false;
         if (configChanged() || (host != null && !host.isCurrent)) {
           return false;
+        }
+        if (plusStarted()) {
+          preload?.dispose();
+          return true;
         }
         final state = WidgetsBinding.instance.lifecycleState;
         if (state != null && state != AppLifecycleState.resumed) return true;
@@ -399,6 +443,10 @@ class AdsterraPlaybackAdsService {
       if (!context.mounted) return false;
       if (configChanged() || (host != null && !host.isCurrent)) {
         return false;
+      }
+      if (plusStarted()) {
+        preload?.dispose();
+        return true;
       }
       final state = WidgetsBinding.instance.lifecycleState;
       if (state != null && state != AppLifecycleState.resumed) return true;
@@ -440,7 +488,7 @@ class AdsterraPlaybackAdsService {
       // Compare the catalogs and network, not the chosen arm: unrelated
       // provider updates must not close a selected B/C variant.
       void onConfigChanged() {
-        if (configChanged() && route.isActive) {
+        if ((configChanged() || plusStarted()) && route.isActive) {
           navigator.removeRoute(route);
         }
       }
@@ -448,10 +496,12 @@ class AdsterraPlaybackAdsService {
       debugPrint(
           '[AdsterraPlayback] ${stage.name}: presenting ${selectedPlacement.network.name} ${selectedPlacement.mode} variant=${variantId ?? 'legacy'} television=$tv preloaded=${prepared != null}');
       provider.addListener(onConfigChanged);
+      AdsPolicy.addListener(onConfigChanged);
       try {
         await navigator.push(route);
       } finally {
         provider.removeListener(onConfigChanged);
+        AdsPolicy.removeListener(onConfigChanged);
       }
       // The ad closes when FlixQuest is backgrounded (for example by a Play
       // Store hand-off). Do not hand off to the player until it resumes.

@@ -27,6 +27,15 @@ class AuthRepository {
           'requires_password_setup': ['Set a password using password reset.']
         }, message: data['message'] as String?));
       }
+      if (e.response?.statusCode == 409 &&
+          data is Map<String, dynamic> &&
+          data['code'] == 'wallet_credit_remaining') {
+        return Result.err(Failure.validation({
+          'wallet_credit_remaining': [
+            (data['message'] as String?) ?? 'Your FlixQuest balance has credit.'
+          ]
+        }, message: data['message'] as String?));
+      }
       return Result.err(failureForDio(e));
     } on FormatException {
       return const Result.err(
@@ -114,8 +123,15 @@ class AuthRepository {
   Future<Result<void>> signOut() => _result(() async {
         await api.request('auth/logout', method: 'POST');
       });
-  Future<Result<void>> deleteAccount() => _result(() async {
-        await api.request('user/account', method: 'DELETE');
+  /// Laravel refuses (409 `wallet_credit_remaining`) while the FlixQuest
+  /// balance holds credit, until the viewer acknowledges it.
+  Future<Result<void>> deleteAccount({bool acknowledgeWalletCredit = false}) =>
+      _result(() async {
+        await api.request('user/account',
+            method: 'DELETE',
+            data: acknowledgeWalletCredit
+                ? {'acknowledge_wallet_credit': true}
+                : null);
       });
   Future<Result<void>> forgotPassword(String email) => _result(() async {
         await api.request('auth/forgot-password',

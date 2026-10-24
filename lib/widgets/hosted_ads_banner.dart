@@ -7,6 +7,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../data/ads/ads_policy.dart';
 import '../models/banner_ad.dart';
 import '../provider/app_dependency_provider.dart';
 import '../services/hosted_ads_repository.dart';
@@ -65,7 +66,15 @@ class _RemoteHostedAdsBannerState extends State<RemoteHostedAdsBanner> {
       HostedAdsRepository.instance.load(dependencies.flixquestAPIURL);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: AdsPolicy.listenable,
+        // Plus collapses the slot before anything is requested, and a
+        // banner already on screen goes the moment Plus starts.
+        builder: (context, adFree, _) =>
+            adFree ? const SizedBox.shrink() : _slot(context),
+      );
+
+  Widget _slot(BuildContext context) {
     final dependencies = context.watch<AppDependencyProvider?>();
     if (dependencies == null || dependencies.bannerAdNetwork == 'none') {
       return const SizedBox.shrink();
@@ -204,7 +213,13 @@ class HostedAdsBanner extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: AdsPolicy.listenable,
+        builder: (context, adFree, _) =>
+            adFree ? const SizedBox.shrink() : _banner(context),
+      );
+
+  Widget _banner(BuildContext context) {
     final validAds = ads
         .where((ad) => ad.imageUrl.isNotEmpty && ad.targetUrl.isNotEmpty)
         .toList(growable: false);

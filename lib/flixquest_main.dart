@@ -1,5 +1,7 @@
 import 'presentation/session/firebase_session_bridge.dart';
 import 'presentation/session/session_view_model.dart';
+import 'presentation/billing/plus_controller.dart';
+import 'widgets/plus/plus_celebration.dart';
 import 'presentation/notifications/notification_controller.dart';
 import 'data/sync/sync_runtime.dart';
 import 'services/bookmark_sync_service.dart';
@@ -176,6 +178,9 @@ class _FlixQuestState extends State<FlixQuest>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       _firebaseConfig?.pause();
+      if (state == AppLifecycleState.paused) {
+        context.read<PlusController?>()?.onPause();
+      }
       // Leaving the app is the last chance to hand off progress saved by the
       // player, so push it now instead of waiting out the debounce.
       unawaited(RecentlyWatchedSyncService.instance.flushPending());
@@ -193,6 +198,8 @@ class _FlixQuestState extends State<FlixQuest>
     unawaited(widget.firebaseSession?.run());
     // An offline guest gets its tracked account once the network is back.
     unawaited(context.read<SessionViewModel?>()?.ensureGuestAccount());
+    // Back from a payment page or another device: Plus may have changed.
+    context.read<PlusController?>()?.onResume();
     unawaited(_refreshHomeWidgets());
     unawaited(RecentlyWatchedSyncService.instance.autoSyncIfSignedIn());
     if (SyncRuntime.enabled) {
@@ -304,6 +311,10 @@ class _FlixQuestState extends State<FlixQuest>
                         else
                           MobileUpdateGate(
                               child: child ?? const SizedBox.shrink()),
+                        PlusCelebration(
+                          television: devicePresentation ==
+                              DevicePresentation.television,
+                        ),
                         if (devicePresentation != DevicePresentation.television)
                           OccasionalEffectOverlay(
                             theme: appDependencyProvider.activeOccasionalTheme,

@@ -17,6 +17,7 @@ _$AppUserImpl _$$AppUserImplFromJson(Map<String, dynamic> json) =>
       photoUrl: json['photoUrl'] as String?,
       provider: json['provider'] as String? ?? 'email',
       isVerified: json['isVerified'] as bool? ?? false,
+      isAccountVerified: json['isAccountVerified'] as bool? ?? false,
       createdAt: json['createdAt'] == null
           ? null
           : DateTime.parse(json['createdAt'] as String),
@@ -36,6 +37,7 @@ Map<String, dynamic> _$$AppUserImplToJson(_$AppUserImpl instance) =>
       'photoUrl': instance.photoUrl,
       'provider': instance.provider,
       'isVerified': instance.isVerified,
+      'isAccountVerified': instance.isAccountVerified,
       'createdAt': instance.createdAt?.toIso8601String(),
       'updatedAt': instance.updatedAt?.toIso8601String(),
     };

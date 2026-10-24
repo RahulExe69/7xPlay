@@ -43,4 +43,17 @@ void main() {
           throwsFormatException);
     }
   });
+
+  test('the admin-granted badge is separate from email verification', () {
+    expect(AppUser.fromJson(fixture('user')).isAccountVerified, isFalse);
+    final camel =
+        AppUser.fromJson(fixture('user')..['isAccountVerified'] = true);
+    final snake =
+        AppUser.fromJson(fixture('user')..['is_account_verified'] = 1);
+    expect(camel.isAccountVerified, isTrue);
+    expect(camel.isVerified, isFalse);
+    expect(snake.isAccountVerified, isTrue);
+    // The cached profile keeps the badge across launches.
+    expect(AppUser.fromJson(camel.toJson()).isAccountVerified, isTrue);
+  });
 }

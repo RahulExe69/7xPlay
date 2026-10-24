@@ -4,6 +4,12 @@ import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:provider/provider.dart';
+
+import '../../presentation/billing/plus_controller.dart';
+import '../../services/plus_navigation.dart';
+import '../../widgets/plus/plus_format.dart';
+import '../../widgets/plus/plus_visuals.dart';
 
 import '../../services/auth_navigation_service.dart';
 import '../app/tv_design.dart';
@@ -210,12 +216,29 @@ class _ProfileLayout extends StatelessWidget {
                             height: 1.35,
                           ),
                         ),
+                        SizedBox(height: compact ? 14 : 20),
+                        _PlusLine(compact: compact),
                         SizedBox(height: compact ? 18 : 26),
-                        TvPillButton(
-                          focusNode: signOutFocusNode,
-                          label: tr('sign_out'),
-                          icon: PhosphorIcons.signOut(),
-                          onActivate: onSignOut,
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: <Widget>[
+                            TvPillButton(
+                              focusNode: signOutFocusNode,
+                              label: tr('sign_out'),
+                              icon: PhosphorIcons.signOut(),
+                              onActivate: onSignOut,
+                            ),
+                            if (!isGuest ||
+                                (context.watch<PlusController?>()?.shouldSuggest ??
+                                    false))
+                              TvPillButton(
+                                label: tr('plus_name'),
+                                leading: const PlusMark(),
+                                prominent: true,
+                                onActivate: () => openPlus(context),
+                              ),
+                          ],
                         ),
                       ],
                     ),
@@ -227,6 +250,50 @@ class _ProfileLayout extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One line on Plus under the profile: the days left for a member, or what
+/// it costs while it is on sale.
+class _PlusLine extends StatelessWidget {
+  const _PlusLine({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final plus = context.watch<PlusController?>();
+    if (plus == null) return const SizedBox.shrink();
+    final until = plus.activeUntil;
+    final String text;
+    if (until != null) {
+      text = tr('plus_ad_free_until', args: [formatDay(context, until)]);
+    } else if (plus.shouldSuggest) {
+      text = tr('plus_price_line', args: [
+        formatPrice(plus.plan?.amountCents ?? 200),
+        '${plus.plan?.intervalDays ?? 31}'
+      ]);
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        PlusWordmark(size: compact ? 15 : 18, showName: false),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: TvPalette.of(context).mutedText,
+              fontSize: compact ? 14 : 16,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

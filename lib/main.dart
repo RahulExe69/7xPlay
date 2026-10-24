@@ -22,6 +22,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'services/local_account_data.dart';
 import 'presentation/session/auth_runtime.dart';
 import 'presentation/session/session_view_model.dart';
+import 'presentation/billing/plus_controller.dart';
+import 'services/plus_navigation.dart';
 import 'services/auth_session_controller.dart';
 import 'dart:async';
 import 'dart:io';
@@ -259,6 +261,10 @@ void main() async {
         .run()
         .timeout(const Duration(seconds: 10), onTimeout: () {});
     AuthSessionController.instance.initialize();
+    // Restores a paying member's cached access before the first frame, so
+    // no ad flashes up while Laravel confirms it.
+    await injector.plus.start();
+    installPlusOffer();
     await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
     if (SyncRuntime.enabled) {
       await bookmarkProvider.fetchBookmarks();
@@ -323,8 +329,11 @@ void main() async {
     ),
   );
   await MediaLinkNavigationService.initialize();
-  runApp(ChangeNotifierProvider<SessionViewModel>.value(
-      value: injector.session,
+  runApp(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<SessionViewModel>.value(value: injector.session),
+        ChangeNotifierProvider<PlusController>.value(value: injector.plus),
+      ],
       child: Provider<AppInjector>.value(
           value: injector,
           child: EasyLocalization(

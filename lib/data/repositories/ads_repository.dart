@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../core/cache/cache_policy.dart';
 import '../ads/ad_event_queue.dart';
+import '../ads/ads_policy.dart';
 import 'package:dio/dio.dart';
 import '../../models/banner_ad.dart';
 import '../models/banner_ad_dto.dart';
@@ -55,7 +56,10 @@ class AdsRepository {
   Future<void> reportImpression(String id) => _report(id, 'impression');
   Future<void> reportClick(String id) => _report(id, 'click');
 
+  /// Plus records no new events; ones queued before it started still send,
+  /// since those ads really were shown.
   Future<void> _report(String id, String type) async {
+    if (AdsPolicy.adFree) return;
     try {
       await events.enqueue(id, type, _now());
       unawaited(flush());

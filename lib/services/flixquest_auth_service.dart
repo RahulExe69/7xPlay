@@ -29,7 +29,9 @@ class FlixQuestAuthService {
   Future<AppUser> updateProfile(UpdateProfileRequest request) async => _value(await session.updateProfile(request));
   Future<AppUser> changeEmail(ChangeEmailRequest request) async => _value(await session.changeEmail(request));
   Future<void> changePassword(ChangePasswordRequest request) async => _value(await session.changePassword(request));
-  Future<void> deleteAccount() async => _value(await session.deleteAccount());
+  Future<void> deleteAccount({bool acknowledgeWalletCredit = false}) async =>
+      _value(await session.deleteAccount(
+          acknowledgeWalletCredit: acknowledgeWalletCredit));
   Future<void> forgotPassword(String email) async => _value(await session.repository.forgotPassword(email));
   Future<bool> usernameAvailable(String username) async => _value(await session.repository.usernameAvailable(username));
   Future<void> signOut() => session.signOut();
@@ -48,6 +50,7 @@ class AuthActionException implements Exception {
       ConflictFailure() => 'account-exists-with-different-credential',
       NetworkFailure() || TimeoutFailure() => 'network-request-failed',
       ValidationFailure(:final fields) when fields.containsKey('requires_password_setup') => 'requires-password-setup',
+      ValidationFailure(:final fields) when fields.containsKey('wallet_credit_remaining') => 'wallet-credit-remaining',
       ValidationFailure(:final fields) when fields.containsKey('username') => 'username-already-in-use',
       ValidationFailure(:final fields) when fields.containsKey('email') => 'email-already-in-use',
       _ => 'request-failed',

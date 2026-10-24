@@ -356,10 +356,12 @@ class SessionViewModel extends ChangeNotifier {
     return result;
   }
 
-  Future<Result<void>> deleteAccount() async {
+  Future<Result<void>> deleteAccount(
+      {bool acknowledgeWalletCredit = false}) async {
     final owner = ownerId.value;
     final revision = _revision;
-    final result = await repository.deleteAccount();
+    final result = await repository.deleteAccount(
+        acknowledgeWalletCredit: acknowledgeWalletCredit);
     if (result is Ok<void> && revision == _revision) {
       await _clear(const SessionState.guest());
       try {

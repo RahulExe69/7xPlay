@@ -95,6 +95,41 @@ eventual commit. Do not hand-edit them. `build.yaml` enables `explicit_to_json`:
 .fvm/flutter_sdk/bin/dart run build_runner build --delete-conflicting-outputs
 ```
 
+## FlixQuest Plus
+
+Laravel owns Plus: paid access (`entitlements`), the wallet renewal
+agreement (`subscription`) and the prepaid USD balance (`wallet`) are separate
+fields and stay separate in `lib/data/models/billing.dart`. The contract is
+`docs/flixquest-plus-nowpayments-handover.md` in the backend repo.
+
+- `BillingRepository` (`lib/data/repositories/`) calls the owner-scoped,
+  no-store billing endpoints and throws `BillingError`, which keeps Laravel's
+  stable `code` (`wallet_insufficient_balance`, `coupon_invalid`...). Screens
+  map codes to text with `billingMessage`; provider wording is never shown.
+- `PlusController` (`lib/presentation/billing/`) follows `session.ownerId`.
+  Every answer carries the revision it was asked under, so a late reply for a
+  signed-out account is dropped. Background checks read `user/entitlements`;
+  the balance (`GET wallet`, which opens a wallet row) is read only for
+  accounts that use Plus or on the Plus screens. A verified entitlement is
+  cached per owner and trusted offline until the earlier of its expiry and 24
+  hours after the check, using the server's clock offset.
+- `AdsPolicy` (`lib/data/ads/`) is the single ad-free switch. Only the
+  controller writes it. Banners, the hosted `/ads` catalog and its events,
+  playback popups (including the owed player-exit popup), VAST pre-rolls and
+  the ad-blocker gate check it before any request and again after awaits, and
+  listen to it so Plus that starts mid-ad ends that ad while content plays on.
+  Remote ad switches in `AppDependencyProvider` are untouched.
+- Top-ups use an idempotency key that is reused only when the previous
+  answer may have been lost. Checkout opens NOWPayments' own HTTPS page in the
+  browser (TV shows its QR code); the app then polls Laravel for a bounded
+  window. Returning from the browser proves nothing.
+- Surfaces: the Plus card on My FlixQuest, `PlusScreen`, `WalletScreen` and
+  `PlusPaymentScreen` on phones; `TvPlusScreen` from the TV profile. Plus is
+  suggested only while it is on sale and not owned: "Remove ads" beside network
+  banners, an option in the ad-blocker prompt, and a Home card at most every
+  five days (three weeks after a dismissal). `PlusCelebration` marks Plus that
+  starts in the session, never a member opening the app.
+
 ## Verification
 
 Tests exercise public interfaces with real Dio transforms and a scripted transport

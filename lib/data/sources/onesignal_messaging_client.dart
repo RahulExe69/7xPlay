@@ -47,7 +47,12 @@ class OneSignalMessagingClient implements PushMessagingClient {
     final data = _data(event.notification);
     // Keep a system notification for a private message; its content is fetched
     // only when opened, so a failed/offline fetch does not lose the alert.
-    if (data['type'] == 'push_message') return;
+    // Returning without displaying makes OneSignal suppress it after its
+    // foreground-handler timeout, so display it explicitly.
+    if (data['type'] == 'push_message') {
+      event.notification.display();
+      return;
+    }
     event.preventDefault();
     _foreground.add(data);
   }

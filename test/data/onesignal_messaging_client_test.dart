@@ -113,6 +113,11 @@ void main() {
         'OneSignal#notifications',
         'OneSignal#onWillDisplayNotification',
         notification({'type': 'push_message', 'message_id': appId}));
+    expect(
+        calls.any((call) =>
+            call.method == 'OneSignal#displayNotification' &&
+            call.arguments['notificationId'] == 'notification-1'),
+        isTrue);
     expect(calls.any((call) => call.method == 'OneSignal#preventDefault'),
         isFalse);
   });

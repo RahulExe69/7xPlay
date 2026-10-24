@@ -16,6 +16,9 @@ class AppUser with _$AppUser {
     String? photoUrl,
     @Default('email') String provider,
     @Default(false) bool isVerified,
+
+    /// The admin-granted verified badge; unrelated to email verification.
+    @Default(false) bool isAccountVerified,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) = _AppUser;
@@ -39,6 +42,10 @@ class AppUser with _$AppUser {
       'photoUrl': reader.firstOf(['photoUrl', 'photo_url']),
       'isVerified': JsonReader.asBool(
             reader.firstOf(['isVerified', 'verified', 'is_verified']),
+          ) ??
+          false,
+      'isAccountVerified': JsonReader.asBool(
+            reader.firstOf(['isAccountVerified', 'is_account_verified']),
           ) ??
           false,
       'joinedAt':

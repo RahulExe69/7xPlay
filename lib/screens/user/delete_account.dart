@@ -8,6 +8,9 @@ import '../../services/auth_navigation_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../mobile/widgets/page_kit.dart';
+import '../../presentation/billing/plus_controller.dart';
+import '../../widgets/plus/plus_format.dart';
 import '/provider/settings_provider.dart';
 import '../../mobile/widgets/account_form.dart';
 
@@ -48,7 +51,15 @@ class DeleteAccountScreenState extends State<LaravelDeleteAccountScreen> {
     _formKey.currentState!.save();
     setState(() => _isLoading = true);
     try {
-      await _auth.deleteAccount();
+      try {
+        await _auth.deleteAccount();
+      } on AuthActionException catch (error) {
+        if (error.code != 'wallet-credit-remaining' || !mounted) rethrow;
+        // Prepaid credit is never dropped silently: the viewer sees what is
+        // left and the reference support needs for a refund, then decides.
+        if (!await _acknowledgeCredit(error.message) || !mounted) return;
+        await _auth.deleteAccount(acknowledgeWalletCredit: true);
+      }
       if (!mounted) return;
       final analytics = context.read<SettingsProvider>().analytics;
       analytics.trackAccountDeleted();
@@ -59,6 +70,31 @@ class DeleteAccountScreenState extends State<LaravelDeleteAccountScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<bool> _acknowledgeCredit(String serverMessage) async {
+    final plus = context.read<PlusController?>();
+    await plus?.refresh(full: true);
+    if (!mounted) return false;
+    final wallet = plus?.wallet;
+    final pending = plus?.account?.pendingTopups.length ?? 0;
+    final lines = <String>[
+      if (wallet != null && wallet.balanceCents > 0)
+        tr('plus_delete_balance', args: [formatUsd(wallet.balanceCents)]),
+      if (pending > 0) tr('plus_delete_pending'),
+      if (wallet?.id != null)
+        tr('plus_wallet_reference', args: [wallet!.id!]),
+      tr('plus_delete_refund_hint'),
+    ];
+    final confirmed = await showConfirmDialog(
+      context,
+      icon: PhosphorIcons.wallet(),
+      title: tr('plus_delete_credit_title'),
+      message: lines.length > 1 ? lines.join('\n\n') : serverMessage,
+      confirmLabel: tr('plus_delete_anyway'),
+      destructive: true,
+    );
+    return confirmed == true;
   }
 
   @override
