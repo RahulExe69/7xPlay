@@ -256,19 +256,54 @@ void main() {
     });
   }
 
-  test('first offline boot ignores legacy and unselected Firebase preferences',
+  test('first offline boot ignores legacy preferences and falls back to Firebase',
       () async {
-    await store.setJson('config.firebase.snapshot', firebase.payload!.toJson());
     await sharedPrefsSingleton.setString(
-        AppDependencies.FLIXQUEST_LOGO_URL, 'Unselected');
+        AppDependencies.FLIXQUEST_LOGO_URL, 'Legacy');
+    firebase.payload = firebaseConfigSnapshot({
+      'app_logo_url': 'Firebase',
+      'flixquest_api_url_v2': 'https://scraper.firebase.test',
+    });
     adapter.enqueueError();
     await controller.hydrate();
-    await controller.boot();
     expect(provider.flixQuestLogo, 'default');
+    await controller.boot();
+    expect(firebase.fetches, 1,
+        reason: 'without a Laravel answer the bundled URLs cannot stream');
+    expect(provider.flixQuestLogo, 'Firebase');
+    expect(provider.flixquestAPIURL, 'https://scraper.firebase.test');
     expect(provider.displayWatchNowButton, isTrue);
     expect(provider.displayDownloadButton, isTrue);
     expect(provider.displayLiveTV, isTrue);
-    expect(firebase.fetches, 0);
+
+    // Laravel's first answer replaces the fallback.
+    respond('laravel', stream: true);
+    await controller.onResume();
+    expect(provider.flixQuestLogo, 'Laravel');
+    expect(firebase.fetches, 1);
+  });
+
+  test('a hanging Laravel never holds back the primary Firebase config',
+      () async {
+    controller.dispose();
+    controller = ConfigSourceController(
+        repository, BootstrapViewModel(repository, provider), store, firebase,
+        selectorTimeout: const Duration(milliseconds: 50));
+    final release = Completer<void>();
+    dio.interceptors.add(InterceptorsWrapper(
+        onRequest: (options, handler) =>
+            release.future.then((_) => handler.next(options))));
+    respond('laravel', logo: 'Late Laravel');
+    await controller.hydrate();
+    await controller.boot();
+    expect(provider.flixQuestLogo, 'Firebase');
+    expect(firebase.fetches, 1);
+
+    // The late answer is kept and its override applies on the next refresh.
+    release.complete();
+    await pumpEventQueue();
+    expect((await repository.loadCached(requireSource: true)).configSource,
+        'laravel');
   });
 
   for (final invalid in [null, 'unknown']) {
@@ -289,16 +324,16 @@ void main() {
   }
 
   test(
-      'missing selector and orphan 304 cannot choose a provider on first launch',
+      'missing selector and orphan 304 keep the primary Firebase source on first launch',
       () async {
     respond(null);
     await controller.boot();
-    expect(provider.flixQuestLogo, 'default');
+    expect(provider.flixQuestLogo, 'Firebase');
     adapter.enqueueJson(null, statusCode: 304);
     adapter.enqueueError();
     await controller.onResume();
-    expect(provider.flixQuestLogo, 'default');
-    expect(firebase.fetches, 0);
+    expect(provider.flixQuestLogo, 'Firebase');
+    expect(firebase.fetches, 2);
     expect(adapter.requests.length, 3);
     expect(adapter.requests.last.headers.containsKey('If-None-Match'), isFalse);
   });

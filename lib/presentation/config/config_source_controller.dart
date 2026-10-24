@@ -8,15 +8,22 @@ import 'package:flixquest/data/sources/firebase_config_source.dart';
 import 'bootstrap_view_model.dart';
 import 'refresh_controller.dart';
 
-/// Revalidates Laravel's provider decision independently of a slow Firebase
-/// fetch, so switching to Laravel never waits for the old provider to finish.
+/// Firebase Remote Config is the primary source; Laravel's `config_source`
+/// only overrides it with an explicit `laravel`. The override is revalidated
+/// independently of a slow Firebase fetch, so switching to Laravel never waits
+/// for the old provider to finish, and a slow Laravel never holds Firebase back.
 class ConfigSourceController implements ConfigLifecycle {
   ConfigSourceController(
-      this.repository, this.viewModel, this.store, this.firebase);
+      this.repository, this.viewModel, this.store, this.firebase,
+      {this.selectorTimeout = const Duration(seconds: 6)});
   final ConfigRepository repository;
   final BootstrapViewModel viewModel;
   final KvStore store;
   final FirebaseConfigSource firebase;
+
+  /// How long a refresh waits on Laravel before keeping the cached choice. A
+  /// late answer is still persisted and applies on the next refresh.
+  final Duration selectorTimeout;
 
   static const _firebaseCacheKey = 'config.firebase.snapshot';
   BootstrapConfig? _firebaseSnapshot;
@@ -58,9 +65,9 @@ class ConfigSourceController implements ConfigLifecycle {
   Future<void> hydrate() async {
     final config = await repository.loadCached(requireSource: true);
     if (_disposed) return;
-    _apply(config.configSource == 'firebase'
-        ? _cachedFirebase() ?? const BootstrapConfig()
-        : config);
+    _apply(config.configSource == 'laravel'
+        ? config
+        : _cachedFirebase() ?? const BootstrapConfig());
     _listen();
   }
 
@@ -101,8 +108,10 @@ class ConfigSourceController implements ConfigLifecycle {
       BootstrapConfig config;
       do {
         _hintPending = false;
-        config =
-            await repository.refresh(requireSource: true, persistLegacy: false);
+        config = await repository
+            .refresh(requireSource: true, persistLegacy: false)
+            .timeout(selectorTimeout,
+                onTimeout: () => repository.loadCached(requireSource: true));
       } while (_hintPending && !_disposed);
       return (config, generation);
     } finally {
@@ -115,10 +124,11 @@ class ConfigSourceController implements ConfigLifecycle {
   Future<void> _applySelection(BootstrapConfig config, int generation) async {
     bool current() => !_disposed && generation == _generation;
     if (!current()) return;
-    if (config.configSource != 'firebase') {
+    if (config.configSource == 'laravel') {
       _apply(config);
       return;
     }
+    // Firebase also serves before Laravel has ever answered.
     // Apply only the selected provider's cache while fetching fresh settings.
     _apply(_cachedFirebase() ?? const BootstrapConfig());
     BootstrapConfig? fresh;
