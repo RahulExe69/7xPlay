@@ -13,6 +13,7 @@ import '../../catalog/media_search.dart';
 import '../../constants/app_constants.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
+import '../../design/flix_ai_mark.dart';
 import '../../design/skeleton.dart';
 import '../../models/genres.dart';
 import '../../models/person.dart';
@@ -332,10 +333,9 @@ class _SearchScreenState extends State<SearchScreen> {
                         height: 40,
                         decoration: BoxDecoration(
                             color: palette.idleFill, shape: BoxShape.circle),
-                        child: Icon(
-                            PhosphorIcons.sparkle(PhosphorIconsStyle.fill),
-                            size: 20,
-                            color: palette.foreground),
+                        alignment: Alignment.center,
+                        child: FlixAiMark(
+                            height: 22, color: palette.foreground),
                       ),
                       const SizedBox(width: AppSpace.md),
                       Expanded(

@@ -14,6 +14,7 @@ import '../../catalog/media_item.dart';
 import '../../catalog/title_logos.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
+import '../../design/flix_ai_mark.dart';
 import '../../models/genres.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/recently_watched_provider.dart';
@@ -698,7 +699,7 @@ class _HomeHeader extends StatelessWidget {
                         MaterialPageRoute(
                             settings: const RouteSettings(name: '/flix-ai'),
                             builder: (_) => const FlixAiScreen())),
-                    icon: Icon(PhosphorIcons.sparkle(), size: 24),
+                    icon: const FlixAiMark(height: 22),
                   ),
                   // Search last, at the bar's far end.
                   IconButton(

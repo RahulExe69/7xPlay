@@ -11,6 +11,7 @@ import '../../data/models/flix_ai.dart';
 import '../../data/repositories/flix_ai_repository.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
+import '../../design/flix_ai_mark.dart';
 import '../../presentation/flix_ai/flix_ai_controller.dart';
 import '../../provider/settings_provider.dart';
 import '../../screens/user/login_screen.dart';
@@ -270,7 +271,7 @@ class _FlixAiScreenState extends State<FlixAiScreen>
               actionLabel: _chat.usage?.plan == 'free'
                   ? tr('flix_ai_more_with_plus')
                   : null,
-              actionIcon: PhosphorIcons.sparkle(),
+              actionIcon: PhosphorIcons.crownSimple(),
               onAction: _openPlus,
             )
           else if (error != null)
@@ -298,21 +299,45 @@ class _FlixAiScreenState extends State<FlixAiScreen>
     );
   }
 
-  Widget _signIn() => EmptyState(
-        icon: PhosphorIcons.sparkle(),
-        title: tr('flix_ai_intro'),
-        message: tr('flix_ai_sign_in'),
-        actionLabel: tr('login'),
-        actionIcon: PhosphorIcons.signIn(),
-        onAction: () => Navigator.of(context)
-            .push<void>(MaterialPageRoute(builder: (_) => const LoginScreen())),
-      );
+  Widget _signIn() {
+    final palette = AppPalette.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const _Mark(size: 64),
+            const SizedBox(height: AppSpace.xl),
+            Text(tr('flix_ai_intro'),
+                textAlign: TextAlign.center,
+                style: AppType.sectionHeader.copyWith(
+                    fontFamily: AppType.bold, color: palette.foreground)),
+            const SizedBox(height: AppSpace.sm),
+            Text(tr('flix_ai_sign_in'),
+                textAlign: TextAlign.center,
+                style: AppType.body.copyWith(color: palette.mutedText)),
+            const SizedBox(height: AppSpace.xl),
+            PillButton(
+              label: tr('login'),
+              icon: PhosphorIcons.signIn(),
+              primary: true,
+              onPressed: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(builder: (_) => const LoginScreen())),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
-/// FlixAI's mark: a sparkle in a soft circle, beside its replies.
+/// FlixAI's mark in a soft circle, beside its replies; its sparks twinkle
+/// while one is on its way.
 class _Mark extends StatelessWidget {
-  const _Mark({this.size = 28});
+  const _Mark({this.size = 28, this.thinking = false});
   final double size;
+  final bool thinking;
 
   @override
   Widget build(BuildContext context) {
@@ -320,10 +345,11 @@ class _Mark extends StatelessWidget {
     return Container(
       width: size,
       height: size,
+      alignment: Alignment.center,
       decoration:
           BoxDecoration(color: palette.idleFill, shape: BoxShape.circle),
-      child: Icon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill),
-          size: size * .52, color: palette.foreground),
+      child: FlixAiMark(
+          height: size * .58, color: palette.foreground, thinking: thinking),
     );
   }
 }
@@ -528,15 +554,17 @@ class _TurnView extends StatelessWidget {
 
 /// A reply from FlixAI: its mark, then what it said, with no bubble.
 class _Reply extends StatelessWidget {
-  const _Reply({required this.gutter, required this.children});
+  const _Reply(
+      {required this.gutter, required this.children, this.thinking = false});
   final double gutter;
   final List<Widget> children;
+  final bool thinking;
 
   @override
   Widget build(BuildContext context) => Padding(
         padding: EdgeInsets.fromLTRB(gutter, AppSpace.lg, gutter, 0),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const _Mark(),
+          _Mark(thinking: thinking),
           const SizedBox(width: AppSpace.md),
           Expanded(
             child: Padding(
@@ -654,61 +682,22 @@ class _Recommendations extends StatelessWidget {
   }
 }
 
-/// While a reply is on its way: three dots that breathe, and a line on what
-/// is happening.
-class _Thinking extends StatefulWidget {
+/// While a reply is on its way: the mark's sparks twinkle, beside a line on
+/// what is happening.
+class _Thinking extends StatelessWidget {
   const _Thinking({required this.gutter});
   final double gutter;
 
   @override
-  State<_Thinking> createState() => _ThinkingState();
-}
-
-class _ThinkingState extends State<_Thinking>
-    with SingleTickerProviderStateMixin {
-  late final _pulse = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1200))
-    ..repeat();
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return _Reply(gutter: widget.gutter, children: [
-      Row(children: [
-        AnimatedBuilder(
-          animation: _pulse,
-          builder: (context, _) =>
-              Row(mainAxisSize: MainAxisSize.min, children: [
-            for (var i = 0; i < 3; i++)
-              Container(
-                width: 6,
-                height: 6,
-                margin: const EdgeInsetsDirectional.only(end: 4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.foreground.withValues(
-                      alpha: .25 +
-                          .75 *
-                              Curves.easeInOut.transform(
-                                  ((_pulse.value - i * .18) % 1 - .5).abs() *
-                                      2)),
-                ),
-              ),
-          ]),
-        ),
-        const SizedBox(width: AppSpace.sm),
-        Flexible(
-            child: Text(tr('flix_ai_thinking'),
-                style: AppType.body.copyWith(color: palette.mutedText))),
-      ]),
-    ]);
-  }
+  Widget build(BuildContext context) => _Reply(
+        gutter: gutter,
+        thinking: true,
+        children: [
+          Text(tr('flix_ai_thinking'),
+              style: AppType.body
+                  .copyWith(color: AppPalette.of(context).mutedText)),
+        ],
+      );
 }
 
 /// Something about the chat itself, rather than a reply: it's unavailable,
@@ -879,7 +868,7 @@ class _Composer extends StatelessWidget {
                         AppType.metadata.copyWith(fontFamily: AppType.semiBold),
                     visualDensity: VisualDensity.compact,
                   ),
-                  icon: Icon(PhosphorIcons.sparkle(), size: 14),
+                  icon: Icon(PhosphorIcons.crownSimple(), size: 14),
                   label: Text(tr('flix_ai_more_with_plus')),
                 ),
             ]),
