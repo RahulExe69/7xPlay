@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flixquest/data/ads/ads_policy.dart';
 import 'package:flixquest/data/models/billing.dart';
@@ -6,8 +8,10 @@ import 'package:flixquest/mobile/screens/plus_payment_screen.dart';
 import 'package:flixquest/mobile/screens/plus_screen.dart';
 import 'package:flixquest/mobile/screens/wallet_screen.dart';
 import 'package:flixquest/mobile/widgets/plus_card.dart';
+import 'package:flixquest/mobile/widgets/plus_sheets.dart';
 import 'package:flixquest/presentation/billing/plus_controller.dart';
 import 'package:flixquest/tv/screens/tv_plus_screen.dart';
+import 'package:flixquest/tv/screens/tv_redeem_code_screen.dart';
 import 'package:flixquest/widgets/plus/plus_celebration.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,6 +51,14 @@ PlusAccount _free({int spendable = 0}) => PlusAccount(
           balanceCents: spendable,
           spendableCents: spendable,
           periodsFundable: spendable ~/ 200),
+    );
+
+/// A viewer with $1 of credit and a 50% code waiting for two periods.
+PlusAccount _discounted() => _free(spendable: 100).copyWith(
+      renewal: const PlusRenewal(
+        discount: PlusDiscount(
+            type: 'percent_off', percentOff: 50, periodsRemaining: 2),
+      ),
     );
 
 const _pending = WalletTopup(
@@ -172,9 +184,13 @@ class _Billing extends BillingRepository {
     );
   }
 
+  final redeemed = <String>[];
+
   @override
-  Future<(PlusAccount, CouponRedemption)> redeemCoupon(String code) async =>
-      (_member(), const CouponRedemption(type: 'free_plus', freeDays: 14));
+  Future<(PlusAccount, CouponRedemption)> redeemCoupon(String code) async {
+    redeemed.add(code);
+    return (_member(), const CouponRedemption(type: 'free_plus', freeDays: 14));
+  }
 }
 
 void main() {
@@ -182,11 +198,12 @@ void main() {
 
   late ValueNotifier<String?> owner;
   late PlusController plus;
+  late _Billing billing;
 
   Future<PlusController> controllerFor(PlusAccount? account) async {
     owner = ValueNotifier<String?>(account == null ? null : 'user:1');
     final controller = PlusController(
-      repository: _Billing(account ?? _free()),
+      repository: billing = _Billing(account ?? _free()),
       store: FakeKvStore(),
       owner: owner,
       now: () => _now,
@@ -449,6 +466,64 @@ void main() {
     plus.dismissTopup();
     await tester.pump();
     expect(find.byType(QrImageView), findsOneWidget);
+    await done(tester);
+  });
+
+  testWidgets('a waiting code prices Plus at the discount, not the top-up',
+      (tester) async {
+    plus = await tester.runAsync(() => controllerFor(_discounted()))
+        as PlusController;
+    // Half price for two periods, rounded the way Laravel rounds, then full.
+    expect(plus.chargeFor(200), 100);
+    expect(plus.chargeFor(199), 100);
+    expect(plus.periodsFundedBy(100, 200), 1);
+    expect(plus.periodsFundedBy(1000, 200), 6);
+
+    await pump(tester, const PlusScreen());
+    // $1 of credit is enough to start Plus at half price.
+    expect(find.text('Start Plus · \$1.00 from balance'), findsOneWidget);
+
+    unawaited(showAddFundsSheet(tester.element(find.byType(PlusScreen))));
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+        find.textContaining(
+            'your next 2 periods cost \$1.00 each instead of \$2.00'),
+        findsOneWidget);
+    // The payment itself is credit and stays the full amount.
+    expect(find.text('Pay \$10.00 with crypto'), findsOneWidget);
+    expect(find.text('Covers 6 Plus periods (186 days)'), findsOneWidget);
+    await done(tester);
+  });
+
+  testWidgets('Android TV redeems a code typed on its own keyboard',
+      (tester) async {
+    plus = await tester.runAsync(() => controllerFor(_discounted()))
+        as PlusController;
+    await pump(tester, const TvPlusScreen(), size: const Size(1920, 1080));
+    expect(find.text('Start Plus · \$1.00 from balance'), findsOneWidget);
+    expect(find.text('50% off upcoming renewals (2 left)'), findsOneWidget);
+
+    await tester.tap(find.text('Redeem a code'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(TvRedeemCodeScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    for (final key in ['h', 'a', 'l', 'f', '-', '5', '0']) {
+      await tester.tap(find.byKey(ValueKey<String>('tv-form-key-$key')));
+      await tester.pump();
+    }
+    expect(find.text('HALF-50'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey<String>('tv-form-key-action')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(billing.redeemed, ['HALF-50']);
+    expect(find.text('Free Plus added: 14 days.'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(TvRedeemCodeScreen), findsNothing);
     await done(tester);
   });
 

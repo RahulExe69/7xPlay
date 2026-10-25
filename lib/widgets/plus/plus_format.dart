@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import '../../core/error/failure.dart';
+import '../../data/models/billing.dart';
 import '../../data/repositories/billing_repository.dart';
 
 /// "$8.00": Plus is priced and credited in US dollars in every language.
@@ -15,6 +16,31 @@ String formatUsd(int cents) {
 /// "$2" for whole dollars, "$2.50" otherwise: for prices in running text.
 String formatPrice(int cents) =>
     cents % 100 == 0 ? '\$${cents ~/ 100}' : formatUsd(cents);
+
+/// Follows a renewal consent while a coupon discount waits: how many
+/// periods it covers and what each costs after it. Empty without one.
+String discountConsentNote(PlusDiscount? discount, int priceCents) {
+  if (discount == null) return '';
+  final note = plural('plus_consent_discount', discount.periodsRemaining,
+      namedArgs: {'full': formatUsd(priceCents)});
+  return ' $note';
+}
+
+/// What a redeemed code gave: free days now, or money off coming renewals.
+String redemptionSummary(CouponRedemption done) {
+  if (done.type == 'free_plus' && done.freeDays != null) {
+    return tr('plus_redeemed_free_days', args: ['${done.freeDays}']);
+  }
+  final periods = '${done.discountPeriods ?? 1}';
+  if (done.percentOff != null) {
+    return tr('plus_redeemed_percent', args: ['${done.percentOff}', periods]);
+  }
+  if (done.amountOffCents != null) {
+    return tr('plus_redeemed_amount',
+        args: [formatUsd(done.amountOffCents!), periods]);
+  }
+  return done.summary ?? tr('plus_redeemed');
+}
 
 final Set<String> _readyLocales = <String>{};
 

@@ -73,11 +73,13 @@ class _PlusScreenState extends State<PlusScreen> {
   /// Starts Plus from the balance (now, or at the end of paid time).
   Future<void> _enable(PlusController plus) async {
     final chargesNow = !plus.adFree;
+    // Consent is always to the current terms, which may differ from the
+    // ones an old agreement was made under.
+    final price = plus.plan?.amountCents ?? _price(plus);
     final agreed = await confirmPlusRenewal(
       context,
-      // Consent is always to the current terms, which may differ from the
-      // ones an old agreement was made under.
-      priceCents: plus.plan?.amountCents ?? _price(plus),
+      priceCents: plus.chargeFor(price),
+      discountNote: discountConsentNote(plus.discount, price),
       intervalDays: plus.plan?.intervalDays ?? _interval(plus),
       chargesNow: chargesNow,
       firstCharge: plus.activeUntil,
@@ -280,7 +282,8 @@ class _PlusScreenState extends State<PlusScreen> {
     if (wallet?.frozen == true) return tr('plus_wallet_on_hold');
     final periods = wallet?.periodsFundable ?? 0;
     if (periods < 1) {
-      return tr('plus_covers_none', args: [formatUsd(_price(plus))]);
+      return tr('plus_covers_none',
+          args: [formatUsd(plus.chargeFor(_price(plus)))]);
     }
     return plural(
         plus.adFree ? 'plus_covers_more_periods' : 'plus_covers_periods_short',
@@ -375,7 +378,8 @@ class _PlusScreenState extends State<PlusScreen> {
       add(_Notice(
         icon: PhosphorIcons.pauseCircle(),
         title: tr('plus_paused'),
-        body: tr('plus_paused_body', args: [formatUsd(renewal!.amountCents)]),
+        body: tr('plus_paused_body',
+            args: [formatUsd(plus.chargeFor(renewal!.amountCents))]),
         action: tr('plus_add_funds'),
         onAction: () =>
             unawaited(showAddFundsSheet(context, offerActivation: false)),
@@ -407,7 +411,8 @@ class _Hero extends StatelessWidget {
         plus.plan?.intervalDays ?? plus.renewal?.intervalDays ?? 31;
     final until = plus.activeUntil;
     final active = until != null || plus.adFree;
-    final fundable = (plus.wallet?.spendableCents ?? 0) >= price;
+    final charge = plus.chargeFor(price);
+    final fundable = (plus.wallet?.spendableCents ?? 0) >= charge;
     final open = plus.catalog?.purchasesEnabled ?? false;
     final ends = plus.entitlement?.expiresAt;
     final left = ends == null ? 0 : daysLeft(plus.serverNow, ends);
@@ -502,7 +507,7 @@ class _Hero extends StatelessWidget {
               if (fundable)
                 PillButton(
                   label:
-                      tr('plus_start_from_balance', args: [formatUsd(price)]),
+                      tr('plus_start_from_balance', args: [formatUsd(charge)]),
                   leading: const PlusMark(),
                   primary: true,
                   onArtwork: true,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flixquest/core/error/failure.dart';
@@ -119,6 +120,36 @@ class PlusController extends ChangeNotifier {
     final total = ends.difference(starts).inSeconds;
     if (total <= 0) return 1;
     return (serverNow.difference(starts).inSeconds / total).clamp(0.0, 1.0);
+  }
+
+  /// The coupon discount the coming periods use, while it has periods left.
+  PlusDiscount? get discount {
+    final discount = renewal?.discount;
+    return discount == null || discount.periodsRemaining < 1 ? null : discount;
+  }
+
+  /// What one period at [priceCents] takes from the balance under
+  /// [discount], rounded the way Laravel rounds it. The top-up itself is
+  /// never discounted: it is credit, and the coupon is spent on the periods
+  /// that credit buys.
+  int chargeFor(int priceCents) {
+    final discount = this.discount;
+    if (discount == null) return priceCents;
+    final off = discount.percentOff != null
+        ? priceCents * discount.percentOff! ~/ 100
+        : min(priceCents, discount.amountOffCents ?? 0);
+    return priceCents - off;
+  }
+
+  /// How many periods at [priceCents] [cents] of balance pays for, the
+  /// discounted ones first.
+  int periodsFundedBy(int cents, int priceCents) {
+    if (priceCents < 1) return 0;
+    final charge = chargeFor(priceCents);
+    final discounted = discount?.periodsRemaining ?? 0;
+    if (charge < 1) return discounted + cents ~/ priceCents;
+    final cheap = min(discounted, cents ~/ charge);
+    return cheap + (cents - cheap * charge) ~/ priceCents;
   }
 
   /// Purchases are open and this viewer could benefit from Plus.

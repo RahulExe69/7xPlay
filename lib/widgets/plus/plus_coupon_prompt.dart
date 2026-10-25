@@ -79,10 +79,7 @@ class _PlusCouponPromptState extends State<PlusCouponPrompt> {
     if (redeem != true || !host.mounted) return;
     String message;
     try {
-      final done = await plus.redeemCoupon(code);
-      message = done.type == 'free_plus' && done.freeDays != null
-          ? tr('plus_redeemed_free_days', args: ['${done.freeDays}'])
-          : done.summary ?? tr('plus_redeemed');
+      message = redemptionSummary(await plus.redeemCoupon(code));
     } on BillingError catch (error) {
       message = billingMessage(error);
     }

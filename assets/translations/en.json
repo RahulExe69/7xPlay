@@ -1647,6 +1647,24 @@
   "plus_redeem_intro": "Enter a FlixQuest code for free Plus time or money off your renewals.",
   "plus_code": "Code",
   "plus_redeem": "Redeem",
+  "plus_discount_applied": {
+    "zero": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "one": "Your code applies when Plus is taken from your balance, not to this payment: your next period costs {price} instead of {full}.",
+    "two": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "few": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "many": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "other": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}."
+  },
+  "plus_consent_discount": {
+    "zero": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "one": "Your code's discount is included for 1 period; after that, each period costs {full}.",
+    "two": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "few": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "many": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "other": "Your code's discount is included for the next {} periods; after that, each period costs {full}."
+  },
+  "plus_have_code": "Have a code?",
+  "plus_tv_code_hint": "Letters, numbers and dashes",
   "plus_done": "Done",
   "plus_terms_changed": "Plus terms changed",
   "plus_terms_changed_body": "Plus is now {} every {} days. Your renewal waits until you accept the new terms.",

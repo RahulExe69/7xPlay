@@ -233,7 +233,8 @@ class _BalanceHeader extends StatelessWidget {
     final price = renewal?.amountCents ?? plus.plan?.amountCents ?? 200;
     final interval = renewal?.intervalDays ?? plus.plan?.intervalDays ?? 31;
     final spendable = wallet?.spendableCents ?? 0;
-    final periods = wallet?.periodsFundable ?? spendable ~/ price;
+    final periods =
+        wallet?.periodsFundable ?? plus.periodsFundedBy(spendable, price);
     final nextAt = renewal?.nextChargeAt;
     final lines = <String>[
       if (wallet?.frozen == true)
@@ -246,7 +247,7 @@ class _BalanceHeader extends StatelessWidget {
             periods,
             namedArgs: {'days': '$interval'})
       else
-        tr('plus_covers_none', args: [formatUsd(price)]),
+        tr('plus_covers_none', args: [formatUsd(plus.chargeFor(price))]),
       if (renewal?.autoRenew == true && nextAt != null)
         tr('plus_next_renewal_on', args: [
           formatUsd(renewal?.nextChargeCents ?? price),

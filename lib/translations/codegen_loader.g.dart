@@ -1663,6 +1663,24 @@ class CodegenLoader extends AssetLoader{
   "plus_redeem_intro": "Enter a FlixQuest code for free Plus time or money off your renewals.",
   "plus_code": "Code",
   "plus_redeem": "Redeem",
+  "plus_discount_applied": {
+    "zero": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "one": "Your code applies when Plus is taken from your balance, not to this payment: your next period costs {price} instead of {full}.",
+    "two": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "few": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "many": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}.",
+    "other": "Your code applies when Plus is taken from your balance, not to this payment: your next {} periods cost {price} each instead of {full}."
+  },
+  "plus_consent_discount": {
+    "zero": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "one": "Your code's discount is included for 1 period; after that, each period costs {full}.",
+    "two": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "few": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "many": "Your code's discount is included for the next {} periods; after that, each period costs {full}.",
+    "other": "Your code's discount is included for the next {} periods; after that, each period costs {full}."
+  },
+  "plus_have_code": "Have a code?",
+  "plus_tv_code_hint": "Letters, numbers and dashes",
   "plus_done": "Done",
   "plus_terms_changed": "Plus terms changed",
   "plus_terms_changed_body": "Plus is now {} every {} days. Your renewal waits until you accept the new terms.",
@@ -3519,6 +3537,24 @@ static const Map<String,dynamic> _hi = {
   "plus_redeem_intro": "मुफ़्त Plus समय या रिन्यूअल पर छूट के लिए FlixQuest कोड डालें।",
   "plus_code": "कोड",
   "plus_redeem": "रिडीम करें",
+  "plus_discount_applied": {
+    "zero": "आपका कोड इस भुगतान पर नहीं, बल्कि तब लागू होता है जब Plus आपके बैलेंस से लिया जाता है: आपकी अगली {} अवधियाँ {full} के बजाय {price} प्रति अवधि की होंगी।",
+    "one": "आपका कोड इस भुगतान पर नहीं, बल्कि तब लागू होता है जब Plus आपके बैलेंस से लिया जाता है: आपकी अगली अवधि {full} के बजाय {price} की होगी।",
+    "two": "आपका कोड इस भुगतान पर नहीं, बल्कि तब लागू होता है जब Plus आपके बैलेंस से लिया जाता है: आपकी अगली {} अवधियाँ {full} के बजाय {price} प्रति अवधि की होंगी।",
+    "few": "आपका कोड इस भुगतान पर नहीं, बल्कि तब लागू होता है जब Plus आपके बैलेंस से लिया जाता है: आपकी अगली {} अवधियाँ {full} के बजाय {price} प्रति अवधि की होंगी।",
+    "many": "आपका कोड इस भुगतान पर नहीं, बल्कि तब लागू होता है जब Plus आपके बैलेंस से लिया जाता है: आपकी अगली {} अवधियाँ {full} के बजाय {price} प्रति अवधि की होंगी।",
+    "other": "आपका कोड इस भुगतान पर नहीं, बल्कि तब लागू होता है जब Plus आपके बैलेंस से लिया जाता है: आपकी अगली {} अवधियाँ {full} के बजाय {price} प्रति अवधि की होंगी।"
+  },
+  "plus_consent_discount": {
+    "zero": "इसमें अगली {} अवधियों के लिए आपके कोड की छूट शामिल है; उसके बाद हर अवधि {full} की होगी।",
+    "one": "इसमें 1 अवधि के लिए आपके कोड की छूट शामिल है; उसके बाद हर अवधि {full} की होगी।",
+    "two": "इसमें अगली {} अवधियों के लिए आपके कोड की छूट शामिल है; उसके बाद हर अवधि {full} की होगी।",
+    "few": "इसमें अगली {} अवधियों के लिए आपके कोड की छूट शामिल है; उसके बाद हर अवधि {full} की होगी।",
+    "many": "इसमें अगली {} अवधियों के लिए आपके कोड की छूट शामिल है; उसके बाद हर अवधि {full} की होगी।",
+    "other": "इसमें अगली {} अवधियों के लिए आपके कोड की छूट शामिल है; उसके बाद हर अवधि {full} की होगी।"
+  },
+  "plus_have_code": "कोई कोड है?",
+  "plus_tv_code_hint": "अक्षर, अंक और डैश",
   "plus_done": "हो गया",
   "plus_terms_changed": "Plus की शर्तें बदल गई हैं",
   "plus_terms_changed_body": "Plus अब {} प्रति {} दिन है। आपका रिन्यूअल नई शर्तें स्वीकार करने तक रुका रहेगा।",
@@ -5375,6 +5411,24 @@ static const Map<String,dynamic> _es = {
   "plus_redeem_intro": "Introduce un código de FlixQuest para obtener tiempo de Plus gratis o un descuento en tus renovaciones.",
   "plus_code": "Código",
   "plus_redeem": "Canjear",
+  "plus_discount_applied": {
+    "zero": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "one": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tu próximo periodo cuesta {price} en lugar de {full}.",
+    "two": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "few": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "many": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "other": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}."
+  },
+  "plus_consent_discount": {
+    "zero": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "one": "Incluye el descuento de tu código para 1 periodo; después, cada periodo cuesta {full}.",
+    "two": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "few": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "many": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "other": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}."
+  },
+  "plus_have_code": "¿Tienes un código?",
+  "plus_tv_code_hint": "Letras, números y guiones",
   "plus_done": "Listo",
   "plus_terms_changed": "Las condiciones de Plus cambiaron",
   "plus_terms_changed_body": "Plus ahora cuesta {} cada {} días. Tu renovación espera a que aceptes las nuevas condiciones.",
@@ -7278,6 +7332,24 @@ static const Map<String,dynamic> _ar = {
   "plus_redeem_intro": "أدخل رمز FlixQuest للحصول على وقت مجاني في Plus أو خصم على تجديداتك.",
   "plus_code": "الرمز",
   "plus_redeem": "استخدام",
+  "plus_discount_applied": {
+    "zero": "يُطبَّق رمزك عند خصم Plus من رصيدك، وليس على هذه الدفعة: تكلّف الفترات الـ{} القادمة {price} لكل فترة بدلًا من {full}.",
+    "one": "يُطبَّق رمزك عند خصم Plus من رصيدك، وليس على هذه الدفعة: تكلّف فترتك القادمة {price} بدلًا من {full}.",
+    "two": "يُطبَّق رمزك عند خصم Plus من رصيدك، وليس على هذه الدفعة: تكلّف فترتاك القادمتان {price} لكل منهما بدلًا من {full}.",
+    "few": "يُطبَّق رمزك عند خصم Plus من رصيدك، وليس على هذه الدفعة: تكلّف الفترات الـ{} القادمة {price} لكل فترة بدلًا من {full}.",
+    "many": "يُطبَّق رمزك عند خصم Plus من رصيدك، وليس على هذه الدفعة: تكلّف الفترات الـ{} القادمة {price} لكل فترة بدلًا من {full}.",
+    "other": "يُطبَّق رمزك عند خصم Plus من رصيدك، وليس على هذه الدفعة: تكلّف الفترات الـ{} القادمة {price} لكل فترة بدلًا من {full}."
+  },
+  "plus_consent_discount": {
+    "zero": "يشمل ذلك خصم رمزك للفترات الـ{} القادمة؛ بعدها تكلّف كل فترة {full}.",
+    "one": "يشمل ذلك خصم رمزك لفترة واحدة؛ بعدها تكلّف كل فترة {full}.",
+    "two": "يشمل ذلك خصم رمزك لفترتين؛ بعدها تكلّف كل فترة {full}.",
+    "few": "يشمل ذلك خصم رمزك للفترات الـ{} القادمة؛ بعدها تكلّف كل فترة {full}.",
+    "many": "يشمل ذلك خصم رمزك للفترات الـ{} القادمة؛ بعدها تكلّف كل فترة {full}.",
+    "other": "يشمل ذلك خصم رمزك للفترات الـ{} القادمة؛ بعدها تكلّف كل فترة {full}."
+  },
+  "plus_have_code": "هل لديك رمز؟",
+  "plus_tv_code_hint": "أحرف وأرقام وشرطات",
   "plus_done": "تم",
   "plus_terms_changed": "تغيّرت شروط Plus",
   "plus_terms_changed_body": "أصبح Plus الآن {} كل {} يومًا. ينتظر تجديدك حتى توافق على الشروط الجديدة.",

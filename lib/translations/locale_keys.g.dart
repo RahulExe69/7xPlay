@@ -1584,6 +1584,10 @@ abstract class  LocaleKeys {
   static const plus_redeem_intro = 'plus_redeem_intro';
   static const plus_code = 'plus_code';
   static const plus_redeem = 'plus_redeem';
+  static const plus_discount_applied = 'plus_discount_applied';
+  static const plus_consent_discount = 'plus_consent_discount';
+  static const plus_have_code = 'plus_have_code';
+  static const plus_tv_code_hint = 'plus_tv_code_hint';
   static const plus_done = 'plus_done';
   static const plus_terms_changed = 'plus_terms_changed';
   static const plus_terms_changed_body = 'plus_terms_changed_body';

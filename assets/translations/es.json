@@ -1647,6 +1647,24 @@
   "plus_redeem_intro": "Introduce un código de FlixQuest para obtener tiempo de Plus gratis o un descuento en tus renovaciones.",
   "plus_code": "Código",
   "plus_redeem": "Canjear",
+  "plus_discount_applied": {
+    "zero": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "one": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tu próximo periodo cuesta {price} en lugar de {full}.",
+    "two": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "few": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "many": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}.",
+    "other": "Tu código se aplica cuando Plus se cobra de tu saldo, no a este pago: tus próximos {} periodos cuestan {price} cada uno en lugar de {full}."
+  },
+  "plus_consent_discount": {
+    "zero": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "one": "Incluye el descuento de tu código para 1 periodo; después, cada periodo cuesta {full}.",
+    "two": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "few": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "many": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}.",
+    "other": "Incluye el descuento de tu código para los próximos {} periodos; después, cada periodo cuesta {full}."
+  },
+  "plus_have_code": "¿Tienes un código?",
+  "plus_tv_code_hint": "Letras, números y guiones",
   "plus_done": "Listo",
   "plus_terms_changed": "Las condiciones de Plus cambiaron",
   "plus_terms_changed_body": "Plus ahora cuesta {} cada {} días. Tu renovación espera a que aceptes las nuevas condiciones.",

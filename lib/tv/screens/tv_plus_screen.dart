@@ -16,6 +16,7 @@ import '../../widgets/plus/plus_visuals.dart';
 import '../app/tv_design.dart';
 import '../widgets/tv_dialog.dart';
 import '../widgets/tv_pill_button.dart';
+import 'tv_redeem_code_screen.dart';
 
 /// FlixQuest Plus on Android TV. Nobody types amounts or a wallet address
 /// with a remote: the TV shows a QR code that opens this account's top-up
@@ -157,18 +158,20 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
   Future<void> _enable(PlusController plus) async {
     final chargesNow = !plus.adFree;
     final until = plus.activeUntil;
+    final charge = formatUsd(plus.chargeFor(_price(plus)));
     final agreed = await showTvDialog<bool>(
       context: context,
       title: chargesNow ? tr('plus_start_plus') : tr('plus_turn_on_renewal'),
       content: Text(
         '${chargesNow ? tr('plus_consent_now', args: [
-                formatUsd(_price(plus)),
+                charge,
                 '${_interval(plus)}'
               ]) : tr('plus_consent_later', args: [
-                formatUsd(_price(plus)),
+                charge,
                 until == null ? '' : formatDay(context, until),
                 '${_interval(plus)}'
-              ])}\n\n${tr('plus_consent_stop_anytime')}',
+              ])}${discountConsentNote(plus.discount, _price(plus))}'
+        '\n\n${tr('plus_consent_stop_anytime')}',
       ),
       actions: <TvDialogAction>[
         TvDialogAction(
@@ -231,8 +234,21 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
               SizedBox(width: gap),
               Expanded(
                 flex: 6,
+                // Scrolls when the buttons wrap on a small TV; each button
+                // brings itself into view as it takes focus.
                 child: FocusTraversalGroup(
-                  child: _actions(context, plus, compact),
+                  child: LayoutBuilder(
+                    builder: (context, box) => SingleChildScrollView(
+                      clipBehavior: Clip.none,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: box.maxHeight),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: _actions(context, plus, compact),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -305,7 +321,8 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
       );
     }
 
-    final fundable = (plus.wallet?.spendableCents ?? 0) >= _price(plus);
+    final charge = plus.chargeFor(_price(plus));
+    final fundable = (plus.wallet?.spendableCents ?? 0) >= charge;
     final open = plus.catalog?.purchasesEnabled ?? false;
     final renewing = plus.renewal?.autoRenew == true;
     final frozen = plus.wallet?.frozen == true;
@@ -314,7 +331,7 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
     final buttons = <Widget>[
       if (!plus.adFree && fundable)
         TvPillButton(
-          label: tr('plus_start_from_balance', args: [formatUsd(_price(plus))]),
+          label: tr('plus_start_from_balance', args: [formatUsd(charge)]),
           leading: const PlusMark(),
           autofocus: true,
           prominent: true,
@@ -341,6 +358,11 @@ class _TvPlusScreenState extends State<TvPlusScreen> {
           enabled: !_linkLoading,
           onActivate: _newLink,
         ),
+      TvPillButton(
+        label: tr('plus_redeem_code'),
+        icon: PhosphorIcons.ticket(),
+        onActivate: () => TvRedeemCodeScreen.open(context),
+      ),
     ];
     if (!open || frozen) {
       return Column(
@@ -464,6 +486,7 @@ class _StatusPanel extends StatelessWidget {
     final price = plus.plan?.amountCents ?? 200;
     final interval = plus.plan?.intervalDays ?? 31;
     final renewal = plus.renewal;
+    final discount = plus.discount;
     final body = TextStyle(
       fontFamily: 'Figtree',
       fontSize: compact ? 14 : 17,
@@ -547,6 +570,19 @@ class _StatusPanel extends StatelessWidget {
                     icon: PhosphorIcons.wallet(),
                     label: tr('plus_balance_chip',
                         args: [formatUsd(plus.wallet?.spendableCents ?? 0)]),
+                  ),
+                if (discount != null)
+                  PlusChip(
+                    icon: PhosphorIcons.ticket(),
+                    label: discount.percentOff != null
+                        ? tr('plus_discount_percent', args: [
+                            '${discount.percentOff}',
+                            '${discount.periodsRemaining}'
+                          ])
+                        : tr('plus_discount_amount', args: [
+                            formatUsd(discount.amountOffCents ?? 0),
+                            '${discount.periodsRemaining}'
+                          ]),
                   ),
                 PlusChip(
                     icon: PhosphorIcons.prohibit(),

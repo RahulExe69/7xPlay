@@ -132,8 +132,10 @@ class _AddFundsSheetState extends State<_AddFundsSheet> {
         plus.renewal?.intervalDays ?? plus.plan?.intervalDays ?? 31;
     final amount = _amount;
     final spendable = plus.wallet?.spendableCents ?? 0;
-    final periods = amount == null ? 0 : (spendable + amount) ~/ price;
+    final periods =
+        amount == null ? 0 : plus.periodsFundedBy(spendable + amount, price);
     final activate = _canActivate(plus);
+    final discount = plus.discount;
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.only(
@@ -212,13 +214,36 @@ class _AddFundsSheetState extends State<_AddFundsSheet> {
                 interval: interval,
               ),
             ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(gutter, AppSpace.sm, gutter, 0),
+              child: discount == null
+                  ? Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        onPressed: () => unawaited(showRedeemSheet(context)),
+                        icon: Icon(PhosphorIcons.ticket(), size: 18),
+                        label: Text(tr('plus_have_code')),
+                      ),
+                    )
+                  : _DiscountLine(
+                      text: plural(
+                          'plus_discount_applied', discount.periodsRemaining,
+                          namedArgs: {
+                            'price': formatUsd(plus.chargeFor(price)),
+                            'full': formatUsd(price),
+                          }),
+                    ),
+            ),
             if (activate) ...<Widget>[
               const SizedBox(height: AppSpace.sm),
               SwitchRow(
                 icon: PhosphorIcons.calendarCheck(),
                 label: tr('plus_start_when_confirmed'),
-                subtitle: tr('plus_start_when_confirmed_consent',
-                    args: [formatUsd(price), '$interval']),
+                subtitle: tr('plus_start_when_confirmed_consent', args: [
+                      formatUsd(plus.chargeFor(price)),
+                      '$interval'
+                    ]) +
+                    discountConsentNote(discount, price),
                 value: _activate,
                 onChanged: (value) => setState(() => _activate = value),
               ),
@@ -298,6 +323,33 @@ class _CoverageLine extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The waiting coupon discount, and that it lowers Plus, not this payment.
+class _DiscountLine extends StatelessWidget {
+  const _DiscountLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(PhosphorIcons.ticket(),
+              size: 18, color: palette.foreground),
+        ),
+        const SizedBox(width: AppSpace.sm),
+        Expanded(
+          child: Text(text,
+              style: AppType.body.copyWith(color: palette.foreground)),
+        ),
+      ],
     );
   }
 }
@@ -393,21 +445,6 @@ class _RedeemSheetState extends State<_RedeemSheet> {
     }
   }
 
-  String _summary(CouponRedemption done) {
-    if (done.type == 'free_plus' && done.freeDays != null) {
-      return tr('plus_redeemed_free_days', args: ['${done.freeDays}']);
-    }
-    final periods = '${done.discountPeriods ?? 1}';
-    if (done.percentOff != null) {
-      return tr('plus_redeemed_percent', args: ['${done.percentOff}', periods]);
-    }
-    if (done.amountOffCents != null) {
-      return tr('plus_redeemed_amount',
-          args: [formatUsd(done.amountOffCents!), periods]);
-    }
-    return done.summary ?? tr('plus_redeemed');
-  }
-
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
@@ -438,7 +475,7 @@ class _RedeemSheetState extends State<_RedeemSheet> {
                       ),
                       const SizedBox(height: AppSpace.sm),
                       Text(
-                        _summary(done),
+                        redemptionSummary(done),
                         textAlign: TextAlign.center,
                         style: AppType.body.copyWith(color: palette.mutedText),
                       ),
@@ -515,6 +552,7 @@ Future<bool> confirmPlusRenewal(BuildContext context,
     {required int priceCents,
     required int intervalDays,
     required bool chargesNow,
+    String discountNote = '',
     DateTime? firstCharge}) async {
   final message = chargesNow
       ? tr('plus_consent_now', args: [formatUsd(priceCents), '$intervalDays'])
@@ -527,7 +565,7 @@ Future<bool> confirmPlusRenewal(BuildContext context,
     context,
     icon: PhosphorIcons.arrowsClockwise(),
     title: chargesNow ? tr('plus_start_plus') : tr('plus_turn_on_renewal'),
-    message: '$message\n\n${tr('plus_consent_stop_anytime')}',
+    message: '$message$discountNote\n\n${tr('plus_consent_stop_anytime')}',
     confirmLabel: tr('plus_agree_and_continue'),
   );
   return agreed == true;
