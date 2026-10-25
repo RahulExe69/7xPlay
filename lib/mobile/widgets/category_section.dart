@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../catalog/home_feed_controller.dart';
@@ -135,6 +137,16 @@ class FeatureCard extends StatelessWidget {
   /// In place of opening the title's details.
   final VoidCallback? onTap;
 
+  /// The card's height: 16:9 across the page, kept to two-fifths of a
+  /// tablet's screen so a landscape one shows what comes after it.
+  static double heightFor(BuildContext context) {
+    final media = MediaQuery.sizeOf(context);
+    final frame = (media.width - AppSpace.gutter(context) * 2) * 9 / 16;
+    return AppBreakpoints.isTablet(context)
+        ? math.min(frame, media.height * .4)
+        : frame;
+  }
+
   @override
   Widget build(BuildContext context) {
     final gutter = AppSpace.gutter(context);
@@ -147,7 +159,7 @@ class FeatureCard extends StatelessWidget {
         onTap: onTap ?? () => MobilePlayback.openDetails(context, item),
         onLongPress: () => showTitleSheet(context, item),
         child: SizedBox(
-          height: width * 9 / 16,
+          height: heightFor(context),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(AppRadii.card),
             child: Stack(

@@ -32,6 +32,7 @@ import '../widgets/media_art.dart';
 import '../widgets/page_kit.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/poster_card.dart';
+import '../widgets/poster_grid.dart' show posterGridColumns;
 import '../widgets/section_header.dart';
 import '../widgets/title_sheet.dart';
 
@@ -517,8 +518,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   List<Widget> _resultSlivers(BuildContext context, SearchResults results) {
     final gutter = AppSpace.gutter(context);
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= AppBreakpoints.tablet ? 5 : 3;
+    final columns = posterGridColumns(context);
     bool shows(SearchFilter filter) =>
         _filter == SearchFilter.all || _filter == filter;
     final top = results.topResult;
@@ -1115,7 +1115,7 @@ class _ResultsSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final gutter = AppSpace.gutter(context);
     final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= AppBreakpoints.tablet ? 5 : 3;
+    final columns = posterGridColumns(context);
     final poster = (width - gutter * 2 - 10 * (columns - 1)) / columns;
     return SkeletonPulse(
       child: Padding(
@@ -1125,9 +1125,10 @@ class _ResultsSkeleton extends StatelessWidget {
           children: <Widget>[
             const SkeletonBlock.line(width: 110, height: 16),
             const SizedBox(height: AppSpace.md),
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: SkeletonBlock(width: width, radius: AppRadii.hero),
+            SizedBox(
+              width: double.infinity,
+              height: FeatureCard.heightFor(context),
+              child: SkeletonBlock(width: width),
             ),
             const SizedBox(height: AppSpace.rowGap),
             const SkeletonBlock.line(width: 80, height: 16),
