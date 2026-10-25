@@ -45,6 +45,10 @@ class MediaLink {
   /// A live channel is the live TV provider's own id for it, which is not a TMDB number.
   static final RegExp _flixquestChannel = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
 
+  /// A shared FlixQuest list: `fq-` and eight letters or digits.
+  static final RegExp _flixquestList =
+      RegExp(r'^fq-[A-Za-z0-9]{8}$', caseSensitive: false);
+
   /// A Plus code as Filament accepts it: letters, digits and dashes.
   static final RegExp _flixquestCoupon = RegExp(r'^[A-Za-z0-9][A-Za-z0-9-]{2,39}$');
 
@@ -218,6 +222,10 @@ class MediaLink {
         return _flixquestCoupon.hasMatch(value)
             ? CouponLink(code: value.toUpperCase())
             : null;
+      case 'list':
+        return _flixquestList.hasMatch(value)
+            ? SharedListLink(code: 'fq-${value.substring(3).toUpperCase()}')
+            : null;
     }
     return null;
   }
@@ -386,4 +394,12 @@ class ImdbListLink extends MediaLinkTarget {
   const ImdbListLink({required this.listId});
 
   final String listId;
+}
+
+/// Someone's FlixQuest list, shared with `flix.quest/list/fq-…`.
+class SharedListLink extends MediaLinkTarget {
+  const SharedListLink({required this.code});
+
+  /// `fq-` and the code in capitals, as Laravel's link spells it.
+  final String code;
 }

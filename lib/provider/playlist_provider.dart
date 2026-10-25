@@ -13,7 +13,13 @@ import '../data/sync/sync_runner.dart';
 import '../data/sync/sync_runtime.dart';
 
 /// Why an edit to a list was not made.
-enum PlaylistEditError { emptyName, tooManyLists, listFull, missing }
+enum PlaylistEditError {
+  emptyName,
+  tooManyLists,
+  listFull,
+  missing,
+  signInRequired
+}
 
 class PlaylistEditException implements Exception {
   const PlaylistEditException(this.error);
@@ -122,10 +128,12 @@ class PlaylistProvider extends ChangeNotifier {
   /// Syncs now, when signed in; the lists reload when it lands.
   Future<bool> sync() async => await runner?.sync() ?? false;
 
-  /// Makes a list called [name], with [first] in it when given, and returns
-  /// its id.
+  /// Makes a list called [name], with [first] (or every one of [items], as
+  /// when saving a copy of someone's list) in it, and returns its id.
   Future<String> create(String name,
-      {String? description, MediaItem? first}) async {
+      {String? description,
+      MediaItem? first,
+      List<MediaItem> items = const <MediaItem>[]}) async {
     final trimmed = _name(name);
     if (_lists.length >= PlaylistLimits.lists) {
       throw const PlaylistEditException(PlaylistEditError.tooManyLists);
@@ -138,8 +146,44 @@ class PlaylistProvider extends ChangeNotifier {
         if (note != null) 'description': note,
       }),
       if (first != null) _addition(id, first),
+      for (final item in items.take(PlaylistLimits.items)) _addition(id, item),
     ]);
     return id;
+  }
+
+  /// The list of this account's that [code] (`fq-…`) shares, if any.
+  Playlist? byShareCode(String code) {
+    final normalized = code.toUpperCase().replaceFirst('FQ-', '');
+    for (final list in _lists) {
+      if (list.record.shareCode?.toUpperCase() == normalized) return list;
+    }
+    return null;
+  }
+
+  /// Lets anyone with the link see list [id], or stops them; returns the
+  /// link while it is public. Needs a signed-in account, since the link is
+  /// served by Laravel, and so the list has to reach it first.
+  ///
+  /// Throws [PlaylistImportException] when Laravel cannot be reached.
+  Future<String?> setPublic(String id, bool public) async {
+    _require(id);
+    final repository = this.repository;
+    final runner = this.runner;
+    final owner = LibraryScope.owner;
+    if (repository == null || runner == null || !owner.startsWith('user:')) {
+      throw const PlaylistEditException(PlaylistEditError.signInRequired);
+    }
+    final generation = LibraryScope.generation;
+    await runner.sync();
+    final record =
+        await repository.setSharing(id, public: public, owner: owner);
+    final store = await _openStore(owner);
+    await store.saveRecord(record);
+    if (generation == LibraryScope.generation) {
+      _lists = await store.read();
+      notifyListeners();
+    }
+    return record.shareUrl;
   }
 
   Future<void> rename(String id, String name, {String? description}) async {
@@ -262,9 +306,7 @@ class PlaylistProvider extends ChangeNotifier {
     final generation = LibraryScope.generation;
     final work = _edits.then((_) async {
       final store = await _openStore(owner);
-      for (final operation in operations) {
-        await store.enqueue(operation);
-      }
+      await store.enqueueAll(operations);
       if (generation != LibraryScope.generation) return;
       _lists = await store.read();
       _loaded = true;

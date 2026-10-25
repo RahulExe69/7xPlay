@@ -225,6 +225,12 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                       icon: Icon(PhosphorIcons.sortAscending()),
                     ),
                   IconButton(
+                    tooltip: tr('share'),
+                    color: palette.mutedText,
+                    onPressed: () => showPlaylistShareSheet(context, list.id),
+                    icon: Icon(PhosphorIcons.shareNetwork()),
+                  ),
+                  IconButton(
                     tooltip: tr('more_options'),
                     color: palette.mutedText,
                     onPressed: () => _more(list),

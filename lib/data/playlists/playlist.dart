@@ -161,6 +161,8 @@ class PlaylistRecord {
     this.sourceProvider,
     this.sourceId,
     this.createdAt,
+    this.shareCode,
+    this.shareUrl,
   });
 
   factory PlaylistRecord.fromJson(Map<String, dynamic> json) {
@@ -173,6 +175,10 @@ class PlaylistRecord {
       sourceProvider: source is Map ? source['provider'] as String? : null,
       sourceId: source is Map ? source['id']?.toString() : null,
       createdAt: json['created_at'] as String?,
+      shareCode: json['share_code'] as String?,
+      // Laravel sends the address only while the list is public.
+      shareUrl:
+          json['visibility'] == 'public' ? json['share_url'] as String? : null,
     );
   }
 
@@ -184,6 +190,8 @@ class PlaylistRecord {
         sourceProvider: row['source_provider'] as String?,
         sourceId: row['source_id'] as String?,
         createdAt: row['created_at'] as String?,
+        shareCode: row['share_code'] as String?,
+        shareUrl: row['share_url'] as String?,
       );
 
   /// A UUID the device made, so a list exists before Laravel hears of it.
@@ -199,6 +207,14 @@ class PlaylistRecord {
   final String? sourceId;
   final String? createdAt;
 
+  /// Made the first time the list is shared, and kept after.
+  final String? shareCode;
+
+  /// Set while anyone with the link can see the list.
+  final String? shareUrl;
+
+  bool get isPublic => shareUrl != null;
+
   PlaylistRecord copyWith({
     String? name,
     String? description,
@@ -213,6 +229,8 @@ class PlaylistRecord {
         sourceProvider: sourceProvider,
         sourceId: sourceId,
         createdAt: createdAt,
+        shareCode: shareCode,
+        shareUrl: shareUrl,
       );
 
   Map<String, Object?> toRow() => <String, Object?>{
@@ -223,6 +241,8 @@ class PlaylistRecord {
         'source_provider': sourceProvider,
         'source_id': sourceId,
         'created_at': createdAt,
+        'share_code': shareCode,
+        'share_url': shareUrl,
       };
 }
 
@@ -238,6 +258,8 @@ class Playlist {
   String? get description => record.description;
   int get version => record.version;
   bool get imported => record.sourceProvider != null;
+  bool get isPublic => record.isPublic;
+  String? get shareUrl => record.shareUrl;
 
   bool contains(MediaItem item) =>
       entries.any((entry) => entry.key == keyOf(item));

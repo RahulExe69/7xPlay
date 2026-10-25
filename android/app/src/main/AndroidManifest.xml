@@ -103,6 +103,7 @@
                 <data android:pathPrefix="/t/" />
                 <data android:pathPrefix="/l/" />
                 <data android:pathPrefix="/c/" />
+                <data android:pathPrefix="/list/" />
             </intent-filter>
 
             <!-- Addresses on TMDB. Deliberately unverified: claiming a domain means publishing a

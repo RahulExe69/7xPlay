@@ -18,6 +18,7 @@ String tvPlaylistEditMessage(PlaylistEditError error) => switch (error) {
       PlaylistEditError.listFull => tr('playlist_list_full',
           namedArgs: {'count': '${PlaylistLimits.items}'}),
       PlaylistEditError.missing => tr('playlist_missing'),
+      PlaylistEditError.signInRequired => tr('playlist_share_sign_in'),
     };
 
 void _snack(BuildContext context, String message) =>

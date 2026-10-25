@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../mobile/screens/playlist_import_screen.dart';
+import '../mobile/screens/shared_playlist_screen.dart';
 import '../provider/app_dependency_provider.dart';
 import '../tv/screens/tv_playlist_import_screen.dart';
+import '../tv/screens/tv_shared_playlist_screen.dart';
 import '../screens/common/live_tv_screen.dart';
 import 'daddylive_service.dart';
 
@@ -76,6 +78,13 @@ class MediaLinkNavigationService {
       open: (navigator) => switch (target) {
         LiveChannelLink() => _openChannel(navigator, target),
         CouponLink() => openCouponLink(navigator, target.code),
+        SharedListLink() => navigator.push(
+            MaterialPageRoute<void>(
+              builder: (_) => DevicePresentationService.instance.isTelevision
+                  ? TvSharedPlaylistScreen(code: target.code)
+                  : SharedPlaylistScreen(code: target.code),
+            ),
+          ),
         TmdbListLink() || ImdbListLink() => navigator.push(
             MaterialPageRoute<void>(
               builder: (_) => DevicePresentationService.instance.isTelevision
@@ -152,8 +161,8 @@ class MediaLinkNavigationService {
         LiveChannelLink() =>
           throw StateError('Live channels open via _openChannel'),
         CouponLink() => throw StateError('Codes open via openCouponLink'),
-        TmdbListLink() || ImdbListLink() =>
-          throw StateError('Lists open the import screen'),
+        TmdbListLink() || ImdbListLink() || SharedListLink() =>
+          throw StateError('Lists open their own screens'),
       };
 
   /// Text handed over with no address in it that this app knows.

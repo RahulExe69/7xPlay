@@ -145,6 +145,47 @@ class PlaylistImportProblem {
   final String reason;
 }
 
+/// Someone's public list, as its link shows it.
+class SharedPlaylist {
+  const SharedPlaylist({
+    required this.code,
+    required this.url,
+    required this.name,
+    required this.entries,
+    this.description,
+    this.ownerName,
+  });
+
+  factory SharedPlaylist.fromJson(
+      Map<String, dynamic> list, List<dynamic> items) {
+    final code = list['code'] as String;
+    return SharedPlaylist(
+      code: code,
+      url: list['url'] as String? ?? 'https://flix.quest/list/$code',
+      name: list['name'] as String? ?? '',
+      description: list['description'] as String?,
+      ownerName: list['owner_name'] as String?,
+      entries: <PlaylistEntry>[
+        for (final (index, item) in items.indexed)
+          if (item is Map)
+            PlaylistEntry.fromJson(<String, dynamic>{
+              ...Map<String, dynamic>.from(item),
+              'playlist_id': code,
+              'position': index,
+            }),
+      ],
+    );
+  }
+
+  /// `fq-TR4AYGHK`, as the link spells it.
+  final String code;
+  final String url;
+  final String name;
+  final String? description;
+  final String? ownerName;
+  final List<PlaylistEntry> entries;
+}
+
 /// What committing an import did.
 typedef PlaylistImportResult = ({
   String playlistId,
@@ -243,6 +284,47 @@ class PlaylistRepository {
                   }),
             options: _options(null),
           ));
+
+  /// Makes the owner's list [id] public or private; Laravel answers with
+  /// its link.
+  Future<PlaylistRecord> setSharing(String id,
+      {required bool public, required String owner}) async {
+    try {
+      final response = await _dio.put<dynamic>(
+        'playlists/$id/sharing',
+        data: <String, Object?>{'public': public},
+        options: _options(owner),
+      );
+      final body = response.data;
+      if (body is! Map || body['playlist'] is! Map) {
+        throw const PlaylistImportException('source_unavailable');
+      }
+      return PlaylistRecord.fromJson(
+          Map<String, dynamic>.from(body['playlist'] as Map));
+    } on DioException catch (error) {
+      throw _failure(error);
+    }
+  }
+
+  /// The public list behind a `flix.quest/list/fq-…` link. Throws
+  /// `list_not_found` for one that is private, deleted or never existed.
+  Future<SharedPlaylist> fetchShared(String code) async {
+    try {
+      final response = await _dio.get<dynamic>(
+        'shared-lists/${Uri.encodeComponent(code)}',
+        options: _options(null),
+      );
+      final body = response.data;
+      if (body is! Map || body['list'] is! Map || body['items'] is! List) {
+        throw const PlaylistImportException('source_unavailable');
+      }
+      return SharedPlaylist.fromJson(
+          Map<String, dynamic>.from(body['list'] as Map),
+          body['items'] as List);
+    } on DioException catch (error) {
+      throw _failure(error);
+    }
+  }
 
   Future<PlaylistImport> fetchImport(String id) => _import(
       () => _dio.get<dynamic>('playlist-imports/$id', options: _options(null)));

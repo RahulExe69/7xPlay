@@ -379,4 +379,109 @@ void main() {
     await expectLater(
         provider.create('   '), throwsA(isA<PlaylistEditException>()));
   });
+
+  test(
+      'a v1 store keeps its lists and reads every list again after the upgrade',
+      () async {
+    final path = '${dir.path}/old/';
+    await Directory(path).create();
+    final old = await openDatabase('${path}playlists.db', version: 1,
+        onCreate: (db, _) async {
+      await db.execute('CREATE TABLE playlists(id TEXT PRIMARY KEY, name TEXT, '
+          'description TEXT, version INTEGER, source_provider TEXT, '
+          'source_id TEXT, created_at TEXT)');
+      await db.execute('CREATE TABLE playlist_items(playlist_id TEXT, '
+          'media_type TEXT, media_id INTEGER, position INTEGER, title TEXT, '
+          'poster_path TEXT, backdrop_path TEXT, vote_average REAL, '
+          'release_date TEXT, genre_ids TEXT, added_at TEXT, '
+          'PRIMARY KEY(playlist_id, media_type, media_id))');
+      await db.execute('CREATE TABLE playlist_operations(seq INTEGER PRIMARY '
+          'KEY AUTOINCREMENT, operation_id TEXT UNIQUE, body TEXT)');
+      await db.execute(
+          'CREATE TABLE playlist_meta(key TEXT PRIMARY KEY, value TEXT)');
+    });
+    await old
+        .insert('playlists', <String, Object?>{'id': _list, 'name': 'Old'});
+    await old.insert(
+        'playlist_meta', <String, Object?>{'key': 'checkpoint', 'value': '9'});
+    await old.close();
+
+    final upgraded =
+        await PlaylistStore.open(owner: 'guest', directoryPath: path);
+    expect((await upgraded.read()).single.name, 'Old');
+    expect(await upgraded.checkpoint(), isNull);
+    await upgraded.database.close();
+  });
+
+  test('turning sharing on and off round-trips through Laravel', () async {
+    await store.apply(
+      full: true,
+      revision: 2,
+      lists: <PlaylistRecordChange>[
+        PlaylistRecordChange(PlaylistRecord.fromJson(_listJson()))
+      ],
+      items: const <PlaylistEntryChange>[],
+      answered: const <String>[],
+    );
+    adapter.enqueueJson(<String, Object?>{
+      'success': true,
+      'playlist': <String, Object?>{
+        ..._listJson(),
+        'visibility': 'public',
+        'share_code': 'TR4AYGHK',
+        'share_url': 'https://flix.quest/list/fq-TR4AYGHK',
+      },
+    });
+    final record = await PlaylistRepository(dio)
+        .setSharing(_list, public: true, owner: 'user:1');
+    await store.saveRecord(record);
+
+    final request = adapter.requests.single;
+    expect(request.method, 'PUT');
+    expect(request.uri.path, '/api/v1/playlists/$_list/sharing');
+    expect(request.data, <String, Object?>{'public': true});
+    final list = (await store.read()).single;
+    expect(list.shareUrl, 'https://flix.quest/list/fq-TR4AYGHK');
+
+    // A private list keeps its code but has no link to show.
+    final private = PlaylistRecord.fromJson(<String, dynamic>{
+      ..._listJson(),
+      'visibility': 'private',
+      'share_code': 'TR4AYGHK',
+      'share_url': null,
+    });
+    await store.saveRecord(private);
+    expect((await store.read()).single.isPublic, isFalse);
+  });
+
+  test(
+      "reads someone's shared list in order, and a missing one as list_not_found",
+      () async {
+    adapter
+      ..enqueueJson(<String, Object?>{
+        'success': true,
+        'list': <String, Object?>{
+          'code': 'fq-TR4AYGHK',
+          'url': 'https://flix.quest/list/fq-TR4AYGHK',
+          'name': 'Family night',
+          'owner_name': 'Beamlak',
+        },
+        'items': <Object>[_title(1, type: 'tv'), _title(2)],
+      })
+      ..enqueueJson(<String, Object?>{
+        'success': false,
+        'code': 'list_not_found',
+        'message': 'This list is private or no longer exists.',
+      }, statusCode: 404);
+    final repository = PlaylistRepository(dio);
+
+    final shared = await repository.fetchShared('fq-TR4AYGHK');
+    expect(shared.ownerName, 'Beamlak');
+    expect(shared.entries.map((e) => e.key), <String>['tv:1', 'movie:2']);
+    expect(adapter.requests.first.uri.path, '/api/v1/shared-lists/fq-TR4AYGHK');
+    await expectLater(
+        repository.fetchShared('fq-ZZZZZZZZ'),
+        throwsA(isA<PlaylistImportException>()
+            .having((e) => e.code, 'code', 'list_not_found')));
+  });
 }

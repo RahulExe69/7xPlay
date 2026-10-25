@@ -397,4 +397,17 @@ void main() {
       expect(MediaLink.parse('https://www.imdb.com/list/ls12'), isNull);
     });
   });
+
+  group('shared FlixQuest lists', () {
+    test('a flix.quest list link names its code in capitals', () {
+      final target = MediaLink.parse('https://flix.quest/list/fq-tr4aYGHK');
+      expect((target as SharedListLink).code, 'fq-TR4AYGHK');
+    });
+
+    test('a code of the wrong shape is not a list', () {
+      expect(MediaLink.parse('https://flix.quest/list/TR4AYGHK'), isNull);
+      expect(MediaLink.parse('https://flix.quest/list/fq-TR4'), isNull);
+      expect(MediaLink.parse('https://flix.quest/list/fq-TR4AYGHK/more'), isNull);
+    });
+  });
 }

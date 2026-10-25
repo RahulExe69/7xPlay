@@ -1881,5 +1881,26 @@ abstract class  LocaleKeys {
   static const tv_playlist_remove_body = 'tv_playlist_remove_body';
   static const tv_playlist_in = 'tv_playlist_in';
   static const tv_playlists_empty_hint = 'tv_playlists_empty_hint';
+  static const playlist_public = 'playlist_public';
+  static const playlist_share_title = 'playlist_share_title';
+  static const playlist_share_anyone = 'playlist_share_anyone';
+  static const playlist_share_explainer = 'playlist_share_explainer';
+  static const playlist_share_sign_in = 'playlist_share_sign_in';
+  static const playlist_share_failed = 'playlist_share_failed';
+  static const playlist_share_link = 'playlist_share_link';
+  static const playlist_share_stop = 'playlist_share_stop';
+  static const playlist_share_text = 'playlist_share_text';
+  static const playlist_link_copied = 'playlist_link_copied';
+  static const playlist_copy_link = 'playlist_copy_link';
+  static const playlist_shared = 'playlist_shared';
+  static const playlist_shared_by = 'playlist_shared_by';
+  static const playlist_shared_missing_title = 'playlist_shared_missing_title';
+  static const playlist_shared_missing_message = 'playlist_shared_missing_message';
+  static const playlist_shared_failed = 'playlist_shared_failed';
+  static const playlist_save_copy = 'playlist_save_copy';
+  static const playlist_save_copy_hint = 'playlist_save_copy_hint';
+  static const playlist_copy_saved = 'playlist_copy_saved';
+  static const tv_playlist_browse = 'tv_playlist_browse';
+  static const tv_playlist_share_scan = 'tv_playlist_share_scan';
 
 }

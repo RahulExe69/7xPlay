@@ -41,14 +41,25 @@ class PlaylistStore {
         ? await getApplicationDocumentsDirectory()
         : Directory(directoryPath);
     final path = LibraryScope.filename('${directory.path}playlists.db', owner);
-    return PlaylistStore(
-        await openDatabase(path, version: 1, onCreate: _create));
+    return PlaylistStore(await openDatabase(path,
+        version: 2, onCreate: _create, onUpgrade: _upgrade));
+  }
+
+  /// Version 2 keeps each list's share link. Lists confirmed before it have
+  /// none, so the checkpoint goes and the next sync reads every list again.
+  static Future<void> _upgrade(Database db, int from, int to) async {
+    if (from < 2) {
+      await db.execute('ALTER TABLE $_lists ADD COLUMN share_code TEXT');
+      await db.execute('ALTER TABLE $_lists ADD COLUMN share_url TEXT');
+      await db.delete(_meta,
+          where: 'key = ?', whereArgs: <Object?>[_checkpointKey]);
+    }
   }
 
   static Future<void> _create(Database db, int version) async {
     await db.execute('CREATE TABLE $_lists(id TEXT PRIMARY KEY, name TEXT, '
         'description TEXT, version INTEGER, source_provider TEXT, '
-        'source_id TEXT, created_at TEXT)');
+        'source_id TEXT, created_at TEXT, share_code TEXT, share_url TEXT)');
     await db.execute('CREATE TABLE $_items(playlist_id TEXT, media_type TEXT, '
         'media_id INTEGER, position INTEGER, title TEXT, poster_path TEXT, '
         'backdrop_path TEXT, vote_average REAL, release_date TEXT, '
@@ -80,6 +91,21 @@ class PlaylistStore {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+
+  /// Saves [operations] together, as one edit that made many.
+  Future<void> enqueueAll(List<PlaylistOperation> operations) =>
+      database.transaction((txn) async {
+        for (final operation in operations) {
+          await txn.insert(
+            _queue,
+            <String, Object?>{
+              'operation_id': operation.id,
+              'body': operation.encode()
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      });
 
   /// Waiting edits, oldest first.
   Future<List<PlaylistOperation>> pending({int? limit}) async {
@@ -156,6 +182,18 @@ class PlaylistStore {
       );
     });
   }
+
+  /// Records what Laravel said about a list's sharing straight away, ahead
+  /// of the sync that would bring it, so the link can be shown at once.
+  Future<void> saveRecord(PlaylistRecord record) => database.update(
+        _lists,
+        <String, Object?>{
+          'share_code': record.shareCode,
+          'share_url': record.shareUrl,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[record.id],
+      );
 
   /// Forgets the checkpoint, so the next sync asks for everything.
   Future<void> resetCheckpoint() => database
