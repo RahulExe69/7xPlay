@@ -188,11 +188,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final url = _url;
     final changed = active.isNotEmpty || query.sort != 0;
 
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: palette.page,
       appBar: AppBar(
         backgroundColor: palette.page,
         surfaceTintColor: Colors.transparent,
+        // Level with the choices below; a phone's gutter is the default.
+        titleSpacing: AppBreakpoints.isTablet(context) ? gutter : null,
         title: Text(
           tr('browse_with_filters'),
           style: AppType.sectionHeader.copyWith(
@@ -336,6 +338,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         count: _counts[url],
         onShow: _showResults,
       ),
+    );
+    if (!AppBreakpoints.isTablet(context)) return page;
+    // A form, not a shelf: on a tablet it keeps to a column, as Settings
+    // does, instead of stretching every choice across the screen.
+    return ColoredBox(
+      color: palette.page,
+      child: ReadableWidth(maxWidth: 840, child: page),
     );
   }
 }

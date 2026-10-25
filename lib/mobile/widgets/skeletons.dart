@@ -15,14 +15,13 @@ class HomeSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gutter = AppSpace.gutter(context);
-    final width = MediaQuery.sizeOf(context).width;
     return SkeletonPulse(
       child: Column(
         children: <Widget>[
           Padding(
             padding: EdgeInsets.symmetric(horizontal: gutter),
             child: SkeletonBlock(
-              height: HeroCard.heightFor(width, gutter),
+              height: HeroCard.heightFor(context),
               radius: AppRadii.hero,
             ),
           ),

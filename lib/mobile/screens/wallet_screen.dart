@@ -109,7 +109,11 @@ class _WalletScreenState extends State<WalletScreen> {
     final pending = plus.account?.pendingTopups ?? const <WalletTopup>[];
     return Scaffold(
       backgroundColor: palette.page,
-      appBar: PageAppBar(title: tr('plus_wallet'), kicker: tr('plus_name')),
+      appBar: PageAppBar(
+        title: tr('plus_wallet'),
+        kicker: tr('plus_name'),
+        contentWidth: 760,
+      ),
       body: RefreshIndicator(
         color: palette.mutedText,
         onRefresh: () async {

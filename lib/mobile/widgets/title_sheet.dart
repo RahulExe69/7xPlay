@@ -33,6 +33,7 @@ Future<void> showTitleSheet(BuildContext context, MediaItem item) {
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: palette.surface,
+    constraints: appSheetConstraints(context),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),

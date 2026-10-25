@@ -81,7 +81,7 @@ class DownloadsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: palette.page,
-      appBar: PageAppBar(title: tr('downloads')),
+      appBar: PageAppBar(title: tr('downloads'), contentWidth: 760),
       body: Column(
         children: [
           if (provider.error != null) _ErrorBanner(message: provider.error!),

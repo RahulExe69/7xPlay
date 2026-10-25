@@ -126,6 +126,89 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
       ...bookmarks.tvShows.map(MediaItem.fromSeries),
     ];
 
+    final activity = <Widget>[
+      SectionHeader(
+        title: tr('downloads'),
+        onSeeAll: () => _push(const DownloadsScreen()),
+      ),
+      if (downloads.isEmpty)
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpace.gutter(context),
+            vertical: AppSpace.md,
+          ),
+          child: Text(
+            tr('no_downloads_yet'),
+            style: AppType.body.copyWith(color: palette.mutedText),
+          ),
+        )
+      else
+        for (final download in downloads.take(3))
+          _DownloadSummaryRow(
+            download: download,
+            onTap: () => _push(const DownloadsScreen()),
+          ),
+      const SizedBox(height: AppSpace.xxl),
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
+        child: WellnessPreviewCard(
+          onTap: () => _push(const WellnessScreen()),
+        ),
+      ),
+    ];
+    final links = <Widget>[
+      if (_isSignedIn)
+        ListRow(
+          leading: PlusMark(size: 22, color: palette.mutedText),
+          label: tr('plus_name'),
+          onTap: () => unawaited(openPlus(context)),
+        ),
+      ListRow(
+        icon: PhosphorIcons.slidersHorizontal(),
+        label: tr('settings'),
+        onTap: () => _push(const app_settings.Settings()),
+      ),
+      ListRow(
+        icon: PhosphorIcons.arrowsDownUp(),
+        label: tr('sync'),
+        onTap: () => _push(const SyncScreen()),
+      ),
+      ListRow(
+        icon: PhosphorIcons.database(),
+        label: tr('check_server'),
+        onTap: () => _push(const ServerStatusScreen()),
+      ),
+      ListRow(
+        icon: PhosphorIcons.arrowCircleUp(),
+        label: tr('check_for_update'),
+        onTap: () => _push(const UpdateScreen(isForced: false)),
+      ),
+      ListRow(
+        icon: PhosphorIcons.shareNetwork(),
+        label: tr('shared_the_app'),
+        showsNext: false,
+        onTap: _shareApp,
+      ),
+      ListRow(
+        icon: PhosphorIcons.info(),
+        label: tr('about'),
+        onTap: () => _push(const AboutPage()),
+      ),
+      // A guest has nothing to sign out of; the header offers sign-in.
+      if (_isSignedIn)
+        ListRow(
+          icon: PhosphorIcons.signOut(),
+          label: tr('sign_out'),
+          destructive: true,
+          showsNext: false,
+          onTap: _confirmSignOut,
+        ),
+    ];
+    // A wide tablet page keeps the account's links beside what it has been
+    // doing, instead of stretching every row across it.
+    final twoColumns = AppBreakpoints.isTablet(context) &&
+        MediaQuery.sizeOf(context).width >= AppBreakpoints.wide;
+
     return ColoredBox(
       color: palette.page,
       child: SafeArea(
@@ -197,82 +280,29 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
               ),
             ],
             const SizedBox(height: AppSpace.xxl),
-            SectionHeader(
-              title: tr('downloads'),
-              onSeeAll: () => _push(const DownloadsScreen()),
-            ),
-            if (downloads.isEmpty)
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpace.gutter(context),
-                  vertical: AppSpace.md,
-                ),
-                child: Text(
-                  tr('no_downloads_yet'),
-                  style: AppType.body.copyWith(color: palette.mutedText),
-                ),
+            if (twoColumns)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: activity,
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: links,
+                    ),
+                  ),
+                ],
               )
-            else
-              for (final download in downloads.take(3))
-                _DownloadSummaryRow(
-                  download: download,
-                  onTap: () => _push(const DownloadsScreen()),
-                ),
-            const SizedBox(height: AppSpace.xxl),
-            Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
-              child: WellnessPreviewCard(
-                onTap: () => _push(const WellnessScreen()),
-              ),
-            ),
-            const SizedBox(height: AppSpace.xxl),
-            if (_isSignedIn)
-              ListRow(
-                leading: PlusMark(size: 22, color: palette.mutedText),
-                label: tr('plus_name'),
-                onTap: () => unawaited(openPlus(context)),
-              ),
-            ListRow(
-              icon: PhosphorIcons.slidersHorizontal(),
-              label: tr('settings'),
-              onTap: () => _push(const app_settings.Settings()),
-            ),
-            ListRow(
-              icon: PhosphorIcons.arrowsDownUp(),
-              label: tr('sync'),
-              onTap: () => _push(const SyncScreen()),
-            ),
-            ListRow(
-              icon: PhosphorIcons.database(),
-              label: tr('check_server'),
-              onTap: () => _push(const ServerStatusScreen()),
-            ),
-            ListRow(
-              icon: PhosphorIcons.arrowCircleUp(),
-              label: tr('check_for_update'),
-              onTap: () => _push(const UpdateScreen(isForced: false)),
-            ),
-            ListRow(
-              icon: PhosphorIcons.shareNetwork(),
-              label: tr('shared_the_app'),
-              showsNext: false,
-              onTap: _shareApp,
-            ),
-            ListRow(
-              icon: PhosphorIcons.info(),
-              label: tr('about'),
-              onTap: () => _push(const AboutPage()),
-            ),
-            // A guest has nothing to sign out of; the header offers sign-in.
-            if (_isSignedIn)
-              ListRow(
-                icon: PhosphorIcons.signOut(),
-                label: tr('sign_out'),
-                destructive: true,
-                showsNext: false,
-                onTap: _confirmSignOut,
-              ),
+            else ...<Widget>[
+              ...activity,
+              const SizedBox(height: AppSpace.xxl),
+              ...links,
+            ],
           ],
         ),
       ),

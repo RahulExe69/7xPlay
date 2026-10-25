@@ -171,6 +171,7 @@ class _FlixAiScreenState extends State<FlixAiScreen>
       backgroundColor: palette.page,
       appBar: PageAppBar(
         title: 'FlixAI',
+        contentWidth: _columnWidth,
         actions: [
           if (signedIn) ...[
             IconButton(

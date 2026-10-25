@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:cached_network_image/cached_network_image.dart';
@@ -30,14 +31,24 @@ class HeroCard extends StatefulWidget {
   /// The title's genre names, shown after its year.
   final List<String> genres;
 
-  /// The card's height for a page [width] wide: tall like a poster on
-  /// phones, a wide frame on tablets.
-  static double heightFor(double width, double gutter) {
-    final cardWidth = width - gutter * 2;
-    return width >= AppBreakpoints.tablet
-        ? (cardWidth * 9 / 16).clamp(0, 460).toDouble()
-        : (cardWidth * 1.3).clamp(0, 520).toDouble();
+  /// The card's height on [context]'s page: tall like a poster on phones,
+  /// a wide frame on wider pages. On a tablet it keeps to half the screen,
+  /// so a landscape one still shows the rows below.
+  static double heightFor(BuildContext context) {
+    final media = MediaQuery.sizeOf(context);
+    final width = media.width;
+    final cardWidth = width - AppSpace.gutter(context) * 2;
+    if (width < AppBreakpoints.tablet) {
+      return (cardWidth * 1.3).clamp(0, 520).toDouble();
+    }
+    final frame = (cardWidth * 9 / 16).clamp(0, 460).toDouble();
+    return AppBreakpoints.isTablet(context)
+        ? math.min(frame, media.height * .5)
+        : frame;
   }
+
+  /// The widest the Play and My List pair grows on a tablet.
+  static const tabletButtonsWidth = 520.0;
 
   /// The artwork the card shows for [item] on this screen: the poster on
   /// phones, the backdrop on tablets or when there's no poster.
@@ -99,7 +110,7 @@ class _HeroCardState extends State<HeroCard> {
     final item = _item;
     final media = MediaQuery.sizeOf(context);
     final gutter = AppSpace.gutter(context);
-    final height = HeroCard.heightFor(media.width, gutter);
+    final height = HeroCard.heightFor(context);
     final art = HeroCard.artworkFor(context, item);
     final accent = Theme.of(context).colorScheme.primary;
     final saved = MyList.contains(context, item);
@@ -199,34 +210,41 @@ class _HeroCardState extends State<HeroCard> {
                           ),
                         ),
                         const SizedBox(height: AppSpace.lg),
-                        Row(
-                          children: <Widget>[
-                            if (MobilePlayback.canPlay(context)) ...<Widget>[
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: AppBreakpoints.isTablet(context)
+                                ? HeroCard.tabletButtonsWidth
+                                : double.infinity,
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              if (MobilePlayback.canPlay(context)) ...<Widget>[
+                                Expanded(
+                                  child: PillButton(
+                                    onArtwork: true,
+                                    primary: true,
+                                    busy: _starting,
+                                    icon: PhosphorIcons.play(
+                                      PhosphorIconsStyle.fill,
+                                    ),
+                                    label: _playLabel(),
+                                    onPressed: _play,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpace.sm),
+                              ],
                               Expanded(
                                 child: PillButton(
                                   onArtwork: true,
-                                  primary: true,
-                                  busy: _starting,
-                                  icon: PhosphorIcons.play(
-                                    PhosphorIconsStyle.fill,
-                                  ),
-                                  label: _playLabel(),
-                                  onPressed: _play,
+                                  icon: saved
+                                      ? PhosphorIcons.check()
+                                      : PhosphorIcons.plus(),
+                                  label: tr('my_list'),
+                                  onPressed: () => MyList.toggle(context, item),
                                 ),
                               ),
-                              const SizedBox(width: AppSpace.sm),
                             ],
-                            Expanded(
-                              child: PillButton(
-                                onArtwork: true,
-                                icon: saved
-                                    ? PhosphorIcons.check()
-                                    : PhosphorIcons.plus(),
-                                label: tr('my_list'),
-                                onPressed: () => MyList.toggle(context, item),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -390,8 +408,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.sizeOf(context);
-    final height = HeroCard.heightFor(media.width, AppSpace.gutter(context));
+    final height = HeroCard.heightFor(context);
     if (_count == 0) return const SizedBox.shrink();
     final hero = widget.heroes[_index];
     return Column(

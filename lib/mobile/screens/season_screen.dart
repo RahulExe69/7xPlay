@@ -229,6 +229,40 @@ class _SeasonScreenState extends State<SeasonScreen>
     final palette = AppPalette.of(context);
     final history = _history(context);
     final current = _current;
+    final ad = widget.adBuilder?.call(context) ??
+        HomeAdSlot(
+          placement: 'season_detail',
+          variant: HostedBannerVariant.tall,
+        );
+    if (AppBreakpoints.isTablet(context) &&
+        MediaQuery.sizeOf(context).width >= AppBreakpoints.wide) {
+      // A wide tablet: the season beside its episodes, as a title's page.
+      return Scaffold(
+        backgroundColor: palette.page,
+        body: DetailsSplit(
+          controller: scroll,
+          artwork: (width) => MediaArt(
+            item: widget.series,
+            path: widget.series.backdropPath ?? current.posterPath,
+            width: width,
+            size: ArtSize.backdrop,
+            alignment: Alignment.topCenter,
+          ),
+          start: <Widget>[_summary(context, current, history), ad],
+          end: <Widget>[
+            SliverToBoxAdapter(child: _episodeList(context, history)),
+            SliverToBoxAdapter(child: _cast(context)),
+            SliverToBoxAdapter(child: _videoList(context)),
+            SliverToBoxAdapter(child: _posters(context)),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: AppSpace.xxxl + MediaQuery.paddingOf(context).bottom,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: palette.page,
       body: CustomScrollView(
@@ -247,13 +281,7 @@ class _SeasonScreenState extends State<SeasonScreen>
           ),
           SliverToBoxAdapter(
               child: ReadableWidth(child: _summary(context, current, history))),
-          SliverToBoxAdapter(
-            child: widget.adBuilder?.call(context) ??
-                HomeAdSlot(
-                  placement: 'season_detail',
-                  variant: HostedBannerVariant.tall,
-                ),
-          ),
+          SliverToBoxAdapter(child: ad),
           SliverToBoxAdapter(
               child: ReadableWidth(child: _episodeList(context, history))),
           SliverToBoxAdapter(child: ReadableWidth(child: _cast(context))),

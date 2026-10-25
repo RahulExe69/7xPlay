@@ -305,8 +305,21 @@ void main() {
       });
     });
 
-    testWidgets('below 700 the bottom bar stays', (tester) async {
-      await _pumpShell(tester, size: const Size(699, 900));
+    testWidgets('a phone below 700 keeps the bottom bar', (tester) async {
+      // Sideways: wide, but its shortest side is a phone's.
+      await _pumpShell(tester, size: const Size(699, 390));
+      expect(find.byType(MobileNavBar), findsOneWidget);
+      expect(find.byType(MobileNavRail), findsNothing);
+    });
+
+    testWidgets('a tablet gets the rail from 600', (tester) async {
+      await _pumpShell(tester, size: const Size(600, 960));
+      expect(find.byType(MobileNavRail), findsOneWidget);
+      expect(find.byType(MobileNavBar), findsNothing);
+    });
+
+    testWidgets('below 600 wide the bottom bar stays', (tester) async {
+      await _pumpShell(tester, size: const Size(599, 960));
       expect(find.byType(MobileNavBar), findsOneWidget);
       expect(find.byType(MobileNavRail), findsNothing);
     });

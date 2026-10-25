@@ -30,11 +30,15 @@ int posterRowCount(double width) => width >= 1300
             : 3;
 
 /// A poster's width on a browse row: [posterRowCount] whole posters and the
-/// edge of the next across the page.
+/// edge of the next across the page. A landscape tablet, short for its
+/// width, fits one more, so a row doesn't take a third of its height.
 double posterWidth(BuildContext context) {
-  final width = MediaQuery.sizeOf(context).width;
+  final size = MediaQuery.sizeOf(context);
+  final width = size.width;
   final gutter = AppSpace.gutter(context);
-  final count = posterRowCount(width);
+  final landscapeTablet =
+      AppBreakpoints.isTablet(context) && width > size.height;
+  final count = posterRowCount(width) + (landscapeTablet ? 1 : 0);
   final fit = (width - gutter * 2 - 10.0 * count) / (count + .15);
   return width >= AppBreakpoints.tablet
       ? fit.clamp(112.0, 190.0)

@@ -378,3 +378,88 @@ class FactsLine extends StatelessWidget {
     );
   }
 }
+
+/// A details page from [AppBreakpoints.wide]: the artwork and [start] stay
+/// at the start, and the [end] slivers scroll beside them on [controller].
+class DetailsSplit extends StatelessWidget {
+  const DetailsSplit({
+    required this.artwork,
+    required this.start,
+    required this.end,
+    this.controller,
+    super.key,
+  });
+
+  /// The artwork for a pane [width] wide.
+  final Widget Function(double width) artwork;
+  final List<Widget> start;
+  final List<Widget> end;
+  final ScrollController? controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final startWidth = (media.size.width * .4).clamp(400.0, 520.0);
+    MediaQueryData pane(double width) =>
+        media.copyWith(size: Size(width, media.size.height));
+    return Row(
+      // The start pane from the top even when it is shorter than the screen.
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SizedBox(
+          width: startWidth,
+          child: MediaQuery(
+            data: pane(startWidth),
+            child: SingleChildScrollView(
+              primary: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  SizedBox(
+                    height: startWidth * 9 / 16,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: <Widget>[
+                        DetailsBackdrop(artwork: artwork(startWidth)),
+                        PositionedDirectional(
+                          top: media.padding.top + AppSpace.xs,
+                          start: AppSpace.sm,
+                          child: DetailsRoundButton(
+                            icon: PhosphorIcons.caretLeft(),
+                            tooltip: MaterialLocalizations.of(context)
+                                .backButtonTooltip,
+                            onArtwork: true,
+                            onPressed: () => Navigator.of(context).maybePop(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...start,
+                  SizedBox(height: AppSpace.xxxl + media.padding.bottom),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: MediaQuery(
+            data: pane(media.size.width - startWidth),
+            child: SafeArea(
+              bottom: false,
+              child: CustomScrollView(
+                controller: controller,
+                slivers: <Widget>[
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: AppSpace.lg),
+                  ),
+                  ...end,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

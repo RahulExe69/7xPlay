@@ -53,6 +53,7 @@ class _CreditsScreenState extends State<CreditsScreen> {
           (null, null) => null,
         },
         title: tr('cast_and_crew'),
+        contentWidth: 760,
       ),
       body: FutureBuilder<Credits>(
         future: _credits,

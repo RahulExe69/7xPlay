@@ -834,87 +834,120 @@ class _TopSearches extends StatelessWidget {
 
   final List<MediaItem> items;
 
+  /// How many columns the list takes: one on phones, two or three across a
+  /// tablet's page so a row's play mark stays near its title.
+  static int columnsFor(BuildContext context) {
+    if (!AppBreakpoints.isTablet(context)) return 1;
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= AppBreakpoints.wide
+        ? 3
+        : width >= AppBreakpoints.tablet
+            ? 2
+            : 1;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
     final gutter = AppSpace.gutter(context);
-    final canPlay = MobilePlayback.canPlay(context);
+    final columns = columnsFor(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.rowGap),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           SectionHeader(title: tr('top_searches')),
-          for (final item in items)
-            InkWell(
-              onTap: () => MobilePlayback.openDetails(context, item),
-              onLongPress: () => showTitleSheet(context, item),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: gutter, vertical: 5),
+          if (columns == 1)
+            for (final item in items) _row(context, item, gutter)
+          else
+            for (var start = 0; start < items.length; start += columns)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: gutter - 4),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppRadii.card),
-                      child: SizedBox(
-                        width: 128,
-                        height: 72,
-                        child: MediaArt(
-                          item: item,
-                          path: item.backdropPath ?? item.posterPath,
-                          width: 128,
-                          size:
-                              item.backdropPath == null ? null : ArtSize.still,
-                          placeholder: MediaArt.darkPlaceholder,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpace.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppType.cardTitle.copyWith(
-                              color: palette.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            mediaFacts(item),
-                            style: AppType.metadata.copyWith(
-                              color: palette.mutedText,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (canPlay)
-                      PlaybackAction(
-                        onStart: () => MobilePlayback.play(context, item),
-                        builder: (context, busy, start) => IconButton(
-                          tooltip: tr('play'),
-                          color: palette.foreground,
-                          onPressed: busy ? null : start,
-                          icon: busy
-                              ? SizedBox.square(
-                                  dimension: 30,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: palette.foreground,
-                                  ),
-                                )
-                              : PlaybackIcon(PhosphorIcons.playCircle(),
-                                  size: 30),
-                        ),
+                    for (var i = start; i < start + columns; i++)
+                      Expanded(
+                        child: i < items.length
+                            ? _row(context, items[i], 4)
+                            : const SizedBox(),
                       ),
                   ],
                 ),
               ),
-            ),
         ],
+      ),
+    );
+  }
+
+  /// One title: its still, what it is, and the play mark; [inset] in from
+  /// either side.
+  Widget _row(BuildContext context, MediaItem item, double inset) {
+    final palette = AppPalette.of(context);
+    final canPlay = MobilePlayback.canPlay(context);
+    return InkWell(
+      onTap: () => MobilePlayback.openDetails(context, item),
+      onLongPress: () => showTitleSheet(context, item),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: inset, vertical: 5),
+        child: Row(
+          children: <Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadii.card),
+              child: SizedBox(
+                width: 128,
+                height: 72,
+                child: MediaArt(
+                  item: item,
+                  path: item.backdropPath ?? item.posterPath,
+                  width: 128,
+                  size: item.backdropPath == null ? null : ArtSize.still,
+                  placeholder: MediaArt.darkPlaceholder,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.cardTitle.copyWith(
+                      color: palette.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    mediaFacts(item),
+                    style: AppType.metadata.copyWith(
+                      color: palette.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (canPlay)
+              PlaybackAction(
+                onStart: () => MobilePlayback.play(context, item),
+                builder: (context, busy, start) => IconButton(
+                  tooltip: tr('play'),
+                  color: palette.foreground,
+                  onPressed: busy ? null : start,
+                  icon: busy
+                      ? SizedBox.square(
+                          dimension: 30,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: palette.foreground,
+                          ),
+                        )
+                      : PlaybackIcon(PhosphorIcons.playCircle(), size: 30),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

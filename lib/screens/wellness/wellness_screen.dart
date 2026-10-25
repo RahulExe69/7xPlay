@@ -53,6 +53,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
       backgroundColor: palette.page,
       appBar: PageAppBar(
         title: tr('ins_title'),
+        contentWidth: 920,
         actions: [
           IconButton(
             tooltip: tr('ins_options'),
@@ -395,6 +396,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
         isScrollControlled: true,
         useSafeArea: true,
         backgroundColor: Colors.transparent,
+        constraints: appSheetConstraints(context),
         builder: (context) => _ShareRecapSheet(
           sessions: provider.sessions,
           initialPeriod: initialPeriod ??

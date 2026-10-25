@@ -127,7 +127,7 @@ class _PlusScreenState extends State<PlusScreen> {
         : plus.account?.pendingTopups.firstOrNull;
     return Scaffold(
       backgroundColor: palette.page,
-      appBar: PageAppBar(title: tr('plus_name')),
+      appBar: PageAppBar(title: tr('plus_name'), contentWidth: 760),
       body: RefreshIndicator(
         color: palette.mutedText,
         onRefresh: () => plus.refresh(full: true),

@@ -610,6 +610,7 @@ class _ChannelListState extends State<ChannelList> {
       backgroundColor: palette.page,
       appBar: PageAppBar(
         title: tr('live_tv'),
+        contentWidth: 900,
         actions: <Widget>[
           IconButton(
             tooltip: tr('refresh'),

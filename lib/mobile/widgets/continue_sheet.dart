@@ -18,6 +18,7 @@ import '../../screens/tv/tv_video_loader.dart';
 import '../../widgets/playback_action.dart';
 import '../playback.dart';
 import 'media_art.dart';
+import 'page_kit.dart' show appSheetConstraints;
 import 'pill_button.dart';
 
 /// "S2:E4 · 23m left", "S2:E5 · Next episode", or "1h 04m left".
@@ -65,6 +66,7 @@ Future<void> showContinueSheet(BuildContext context, MediaItem item) {
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: palette.surface,
+    constraints: appSheetConstraints(context),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),

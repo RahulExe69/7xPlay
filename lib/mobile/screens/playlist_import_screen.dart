@@ -270,7 +270,7 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
     }
     return Scaffold(
       backgroundColor: palette.page,
-      appBar: PageAppBar(title: tr('playlist_import')),
+      appBar: PageAppBar(title: tr('playlist_import'), contentWidth: 620),
       body: SafeArea(child: body),
     );
   }

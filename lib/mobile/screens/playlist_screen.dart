@@ -214,6 +214,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
         backgroundColor: palette.page,
         appBar: PageAppBar(
           title: draft == null ? list.name : tr('playlist_edit_titles'),
+          contentWidth: 760,
           kicker: draft == null ? tr('playlist') : list.name,
           actions: draft == null
               ? <Widget>[

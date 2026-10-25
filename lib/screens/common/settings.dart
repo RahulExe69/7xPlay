@@ -133,7 +133,7 @@ class _SettingsState extends State<Settings> {
 
     return Scaffold(
       backgroundColor: palette.page,
-      appBar: PageAppBar(title: tr('settings')),
+      appBar: PageAppBar(title: tr('settings'), contentWidth: 760),
       body: AppResponsiveContent(
         padding: EdgeInsets.zero,
         maxWidth: 760,

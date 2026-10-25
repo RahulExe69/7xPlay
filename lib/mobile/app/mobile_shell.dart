@@ -141,7 +141,10 @@ class _MobileShellState extends State<MobileShell>
         child: Builder(
           builder: (context) {
             final media = MediaQuery.of(context);
-            final rail = media.size.width >= AppBreakpoints.tablet;
+            // Tablets get the rail from Material's medium width; phones
+            // only once they are as wide as before.
+            final rail = media.size.width >= AppBreakpoints.tablet ||
+                (AppBreakpoints.isTablet(context) && media.size.width >= 600);
             final bodies = _tabStack(current);
             return Scaffold(
               backgroundColor: AppPalette.of(context).page,

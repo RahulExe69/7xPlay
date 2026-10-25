@@ -371,7 +371,6 @@ class _HomeScreenState extends State<HomeScreen>
     final heroes =
         feed == null ? const <HomeHero>[] : _heroesFor(feed, continueWatching);
     final media = MediaQuery.of(context);
-    final gutter = AppSpace.gutter(context);
     final headerHeight = media.padding.top + _HomeHeader.barHeight;
 
     final List<Widget> content;
@@ -430,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen>
           top: 0,
           left: 0,
           right: 0,
-          height: headerHeight + HeroCard.heightFor(media.size.width, gutter),
+          height: headerHeight + HeroCard.heightFor(context),
           child: IgnorePointer(
             child: ValueListenableBuilder<Color?>(
               valueListenable: _tint,

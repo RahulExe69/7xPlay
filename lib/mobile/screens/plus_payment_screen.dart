@@ -118,7 +118,7 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
     if (topup == null) {
       return Scaffold(
         backgroundColor: palette.page,
-        appBar: PageAppBar(title: tr('plus_payment')),
+        appBar: PageAppBar(title: tr('plus_payment'), contentWidth: 560),
         body: EmptyState(
           icon: PhosphorIcons.receipt(),
           title: tr('plus_no_payment'),
@@ -137,7 +137,7 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
     };
     return Scaffold(
       backgroundColor: palette.page,
-      appBar: PageAppBar(title: tr('plus_payment')),
+      appBar: PageAppBar(title: tr('plus_payment'), contentWidth: 560),
       body: ReadableWidth(
         maxWidth: 560,
         child: ListView(

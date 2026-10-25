@@ -197,7 +197,7 @@ class _UpdateScreenState extends State<UpdateScreen> {
     final downloadUrl = _downloadUrl(config);
     return Scaffold(
       backgroundColor: AppPalette.of(context).page,
-      appBar: PageAppBar(title: tr('check_for_update')),
+      appBar: PageAppBar(title: tr('check_for_update'), contentWidth: 600),
       body: SkeletonSwitcher(
         loading: _error == null && _packageInfo == null,
         alignment: Alignment.topCenter,

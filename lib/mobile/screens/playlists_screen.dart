@@ -46,6 +46,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
       backgroundColor: palette.page,
       appBar: PageAppBar(
         title: tr('playlists'),
+        contentWidth: 760,
         actions: <Widget>[
           IconButton(
             tooltip: tr('playlist_import'),

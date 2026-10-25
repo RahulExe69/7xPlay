@@ -5,6 +5,7 @@ import '../../catalog/media_item.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../models/genres.dart';
+import 'page_kit.dart' show appSheetConstraints;
 
 /// Home's Categories: the genres of the kinds on show, under a heading per
 /// kind. Resolves to the genre picked, with its kind, or null.
@@ -20,6 +21,7 @@ Future<(MediaKind, Genres)?> showGenreSheet(
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: palette.surface,
+    constraints: appSheetConstraints(context),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),
