@@ -138,6 +138,67 @@ class WalletBalance with _$WalletBalance {
   bool get closed => status == 'closed';
 }
 
+/// A coin a top-up can be paid in, as Laravel names it for both clients.
+@freezed
+class PayCoin with _$PayCoin {
+  const PayCoin._();
+  const factory PayCoin({
+    required String code,
+    required String ticker,
+    required String name,
+    @Default('') String network,
+    @JsonKey(name: 'network_label') @Default('') String networkLabel,
+    @JsonKey(name: 'logo_url') String? logoUrl,
+
+    /// `memo` or `destination_tag` when a deposit needs one to be matched.
+    @JsonKey(name: 'extra_id') String? extraId,
+    @Default(false) bool popular,
+  }) = _PayCoin;
+  factory PayCoin.fromJson(Map<String, dynamic> json) =>
+      _$PayCoinFromJson(json);
+
+  /// Matches a search by ticker, name, network or code.
+  bool matches(String query) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return true;
+    return '$ticker $name $networkLabel $code'.toLowerCase().contains(needle);
+  }
+
+  /// Only NOWPayments' own HTTPS logos are drawn.
+  String? get trustedLogo {
+    final uri = Uri.tryParse(logoUrl ?? '');
+    return uri != null && uri.scheme == 'https' && uri.host == 'nowpayments.io'
+        ? logoUrl
+        : null;
+  }
+}
+
+/// The payment FlixQuest's checkout created for the chosen coin. The
+/// [address] and [extraId] are only sent while there is something to pay.
+/// Amounts stay strings: every decimal of a crypto amount matters.
+@freezed
+class TopupPayment with _$TopupPayment {
+  const TopupPayment._();
+  const factory TopupPayment({
+    @JsonKey(fromJson: _id) String? id,
+    required String status,
+    required PayCoin coin,
+    String? amount,
+    String? paid,
+    String? remaining,
+    String? address,
+    @JsonKey(name: 'extra_id') String? extraId,
+    String? uri,
+    @JsonKey(name: 'expires_at') DateTime? expiresAt,
+    @JsonKey(name: 'created_at') DateTime? createdAt,
+  }) = _TopupPayment;
+  factory TopupPayment.fromJson(Map<String, dynamic> json) =>
+      _$TopupPaymentFromJson(json);
+
+  /// What is still to send: the rest of a partial payment, else all of it.
+  String? get due => remaining ?? amount;
+}
+
 /// One crypto payment that adds USD credit once NOWPayments settles it.
 @freezed
 class WalletTopup with _$WalletTopup {
@@ -151,6 +212,11 @@ class WalletTopup with _$WalletTopup {
     @JsonKey(name: 'activate_plus') @Default(false) bool activatePlus,
     @JsonKey(name: 'next_action') @Default('none') String nextAction,
     @JsonKey(name: 'checkout_url') String? checkoutUrl,
+
+    /// Where FlixQuest's own checkout is: `preparing`, `choose_coin`,
+    /// `send`, `send_remaining`, `confirming`, `credited` or `closed`.
+    @JsonKey(name: 'checkout_step') String? checkoutStep,
+    TopupPayment? payment,
     @JsonKey(name: 'pay_currency') String? payCurrency,
     @JsonKey(name: 'error_code') String? errorCode,
     @JsonKey(name: 'created_at') DateTime? createdAt,
@@ -158,6 +224,18 @@ class WalletTopup with _$WalletTopup {
   }) = _WalletTopup;
   factory WalletTopup.fromJson(Map<String, dynamic> json) =>
       _$WalletTopupFromJson(json);
+
+  /// The checkout step, worked out from the status for a server that does
+  /// not send one.
+  String get step =>
+      checkoutStep ??
+      switch (status) {
+        'settled' => 'credited',
+        'creating' || 'unknown' => 'preparing',
+        'partially_paid' => 'send_remaining',
+        _ when !isOpen => 'closed',
+        _ => payCurrency == null ? 'choose_coin' : 'confirming',
+      };
 
   static const openStatuses = {
     'creating',

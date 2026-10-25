@@ -67,6 +67,10 @@ String billingMessage(BillingError error) {
     'period_overlap' => 'plus_error_period_overlap',
     'sign_in_required' => 'plus_sign_in_required',
     'session_changed' => 'plus_error_try_again',
+    'coin_amount_too_small' => 'plus_error_coin_too_small',
+    'coin_unavailable' => 'plus_error_coin_unavailable',
+    'checkout_limit' => 'plus_error_checkout_limit',
+    'topup_closed' => 'plus_error_topup_closed',
     _ => null,
   };
   if (key != null) return tr(key);
@@ -74,16 +78,4 @@ String billingMessage(BillingError error) {
     return tr('plus_error_rate_limited');
   }
   return tr('plus_error_generic');
-}
-
-/// Only NOWPayments' own HTTPS pages open as a checkout, whatever a
-/// response says.
-bool isTrustedCheckout(String? url) {
-  final uri = url == null ? null : Uri.tryParse(url);
-  return uri != null &&
-      uri.scheme == 'https' &&
-      uri.userInfo.isEmpty &&
-      !uri.hasPort &&
-      const {'nowpayments.io', 'sandbox.nowpayments.io'}
-          .contains(uri.host.toLowerCase());
 }

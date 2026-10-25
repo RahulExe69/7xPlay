@@ -118,6 +118,23 @@ class BillingRepository {
     return _topup(body);
   }
 
+  /// The coins a top-up can be paid in, popular ones first.
+  Future<List<PayCoin>> coins() async {
+    final body = await _request('billing/coins', authenticated: false);
+    return _parse(() => <PayCoin>[
+          for (final coin in body['coins'] as List)
+            PayCoin.fromJson(Map<String, dynamic>.from(coin as Map)),
+        ]);
+  }
+
+  /// Pays [id] in [coin]: Laravel creates the payment (or returns the one
+  /// already waiting in that coin) whose address and amount the app shows.
+  Future<WalletTopup> payTopup(String id, String coin,
+          {bool emailReceipt = false}) async =>
+      _topup(await _request('wallet/topups/${Uri.encodeComponent(id)}/payment',
+          method: 'POST',
+          data: {'pay_currency': coin, 'email_receipt': emailReceipt}));
+
   Future<WalletTopup> topup(String id) async =>
       _topup(await _request('wallet/topups/${Uri.encodeComponent(id)}'));
 

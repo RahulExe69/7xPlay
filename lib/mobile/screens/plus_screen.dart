@@ -159,9 +159,8 @@ class _PlusScreenState extends State<PlusScreen> {
                 const SizedBox(height: AppSpace.lg),
                 _Notice(
                   icon: PhosphorIcons.hourglassMedium(),
-                  title: tr('plus_payment_confirming_title',
-                      args: [formatUsd(pending.amountCents)]),
-                  body: tr('plus_payment_confirming_body'),
+                  title: _pendingTitle(pending),
+                  body: _pendingBody(pending),
                   action: tr('plus_view'),
                   onAction: () => unawaited(openPlusPayment(context, pending)),
                 ),
@@ -301,6 +300,31 @@ class _PlusScreenState extends State<PlusScreen> {
           args: [formatUsd(discount.amountOffCents!), periods]);
     }
     return null;
+  }
+
+  /// An unfinished top-up, by where its checkout is.
+  String _pendingTitle(WalletTopup topup) {
+    final payment = topup.payment;
+    return switch (topup.step) {
+      'send' ||
+      'send_remaining' when payment != null =>
+        tr('plus_send_amount', args: [payment.due ?? '', payment.coin.ticker]),
+      'choose_coin' => tr('plus_payment_waiting'),
+      _ => tr('plus_payment_confirming_title',
+          args: [formatUsd(topup.amountCents)]),
+    };
+  }
+
+  String _pendingBody(WalletTopup topup) {
+    final coin = topup.payment?.coin;
+    return switch (topup.step) {
+      'send' ||
+      'send_remaining' when coin != null =>
+        tr('plus_coin_on_network', args: [coin.ticker, coin.networkLabel]),
+      'choose_coin' =>
+        tr('plus_choose_coin_body', args: [formatUsd(topup.amountCents)]),
+      _ => tr('plus_payment_confirming_body'),
+    };
   }
 
   List<Widget> _notices(PlusController plus) {

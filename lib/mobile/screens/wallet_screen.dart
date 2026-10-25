@@ -161,9 +161,12 @@ class _WalletScreenState extends State<WalletScreen> {
                     icon: PhosphorIcons.hourglassMedium(),
                     label: tr('plus_topup_of',
                         args: [formatUsd(topup.amountCents)]),
-                    subtitle: topup.status == 'partially_paid'
-                        ? tr('plus_payment_partial')
-                        : tr('plus_payment_waiting'),
+                    subtitle: switch (topup.step) {
+                      'send_remaining' => tr('plus_payment_partial'),
+                      'choose_coin' => tr('plus_step_choose_coin'),
+                      'confirming' => tr('plus_confirming'),
+                      _ => tr('plus_payment_waiting'),
+                    },
                     onTap: () => unawaited(openPlusPayment(context, topup)),
                   ),
               ],

@@ -54,9 +54,42 @@ const _pending = WalletTopup(
   status: 'pending',
   amountCents: 1000,
   activatePlus: true,
-  nextAction: 'open_checkout',
-  checkoutUrl: 'https://nowpayments.io/payment/?iid=123',
+  checkoutStep: 'choose_coin',
 );
+
+const _usdt = PayCoin(
+  code: 'usdttrc20',
+  ticker: 'USDT',
+  name: 'Tether USD',
+  network: 'trx',
+  networkLabel: 'Tron (TRC-20)',
+  popular: true,
+);
+
+const _xrp = PayCoin(
+  code: 'xrp',
+  ticker: 'XRP',
+  name: 'Ripple',
+  network: 'xrp',
+  networkLabel: 'XRP Ledger',
+  extraId: 'destination_tag',
+);
+
+WalletTopup _sending(PayCoin coin, {String step = 'send'}) => _pending.copyWith(
+      checkoutStep: step,
+      status: step == 'send_remaining' ? 'partially_paid' : 'pending',
+      payment: TopupPayment(
+        id: '6000000001',
+        status: step == 'send_remaining' ? 'partially_paid' : 'waiting',
+        coin: coin,
+        amount: '10.0412',
+        paid: step == 'send_remaining' ? '6' : '0',
+        remaining: step == 'send_remaining' ? '4.0412' : null,
+        address: 'TXYZexampledepositaddress000',
+        extraId: coin.extraId == null ? null : '482910',
+        expiresAt: DateTime.now().add(const Duration(minutes: 20)),
+      ),
+    );
 
 class _Billing extends BillingRepository {
   _Billing(this.account) : super(Dio());
@@ -101,11 +134,32 @@ class _Billing extends BillingRepository {
             createdAt: _now),
       ], null);
 
-  @override
-  Future<WalletTopup> topup(String id) async => _pending;
+  /// What the provider says about the followed top-up.
+  WalletTopup current = _pending;
+  int checks = 0;
+  final paid = <String>[];
 
   @override
-  Future<WalletTopup> reconcileTopup(String id) async => _pending;
+  Future<WalletTopup> topup(String id) async {
+    checks++;
+    return current;
+  }
+
+  @override
+  Future<WalletTopup> reconcileTopup(String id) async {
+    checks++;
+    return current;
+  }
+
+  @override
+  Future<List<PayCoin>> coins() async => const [_usdt, _xrp];
+
+  @override
+  Future<WalletTopup> payTopup(String id, String coin,
+      {bool emailReceipt = false}) async {
+    paid.add(coin);
+    return current = _sending(coin == 'xrp' ? _xrp : _usdt);
+  }
 
   int links = 0;
 
@@ -246,21 +300,122 @@ void main() {
     await done(tester);
   });
 
-  testWidgets('the payment screen waits for Laravel, not the browser',
+  /// Everything on one screen, so no row is left unbuilt below the fold.
+  const tall = Size(390, 2600);
+
+  testWidgets('the checkout lists coins, then shows the address to pay',
       (tester) async {
     plus =
         await tester.runAsync(() => controllerFor(_free())) as PlusController;
     plus.followTopup(_pending);
+    await tester.runAsync(plus.loadCoins);
     await pump(tester, const PlusPaymentScreen(),
         size: const Size(320, 640), textScale: 1.3);
     expect(tester.takeException(), isNull);
 
-    await pump(tester, const PlusPaymentScreen());
+    await pump(tester, const PlusPaymentScreen(), size: tall);
+    expect(find.text('Choose a coin'), findsWidgets);
+    expect(find.text('Popular'.toUpperCase()), findsOneWidget);
+    expect(find.text('Tron (TRC-20)'), findsOneWidget);
+
+    // Search narrows the list by name, ticker or network.
+    await tester.enterText(find.byType(TextField), 'ledger');
+    await tester.pump();
+    expect(find.text('USDT'), findsNothing);
+    expect(find.text('XRP'), findsWidgets);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+
+    await tester.tap(find.text('USDT'));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('Send the exact amount'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Open payment page'), 200);
-    expect(find.text('Open payment page'), findsOneWidget);
+    expect(plus.topup?.payment?.coin.code, 'usdttrc20');
+    expect(find.text('Send 10.0412 USDT'), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(
+        find.textContaining('TXYZexampledepositaddress000', findRichText: true),
+        findsOneWidget);
+    expect(
+        find.text('Send only USDT on Tron (TRC-20). '
+            'Another coin or network can be lost.'),
+        findsOneWidget);
     expect(find.text('Check payment'), findsOneWidget);
+    expect(find.textContaining('Amount held for'), findsOneWidget);
+    expect(find.text('Open in wallet app'), findsNothing);
+
+    // The send screen fits a small phone with large text too.
+    await pump(tester, const PlusPaymentScreen(),
+        size: const Size(320, 640), textScale: 1.3);
+    expect(tester.takeException(), isNull);
+
+    // Back to the list, and the first coin is still on offer.
+    await pump(tester, const PlusPaymentScreen(), size: tall);
+    await tester.tap(find.text('Pay with a different coin'));
+    await tester.pump();
+    expect(find.text('Keep paying with USDT'), findsOneWidget);
+    expect(find.text('XRP'), findsWidgets);
+    await done(tester);
+  });
+
+  testWidgets('a memo coin and a partly paid top-up say what is still needed',
+      (tester) async {
+    plus =
+        await tester.runAsync(() => controllerFor(_free())) as PlusController;
+    plus.followTopup(_sending(_xrp));
+    await pump(tester, const PlusPaymentScreen(),
+        size: const Size(320, 640), textScale: 1.3);
+    expect(tester.takeException(), isNull);
+    await pump(tester, const PlusPaymentScreen(), size: tall);
+    expect(find.text('Destination tag (required)'), findsOneWidget);
+    expect(find.textContaining('482910', findRichText: true), findsOneWidget);
+    expect(find.textContaining('Include the destination tag'), findsOneWidget);
+
+    plus.followTopup(_sending(_usdt, step: 'send_remaining'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Send the rest'), findsOneWidget);
+    expect(find.text('Remaining amount'), findsOneWidget);
+    expect(find.textContaining('4.0412', findRichText: true), findsWidgets);
+    expect(find.text('Pay with a different coin'), findsNothing);
+    expect(find.textContaining('Amount held for'), findsNothing);
+
+    final confirming = _sending(_usdt);
+    plus.followTopup(confirming.copyWith(
+        checkoutStep: 'confirming',
+        payment:
+            confirming.payment!.copyWith(status: 'confirming', address: null)));
+    await tester.pump();
+    expect(find.text('Confirming your \$10.00 payment'), findsOneWidget);
+    expect(find.textContaining('confirming on Tron (TRC-20)'), findsOneWidget);
+    expect(find.byType(QrImageView), findsNothing);
+    await done(tester);
+  });
+
+  testWidgets('checks slow down after two minutes instead of stopping',
+      (tester) async {
+    final billing = _Billing(_free());
+    owner = ValueNotifier<String?>('user:1');
+    plus = PlusController(
+      repository: billing,
+      store: FakeKvStore(),
+      owner: owner,
+      now: () => tester.binding.clock.now(),
+    );
+    plus.followTopup(_pending);
+
+    await tester.pump(const Duration(minutes: 2));
+    final fast = billing.checks;
+    expect(fast, greaterThan(20));
+    await tester.pump(const Duration(minutes: 1));
+    expect(billing.checks - fast, inInclusiveRange(3, 5));
+    expect(plus.topupWatchExpired, isFalse);
+
+    await tester.pump(const Duration(minutes: 30));
+    expect(plus.topupWatchExpired, isTrue);
+    final last = billing.checks;
+    await tester.pump(const Duration(minutes: 5));
+    expect(billing.checks, last);
     await done(tester);
   });
 
@@ -283,6 +438,13 @@ void main() {
     expect(find.byType(QrImageView), findsNothing);
     expect(find.text('Finish paying on your phone'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    // Once a coin is picked, the TV says what the phone has to send.
+    plus.followTopup(_sending(_usdt));
+    await tester.pump();
+    expect(find.textContaining('Waiting for 10.0412 USDT on Tron (TRC-20)'),
+        findsOneWidget);
+    expect(find.byType(QrImageView), findsNothing);
 
     plus.dismissTopup();
     await tester.pump();

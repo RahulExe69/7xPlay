@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/models/billing.dart';
+import '../../data/repositories/billing_repository.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../presentation/billing/plus_controller.dart';
@@ -16,89 +19,94 @@ import '../../widgets/plus/plus_visuals.dart';
 import '../widgets/page_kit.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/plus_sheets.dart';
+import '../widgets/settings_kit.dart';
 
-/// Opens the payment screen for [topup], and NOWPayments' page with it when
-/// [openCheckout].
-Future<void> openPlusPayment(BuildContext context, WalletTopup topup,
-    {bool openCheckout = false}) {
+/// Opens FlixQuest's checkout for [topup].
+Future<void> openPlusPayment(BuildContext context, WalletTopup topup) {
   final plus = context.read<PlusController>();
   if (plus.topup?.id != topup.id) plus.followTopup(topup);
   return Navigator.of(context).push<void>(MaterialPageRoute<void>(
     settings: const RouteSettings(name: '/plus/payment'),
-    builder: (_) => PlusPaymentScreen(openCheckout: openCheckout),
+    builder: (_) => const PlusPaymentScreen(),
   ));
 }
 
-/// Opens a NOWPayments checkout in the browser; false when there is none or
-/// it is not one of NOWPayments' own pages.
-Future<bool> launchCheckout(WalletTopup topup) async {
-  final url = topup.checkoutUrl;
-  if (!isTrustedCheckout(url)) return false;
-  try {
-    return await launchUrl(Uri.parse(url!),
-        mode: LaunchMode.externalApplication);
-  } catch (_) {
-    return false;
-  }
-}
+/// The steps the progress line counts, in order.
+const _steps = <String>['choose_coin', 'send', 'confirming', 'credited'];
 
-enum _Step { page, payment, confirming, credited }
+int _stepIndex(String step) => switch (step) {
+      'send' || 'send_remaining' => 1,
+      'confirming' => 2,
+      'credited' => 3,
+      _ => 0,
+    };
 
-/// "Confirming payment" until Laravel credits the top-up. Closing the
-/// browser or seeing NOWPayments' success page proves nothing; only this
-/// screen's answer from Laravel does.
+/// FlixQuest's own crypto checkout: choose a coin, then send the exact
+/// amount to the address shown (QR, copy, wallet link), and follow it until
+/// Laravel credits it. Nothing here proves a payment; only Laravel's answer
+/// does, and the payment is known to it from the moment the coin is chosen.
 class PlusPaymentScreen extends StatefulWidget {
-  const PlusPaymentScreen({this.openCheckout = false, super.key});
-
-  final bool openCheckout;
+  const PlusPaymentScreen({super.key});
 
   @override
   State<PlusPaymentScreen> createState() => _PlusPaymentScreenState();
 }
 
 class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
-  bool _launchFailed = false;
-  bool _opened = false;
   late final PlusController _plus = context.read<PlusController>();
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  /// Choosing another coin while the first one's address is showing.
+  bool _changing = false;
+
+  /// The coin whose payment is being created.
+  String? _paying;
+  String? _payError;
+  bool _emailReceipt = false;
 
   @override
   void initState() {
     super.initState();
-    _plus;
-    if (widget.openCheckout) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _open());
-    }
-  }
-
-  Future<void> _open() async {
-    final topup = context.read<PlusController>().topup;
-    if (topup == null) return;
-    final launched = await launchCheckout(topup);
-    if (mounted) {
-      setState(() {
-        _launchFailed = !launched;
-        _opened = _opened || launched;
-      });
-    }
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => unawaited(_plus.loadCoins()));
   }
 
   @override
   void dispose() {
+    _search.dispose();
     // A finished top-up has been seen; an open one stays followed.
     final topup = _plus.topup;
     if (topup != null && !topup.isOpen) scheduleMicrotask(_plus.dismissTopup);
     super.dispose();
   }
 
-  _Step _step(WalletTopup topup) {
-    if (topup.settled) return _Step.credited;
-    if (topup.status == 'creating' || topup.status == 'unknown') {
-      return _Step.page;
+  Future<void> _pay(String coin) async {
+    if (_paying != null) return;
+    setState(() {
+      _paying = coin;
+      _payError = null;
+    });
+    try {
+      await _plus.payWith(coin, emailReceipt: _emailReceipt);
+      if (mounted) setState(() => _changing = false);
+    } on BillingError catch (error) {
+      if (mounted) setState(() => _payError = billingMessage(error));
+    } finally {
+      if (mounted) setState(() => _paying = null);
     }
-    if (topup.payCurrency != null || topup.status == 'partially_paid') {
-      return _Step.confirming;
+  }
+
+  Future<void> _openWallet(String uri) async {
+    var opened = false;
+    try {
+      opened =
+          await launchUrl(Uri.parse(uri), mode: LaunchMode.externalApplication);
+    } catch (_) {/* No app takes this link. */}
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr('plus_open_wallet_failed'))));
     }
-    return _opened ? _Step.payment : _Step.page;
   }
 
   @override
@@ -117,8 +125,16 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
         ),
       );
     }
-    final step = _step(topup);
-    final (title, body) = _copy(topup, plus);
+    final payment = topup.payment;
+    final step = _changing && topup.step == 'send' ? 'choose_coin' : topup.step;
+    final content = switch (step) {
+      'choose_coin' => _chooseCoin(context, plus, topup),
+      'send' ||
+      'send_remaining' when payment != null && payment.address != null =>
+        _send(context, plus, topup, payment,
+            remaining: step == 'send_remaining'),
+      _ => _status(context, plus, topup, step),
+    };
     return Scaffold(
       backgroundColor: palette.page,
       appBar: PageAppBar(title: tr('plus_payment')),
@@ -128,78 +144,11 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
           padding: EdgeInsets.fromLTRB(gutter, AppSpace.sm, gutter,
               AppSpace.xxxl + MediaQuery.paddingOf(context).bottom),
           children: <Widget>[
-            PlusAurora(
-              borderRadius: BorderRadius.circular(AppRadii.hero),
-              energy: topup.settled ? 1.4 : 1,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-                child: Column(
-                  children: <Widget>[
-                    _StatusOrb(topup: topup),
-                    const SizedBox(height: AppSpace.xl),
-                    Text(
-                      formatUsd(topup.amountCents),
-                      style: const TextStyle(
-                        fontFamily: 'FigtreeBlack',
-                        fontSize: 40,
-                        height: 1,
-                        letterSpacing: -1,
-                        color: PlusColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpace.md),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'FigtreeBold',
-                        fontSize: 19,
-                        color: PlusColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpace.sm),
-                    Text(
-                      body,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Figtree',
-                        fontSize: 14,
-                        height: 1.45,
-                        color: PlusColors.mutedInk,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpace.xxl),
-            if (!topup.failed) ...<Widget>[
-              for (final value in _Step.values)
-                _StepRow(
-                  label: tr('plus_step_${value.name}'),
-                  state: value.index < step.index ||
-                          (topup.settled && value == _Step.credited)
-                      ? _StepState.done
-                      : value == step
-                          ? _StepState.current
-                          : _StepState.later,
-                  last: value == _Step.credited,
-                ),
-              const SizedBox(height: AppSpace.xl),
-            ],
-            if (topup.isOpen) ...<Widget>[
-              _ExactAmountNote(),
+            if (step != 'closed') ...<Widget>[
+              _Progress(step: step),
               const SizedBox(height: AppSpace.lg),
             ],
-            if (_launchFailed && topup.isOpen) ...<Widget>[
-              Text(
-                tr('plus_checkout_open_failed'),
-                style: AppType.body
-                    .copyWith(color: Theme.of(context).colorScheme.error),
-              ),
-              const SizedBox(height: AppSpace.md),
-            ],
-            ..._actions(context, plus, topup),
+            ...content,
             const SizedBox(height: AppSpace.xxl),
             Text(
               topup.isOpen
@@ -208,14 +157,320 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
               style: AppType.metadata.copyWith(color: palette.mutedText),
             ),
             const SizedBox(height: AppSpace.sm),
-            _Reference(id: topup.id),
+            _Reference(
+                text: tr('plus_reference', args: [topup.id]), copy: topup.id),
+            if (payment?.id case final id?)
+              _Reference(text: tr('plus_payment_id', args: [id]), copy: id),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _actions(
+  // ---- choose a coin ------------------------------------------------------
+
+  List<Widget> _chooseCoin(
+      BuildContext context, PlusController plus, WalletTopup topup) {
+    final palette = AppPalette.of(context);
+    final current = topup.payment?.coin;
+    final coins = plus.coins;
+    final shown = coins?.where((coin) => coin.matches(_query)).toList() ??
+        const <PayCoin>[];
+    final popular = _query.isEmpty
+        ? shown.where((coin) => coin.popular).toList()
+        : const <PayCoin>[];
+    final rest =
+        _query.isEmpty ? shown.where((coin) => !coin.popular).toList() : shown;
+    return <Widget>[
+      _Heading(
+        title: tr('plus_choose_coin'),
+        body: tr('plus_choose_coin_body', args: [formatUsd(topup.amountCents)]),
+      ),
+      if (_changing && current != null) ...<Widget>[
+        const SizedBox(height: AppSpace.md),
+        PillButton(
+          label: tr('plus_keep_coin', args: [current.ticker]),
+          icon: PhosphorIcons.arrowUUpLeft(),
+          onPressed: () => setState(() => _changing = false),
+        ),
+      ],
+      const SizedBox(height: AppSpace.lg),
+      SearchPill(
+        controller: _search,
+        hint: tr('plus_search_coins'),
+        onChanged: (value) => setState(() => _query = value),
+      ),
+      const SizedBox(height: AppSpace.sm),
+      MergeSemantics(
+        child: ListRow(
+          flush: true,
+          icon: PhosphorIcons.envelopeSimple(),
+          label: tr('plus_email_receipt'),
+          subtitle: tr('plus_email_receipt_body'),
+          showsNext: false,
+          onTap: () => setState(() => _emailReceipt = !_emailReceipt),
+          trailing: ExcludeSemantics(
+            child: AppSwitch(
+              value: _emailReceipt,
+              onChanged: (value) => setState(() => _emailReceipt = value),
+            ),
+          ),
+        ),
+      ),
+      if (_payError != null) ...<Widget>[
+        const SizedBox(height: AppSpace.sm),
+        Text(
+          _payError!,
+          style:
+              AppType.body.copyWith(color: Theme.of(context).colorScheme.error),
+        ),
+      ],
+      if (coins == null && plus.coinsError != null) ...<Widget>[
+        const SizedBox(height: AppSpace.xl),
+        Text(
+          billingMessage(plus.coinsError!),
+          style: AppType.body.copyWith(color: palette.mutedText),
+        ),
+        const SizedBox(height: AppSpace.md),
+        PillButton(
+          label: tr('plus_try_again'),
+          icon: PhosphorIcons.arrowClockwise(),
+          busy: plus.loadingCoins,
+          onPressed: () => unawaited(plus.loadCoins(force: true)),
+        ),
+      ] else if (coins == null)
+        const ListSkeleton(
+          rows: 6,
+          circle: true,
+          leadingWidth: 36,
+          leadingHeight: 36,
+          padding: EdgeInsets.only(top: AppSpace.lg),
+        )
+      else ...<Widget>[
+        if (popular.isNotEmpty) ...<Widget>[
+          KickerHeading(tr('plus_coins_popular'),
+              padding: const EdgeInsets.only(top: AppSpace.lg, bottom: 4)),
+          for (final coin in popular) _coinRow(coin),
+        ],
+        if (rest.isNotEmpty) ...<Widget>[
+          KickerHeading(
+              _query.isEmpty ? tr('plus_coins_all') : tr('plus_coins_matches'),
+              padding: const EdgeInsets.only(top: AppSpace.lg, bottom: 4)),
+          for (final coin in rest) _coinRow(coin),
+        ],
+        if (shown.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpace.xl),
+            child: Text(
+              tr('plus_coins_none'),
+              style: AppType.body.copyWith(color: palette.mutedText),
+            ),
+          ),
+      ],
+    ];
+  }
+
+  Widget _coinRow(PayCoin coin) {
+    final palette = AppPalette.of(context);
+    final paying = _paying == coin.code;
+    return ListRow(
+      flush: true,
+      leading: CoinLogo(coin: coin),
+      label: coin.ticker,
+      subtitle: coin.name,
+      value: coin.networkLabel,
+      trailing: paying
+          ? SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: palette.mutedText),
+            )
+          : null,
+      showsNext: !paying,
+      onTap: _paying == null ? () => unawaited(_pay(coin.code)) : null,
+    );
+  }
+
+  // ---- send ---------------------------------------------------------------
+
+  List<Widget> _send(BuildContext context, PlusController plus,
+      WalletTopup topup, TopupPayment payment,
+      {required bool remaining}) {
+    final coin = payment.coin;
+    final due = payment.due ?? '';
+    final address = payment.address!;
+    final extraId = payment.extraId;
+    final tag = coin.extraId == 'destination_tag';
+    final expires = payment.expiresAt;
+    return <Widget>[
+      _Heading(
+        leading: CoinLogo(coin: coin, size: 40),
+        title: remaining
+            ? tr('plus_send_rest')
+            : tr('plus_send_amount', args: [due, coin.ticker]),
+        body: remaining
+            ? tr('plus_send_rest_body', args: [
+                '${payment.paid ?? '0'} ${coin.ticker}',
+                '${payment.amount ?? ''} ${coin.ticker}',
+                '$due ${coin.ticker}',
+              ])
+            : tr('plus_coin_on_network',
+                args: [coin.ticker, coin.networkLabel]),
+      ),
+      const SizedBox(height: AppSpace.xl),
+      Center(
+        child: Container(
+          padding: const EdgeInsets.all(AppSpace.md),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppRadii.hero),
+          ),
+          child: QrImageView(
+            data: address,
+            size: 196,
+            padding: EdgeInsets.zero,
+            backgroundColor: Colors.white,
+            semanticsLabel: tr('plus_qr_label', args: [coin.ticker]),
+          ),
+        ),
+      ),
+      const SizedBox(height: AppSpace.xl),
+      _CopyField(
+        label: remaining ? tr('plus_remaining_label') : tr('plus_amount_label'),
+        value: due,
+        suffix: coin.ticker,
+        large: true,
+      ),
+      _CopyField(
+        label: tr('plus_address_label', args: [coin.networkLabel]),
+        value: address,
+      ),
+      if (extraId != null)
+        _CopyField(
+          label: tag ? tr('plus_tag_label') : tr('plus_memo_label'),
+          value: extraId,
+          highlight: true,
+        ),
+      const SizedBox(height: AppSpace.sm),
+      _Notice(lines: <String>[
+        tr('plus_network_warning', args: [coin.ticker, coin.networkLabel]),
+        if (extraId != null)
+          tag ? tr('plus_tag_warning') : tr('plus_memo_warning'),
+        tr('plus_exchange_fee_warning'),
+      ]),
+      if (!remaining && expires != null) ...<Widget>[
+        const SizedBox(height: AppSpace.lg),
+        _QuoteTimer(
+          expiresAt: expires,
+          busy: _paying == coin.code,
+          onRefresh: () => unawaited(_pay(coin.code)),
+        ),
+      ],
+      if (_payError != null) ...<Widget>[
+        const SizedBox(height: AppSpace.md),
+        Text(
+          _payError!,
+          style:
+              AppType.body.copyWith(color: Theme.of(context).colorScheme.error),
+        ),
+      ],
+      const SizedBox(height: AppSpace.lg),
+      if (payment.uri case final uri?) ...<Widget>[
+        PillButton(
+          label: tr('plus_open_wallet'),
+          icon: PhosphorIcons.wallet(),
+          primary: true,
+          onPressed: () => unawaited(_openWallet(uri)),
+        ),
+        const SizedBox(height: AppSpace.md),
+      ],
+      PillButton(
+        label: plus.checkingTopup ? tr('plus_checking') : tr('plus_check_now'),
+        icon: PhosphorIcons.arrowsClockwise(),
+        primary: payment.uri == null,
+        busy: plus.checkingTopup,
+        onPressed: () => unawaited(plus.checkTopup(manual: true)),
+      ),
+      if (!remaining) ...<Widget>[
+        const SizedBox(height: AppSpace.md),
+        PillButton(
+          label: tr('plus_change_coin'),
+          icon: PhosphorIcons.swap(),
+          onPressed: () {
+            unawaited(plus.loadCoins());
+            setState(() {
+              _changing = true;
+              _payError = null;
+            });
+          },
+        ),
+      ],
+      const SizedBox(height: AppSpace.lg),
+      _LiveLine(
+        text: plus.topupWatchExpired
+            ? tr('plus_payment_still_waiting_body')
+            : tr('plus_waiting_live'),
+        live: !plus.topupWatchExpired,
+      ),
+    ];
+  }
+
+  // ---- preparing, confirming and the outcome ------------------------------
+
+  List<Widget> _status(BuildContext context, PlusController plus,
+      WalletTopup topup, String step) {
+    final (title, body) = _copy(topup, plus, step);
+    return <Widget>[
+      PlusAurora(
+        borderRadius: BorderRadius.circular(AppRadii.hero),
+        energy: topup.settled ? 1.4 : 1,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+          child: Column(
+            children: <Widget>[
+              _StatusOrb(topup: topup),
+              const SizedBox(height: AppSpace.xl),
+              Text(
+                formatUsd(topup.amountCents),
+                style: const TextStyle(
+                  fontFamily: 'FigtreeBlack',
+                  fontSize: 40,
+                  height: 1,
+                  letterSpacing: -1,
+                  color: PlusColors.ink,
+                ),
+              ),
+              const SizedBox(height: AppSpace.md),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'FigtreeBold',
+                  fontSize: 19,
+                  color: PlusColors.ink,
+                ),
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Figtree',
+                  fontSize: 14,
+                  height: 1.45,
+                  color: PlusColors.mutedInk,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: AppSpace.xxl),
+      ..._outcomeActions(context, plus, topup),
+    ];
+  }
+
+  List<Widget> _outcomeActions(
       BuildContext context, PlusController plus, WalletTopup topup) {
     if (topup.settled) {
       return <Widget>[
@@ -226,7 +481,7 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
         ),
       ];
     }
-    if (topup.failed) {
+    if (!topup.isOpen) {
       return <Widget>[
         PillButton(
           label: tr('plus_try_again'),
@@ -239,30 +494,18 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
         ),
       ];
     }
-    final payable = topup.nextAction == 'open_checkout' &&
-        isTrustedCheckout(topup.checkoutUrl);
     return <Widget>[
-      if (payable)
-        PillButton(
-          label: _opened
-              ? tr('plus_reopen_payment_page')
-              : tr('plus_open_payment_page'),
-          icon: PhosphorIcons.arrowSquareOut(),
-          primary: !_opened,
-          onPressed: _open,
-        ),
-      const SizedBox(height: AppSpace.md),
       PillButton(
         label: plus.checkingTopup ? tr('plus_checking') : tr('plus_check_now'),
         icon: PhosphorIcons.arrowsClockwise(),
-        primary: _opened || !payable,
+        primary: true,
         busy: plus.checkingTopup,
         onPressed: () => unawaited(plus.checkTopup(manual: true)),
       ),
     ];
   }
 
-  (String, String) _copy(WalletTopup topup, PlusController plus) {
+  (String, String) _copy(WalletTopup topup, PlusController plus, String step) {
     if (topup.settled) {
       final started = topup.activatePlus && plus.adFree;
       return (
@@ -274,11 +517,8 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
                 args: [formatUsd(plus.wallet?.spendableCents ?? 0)]),
       );
     }
+    final coin = topup.payment?.coin;
     return switch (topup.status) {
-      'partially_paid' => (
-          tr('plus_payment_partial'),
-          tr('plus_payment_partial_body')
-        ),
       'expired' => (
           tr('plus_payment_expired'),
           tr('plus_payment_nothing_charged')
@@ -291,18 +531,469 @@ class _PlusPaymentScreenState extends State<PlusPaymentScreen> {
           tr('plus_payment_reversed'),
           tr('plus_payment_reversed_body')
         ),
-      'creating' || 'unknown' => (
+      'partially_paid' => (
+          tr('plus_payment_partial'),
+          tr('plus_payment_partial_body')
+        ),
+      _ when step == 'preparing' => (
           tr('plus_payment_preparing'),
           tr('plus_payment_preparing_body')
         ),
-      _ => plus.topupWatchExpired
-          ? (
-              tr('plus_payment_still_waiting'),
-              tr('plus_payment_still_waiting_body')
-            )
-          : (tr('plus_payment_waiting'), tr('plus_payment_waiting_body')),
+      _ => (
+          plus.topupWatchExpired
+              ? tr('plus_payment_still_waiting')
+              : tr('plus_payment_confirming_title',
+                  args: [formatUsd(topup.amountCents)]),
+          coin == null
+              ? tr('plus_payment_confirming_body')
+              : tr('plus_confirming_body',
+                  args: [coin.ticker, coin.networkLabel]),
+        ),
     };
   }
+}
+
+/// A coin's logo from NOWPayments, or its ticker's first letters.
+class CoinLogo extends StatelessWidget {
+  const CoinLogo({required this.coin, this.size = 36, super.key});
+
+  final PayCoin coin;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final initials = Center(
+      child: Text(
+        coin.ticker.length > 3 ? coin.ticker.substring(0, 3) : coin.ticker,
+        style: AppType.cardTitle.copyWith(
+          fontSize: size * .3,
+          color: palette.foreground,
+        ),
+      ),
+    );
+    final logo = coin.trustedLogo;
+    return ExcludeSemantics(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: palette.idleFill,
+          shape: BoxShape.circle,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: logo == null
+            ? initials
+            : SvgPicture.network(
+                logo,
+                width: size,
+                height: size,
+                placeholderBuilder: (_) => initials,
+                errorBuilder: (_, __, ___) => initials,
+              ),
+      ),
+    );
+  }
+}
+
+class _Heading extends StatelessWidget {
+  const _Heading({required this.title, required this.body, this.leading});
+
+  final String title;
+  final String body;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final leading = this.leading;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (leading != null) ...<Widget>[
+          leading,
+          const SizedBox(width: AppSpace.md),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  style: AppType.pageTitle.copyWith(
+                    fontSize: 24,
+                    height: 1.2,
+                    color: palette.foreground,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                body,
+                style: AppType.body.copyWith(color: palette.mutedText),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Four short bars and the name of the step the payment is on.
+class _Progress extends StatelessWidget {
+  const _Progress({required this.step});
+
+  final String step;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final at = _stepIndex(step);
+    final done = step == 'credited';
+    final name = tr('plus_step_${_steps[at]}');
+    return Semantics(
+      label: tr('plus_step_of', args: ['${at + 1}', '${_steps.length}', name]),
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                for (var i = 0; i < _steps.length; i++) ...<Widget>[
+                  if (i > 0) const SizedBox(width: 6),
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: i < at || i == at || done
+                            ? PlusColors.gold
+                            : palette.idleFillStrong,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              tr('plus_step_of', args: ['${at + 1}', '${_steps.length}', name])
+                  .toUpperCase(),
+              style: AppType.kicker.copyWith(color: palette.mutedText),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One value to copy into a wallet: the amount, the address or the memo.
+class _CopyField extends StatelessWidget {
+  const _CopyField({
+    required this.label,
+    required this.value,
+    this.suffix,
+    this.large = false,
+    this.highlight = false,
+  });
+
+  final String label;
+  final String value;
+  final String? suffix;
+  final bool large;
+
+  /// A memo or tag, which is easy to forget and loses the payment.
+  final bool highlight;
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    unawaited(HapticFeedback.selectionClick());
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+            SnackBar(content: Text(tr('plus_copied_value', args: [label]))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final suffix = this.suffix;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.sm),
+      child: Material(
+        color: palette.raisedSurface,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => unawaited(_copy(context)),
+          child: Container(
+            decoration: highlight
+                ? BoxDecoration(
+                    border: Border.all(color: PlusColors.gold, width: 1.5),
+                    borderRadius: BorderRadius.circular(AppRadii.card),
+                  )
+                : null,
+            padding: const EdgeInsets.fromLTRB(
+                AppSpace.md, AppSpace.md, AppSpace.sm, AppSpace.md),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        label,
+                        style:
+                            AppType.metadata.copyWith(color: palette.mutedText),
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText.rich(
+                        TextSpan(children: <InlineSpan>[
+                          TextSpan(text: value),
+                          if (suffix != null)
+                            TextSpan(
+                              text: ' $suffix',
+                              style: TextStyle(color: palette.mutedText),
+                            ),
+                        ]),
+                        style: TextStyle(
+                          fontFamily: large ? AppType.bold : 'monospace',
+                          fontSize: large ? 22 : 15,
+                          height: 1.3,
+                          color: palette.foreground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: tr('plus_copy'),
+                  onPressed: () => unawaited(_copy(context)),
+                  icon: Icon(PhosphorIcons.copy(), color: palette.foreground),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The ways a crypto send goes wrong, said before it is sent.
+class _Notice extends StatelessWidget {
+  const _Notice({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(
+        color: palette.raisedSurface,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(PhosphorIcons.warningCircle(),
+              size: 20, color: palette.foreground),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (final (index, line) in lines.indexed) ...<Widget>[
+                  if (index > 0) const SizedBox(height: AppSpace.sm),
+                  Text(
+                    line,
+                    style: (index == 0 ? AppType.cardTitle : AppType.body)
+                        .copyWith(fontSize: 14, color: palette.foreground),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// How long the quoted coin amount holds; once it runs out, a fresh quote
+/// for the same address.
+class _QuoteTimer extends StatefulWidget {
+  const _QuoteTimer({
+    required this.expiresAt,
+    required this.busy,
+    required this.onRefresh,
+  });
+
+  final DateTime expiresAt;
+  final bool busy;
+  final VoidCallback onRefresh;
+
+  @override
+  State<_QuoteTimer> createState() => _QuoteTimerState();
+}
+
+class _QuoteTimerState extends State<_QuoteTimer> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  void _start() {
+    _tick?.cancel();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {});
+      if (_left == Duration.zero) _tick?.cancel();
+    });
+  }
+
+  @override
+  void didUpdateWidget(_QuoteTimer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A fresh quote counts down again.
+    if (oldWidget.expiresAt != widget.expiresAt) _start();
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  Duration get _left {
+    final left = widget.expiresAt.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final left = _left;
+    if (left == Duration.zero) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            tr('plus_quote_expired'),
+            style: AppType.body.copyWith(color: palette.foreground),
+          ),
+          const SizedBox(height: AppSpace.md),
+          PillButton(
+            label: tr('plus_quote_refresh'),
+            icon: PhosphorIcons.arrowClockwise(),
+            busy: widget.busy,
+            onPressed: widget.onRefresh,
+          ),
+        ],
+      );
+    }
+    final minutes = left.inMinutes.toString().padLeft(2, '0');
+    final seconds = (left.inSeconds % 60).toString().padLeft(2, '0');
+    return Row(
+      children: <Widget>[
+        Icon(PhosphorIcons.timer(), size: 18, color: palette.mutedText),
+        const SizedBox(width: AppSpace.sm),
+        Expanded(
+          child: Text(
+            tr('plus_quote_held', args: ['$minutes:$seconds']),
+            style: AppType.body.copyWith(
+              color: palette.mutedText,
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Waiting for your payment", with a slow pulse while checks run.
+class _LiveLine extends StatelessWidget {
+  const _LiveLine({required this.text, required this.live});
+
+  final String text;
+  final bool live;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        children: <Widget>[
+          if (live) ...<Widget>[
+            const _Pulse(),
+            const SizedBox(width: AppSpace.md),
+          ],
+          Expanded(
+            child: Text(
+              text,
+              style: AppType.body.copyWith(color: palette.mutedText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Pulse extends StatefulWidget {
+  const _Pulse();
+
+  @override
+  State<_Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _beat = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1600));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (still) {
+      _beat.stop();
+    } else if (!_beat.isAnimating) {
+      _beat.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _beat.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: Tween<double>(begin: 1, end: .25).animate(_beat),
+        child: Container(
+          width: 9,
+          height: 9,
+          decoration: const BoxDecoration(
+            color: PlusColors.gold,
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
 }
 
 /// The emblem inside a slowly turning ring while the payment is open; a
@@ -413,114 +1104,12 @@ class _OrbitPainter extends CustomPainter {
   bool shouldRepaint(_OrbitPainter oldDelegate) => false;
 }
 
-enum _StepState { done, current, later }
-
-class _StepRow extends StatelessWidget {
-  const _StepRow(
-      {required this.label, required this.state, required this.last});
-
-  final String label;
-  final _StepState state;
-  final bool last;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    final done = state == _StepState.done;
-    final current = state == _StepState.current;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          SizedBox(
-            width: 28,
-            child: Column(
-              children: <Widget>[
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 260),
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: done ? palette.focusFill : Colors.transparent,
-                    border: Border.all(
-                      color: done || current
-                          ? palette.foreground
-                          : palette.idleFillStrong,
-                      width: current ? 2 : 1.5,
-                    ),
-                  ),
-                  child: done
-                      ? Icon(PhosphorIcons.check(),
-                          size: 13, color: palette.onFocus)
-                      : null,
-                ),
-                if (!last)
-                  Expanded(
-                    child: Container(
-                      width: 1.5,
-                      margin: const EdgeInsets.symmetric(vertical: 3),
-                      color: done ? palette.foreground : palette.hairline,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 1, bottom: AppSpace.lg),
-              child: Text(
-                label,
-                style: AppType.cardTitle.copyWith(
-                  fontSize: 15,
-                  color: state == _StepState.later
-                      ? palette.mutedText
-                      : palette.foreground,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Exchanges often round a send to "2 USDT"; the invoice needs every decimal.
-class _ExactAmountNote extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
-    return Container(
-      padding: const EdgeInsets.all(AppSpace.md),
-      decoration: BoxDecoration(
-        color: palette.raisedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.card),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(PhosphorIcons.warningCircle(),
-              size: 20, color: palette.foreground),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: Text(
-              tr('plus_payment_exact_amount'),
-              style: AppType.body.copyWith(color: palette.foreground),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The local reference support asks for, copied with a tap.
+/// A reference support asks for, copied with a tap.
 class _Reference extends StatelessWidget {
-  const _Reference({required this.id});
+  const _Reference({required this.text, required this.copy});
 
-  final String id;
+  final String text;
+  final String copy;
 
   @override
   Widget build(BuildContext context) {
@@ -528,7 +1117,7 @@ class _Reference extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadii.card),
       onTap: () async {
-        await Clipboard.setData(ClipboardData(text: id));
+        await Clipboard.setData(ClipboardData(text: copy));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(tr('plus_reference_copied'))));
@@ -542,7 +1131,7 @@ class _Reference extends StatelessWidget {
             const SizedBox(width: AppSpace.sm),
             Expanded(
               child: Text(
-                tr('plus_reference', args: [id]),
+                text,
                 style: AppType.metadata.copyWith(color: palette.mutedText),
               ),
             ),

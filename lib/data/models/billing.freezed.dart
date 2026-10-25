@@ -1970,6 +1970,703 @@ abstract class _WalletBalance extends WalletBalance {
       throw _privateConstructorUsedError;
 }
 
+PayCoin _$PayCoinFromJson(Map<String, dynamic> json) {
+  return _PayCoin.fromJson(json);
+}
+
+/// @nodoc
+mixin _$PayCoin {
+  String get code => throw _privateConstructorUsedError;
+  String get ticker => throw _privateConstructorUsedError;
+  String get name => throw _privateConstructorUsedError;
+  String get network => throw _privateConstructorUsedError;
+  @JsonKey(name: 'network_label')
+  String get networkLabel => throw _privateConstructorUsedError;
+  @JsonKey(name: 'logo_url')
+  String? get logoUrl => throw _privateConstructorUsedError;
+
+  /// `memo` or `destination_tag` when a deposit needs one to be matched.
+  @JsonKey(name: 'extra_id')
+  String? get extraId => throw _privateConstructorUsedError;
+  bool get popular => throw _privateConstructorUsedError;
+
+  /// Serializes this PayCoin to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of PayCoin
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $PayCoinCopyWith<PayCoin> get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $PayCoinCopyWith<$Res> {
+  factory $PayCoinCopyWith(PayCoin value, $Res Function(PayCoin) then) =
+      _$PayCoinCopyWithImpl<$Res, PayCoin>;
+  @useResult
+  $Res call(
+      {String code,
+      String ticker,
+      String name,
+      String network,
+      @JsonKey(name: 'network_label') String networkLabel,
+      @JsonKey(name: 'logo_url') String? logoUrl,
+      @JsonKey(name: 'extra_id') String? extraId,
+      bool popular});
+}
+
+/// @nodoc
+class _$PayCoinCopyWithImpl<$Res, $Val extends PayCoin>
+    implements $PayCoinCopyWith<$Res> {
+  _$PayCoinCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of PayCoin
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? code = null,
+    Object? ticker = null,
+    Object? name = null,
+    Object? network = null,
+    Object? networkLabel = null,
+    Object? logoUrl = freezed,
+    Object? extraId = freezed,
+    Object? popular = null,
+  }) {
+    return _then(_value.copyWith(
+      code: null == code
+          ? _value.code
+          : code // ignore: cast_nullable_to_non_nullable
+              as String,
+      ticker: null == ticker
+          ? _value.ticker
+          : ticker // ignore: cast_nullable_to_non_nullable
+              as String,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      network: null == network
+          ? _value.network
+          : network // ignore: cast_nullable_to_non_nullable
+              as String,
+      networkLabel: null == networkLabel
+          ? _value.networkLabel
+          : networkLabel // ignore: cast_nullable_to_non_nullable
+              as String,
+      logoUrl: freezed == logoUrl
+          ? _value.logoUrl
+          : logoUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      extraId: freezed == extraId
+          ? _value.extraId
+          : extraId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      popular: null == popular
+          ? _value.popular
+          : popular // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$PayCoinImplCopyWith<$Res> implements $PayCoinCopyWith<$Res> {
+  factory _$$PayCoinImplCopyWith(
+          _$PayCoinImpl value, $Res Function(_$PayCoinImpl) then) =
+      __$$PayCoinImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {String code,
+      String ticker,
+      String name,
+      String network,
+      @JsonKey(name: 'network_label') String networkLabel,
+      @JsonKey(name: 'logo_url') String? logoUrl,
+      @JsonKey(name: 'extra_id') String? extraId,
+      bool popular});
+}
+
+/// @nodoc
+class __$$PayCoinImplCopyWithImpl<$Res>
+    extends _$PayCoinCopyWithImpl<$Res, _$PayCoinImpl>
+    implements _$$PayCoinImplCopyWith<$Res> {
+  __$$PayCoinImplCopyWithImpl(
+      _$PayCoinImpl _value, $Res Function(_$PayCoinImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of PayCoin
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? code = null,
+    Object? ticker = null,
+    Object? name = null,
+    Object? network = null,
+    Object? networkLabel = null,
+    Object? logoUrl = freezed,
+    Object? extraId = freezed,
+    Object? popular = null,
+  }) {
+    return _then(_$PayCoinImpl(
+      code: null == code
+          ? _value.code
+          : code // ignore: cast_nullable_to_non_nullable
+              as String,
+      ticker: null == ticker
+          ? _value.ticker
+          : ticker // ignore: cast_nullable_to_non_nullable
+              as String,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      network: null == network
+          ? _value.network
+          : network // ignore: cast_nullable_to_non_nullable
+              as String,
+      networkLabel: null == networkLabel
+          ? _value.networkLabel
+          : networkLabel // ignore: cast_nullable_to_non_nullable
+              as String,
+      logoUrl: freezed == logoUrl
+          ? _value.logoUrl
+          : logoUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      extraId: freezed == extraId
+          ? _value.extraId
+          : extraId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      popular: null == popular
+          ? _value.popular
+          : popular // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$PayCoinImpl extends _PayCoin {
+  const _$PayCoinImpl(
+      {required this.code,
+      required this.ticker,
+      required this.name,
+      this.network = '',
+      @JsonKey(name: 'network_label') this.networkLabel = '',
+      @JsonKey(name: 'logo_url') this.logoUrl,
+      @JsonKey(name: 'extra_id') this.extraId,
+      this.popular = false})
+      : super._();
+
+  factory _$PayCoinImpl.fromJson(Map<String, dynamic> json) =>
+      _$$PayCoinImplFromJson(json);
+
+  @override
+  final String code;
+  @override
+  final String ticker;
+  @override
+  final String name;
+  @override
+  @JsonKey()
+  final String network;
+  @override
+  @JsonKey(name: 'network_label')
+  final String networkLabel;
+  @override
+  @JsonKey(name: 'logo_url')
+  final String? logoUrl;
+
+  /// `memo` or `destination_tag` when a deposit needs one to be matched.
+  @override
+  @JsonKey(name: 'extra_id')
+  final String? extraId;
+  @override
+  @JsonKey()
+  final bool popular;
+
+  @override
+  String toString() {
+    return 'PayCoin(code: $code, ticker: $ticker, name: $name, network: $network, networkLabel: $networkLabel, logoUrl: $logoUrl, extraId: $extraId, popular: $popular)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$PayCoinImpl &&
+            (identical(other.code, code) || other.code == code) &&
+            (identical(other.ticker, ticker) || other.ticker == ticker) &&
+            (identical(other.name, name) || other.name == name) &&
+            (identical(other.network, network) || other.network == network) &&
+            (identical(other.networkLabel, networkLabel) ||
+                other.networkLabel == networkLabel) &&
+            (identical(other.logoUrl, logoUrl) || other.logoUrl == logoUrl) &&
+            (identical(other.extraId, extraId) || other.extraId == extraId) &&
+            (identical(other.popular, popular) || other.popular == popular));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(runtimeType, code, ticker, name, network,
+      networkLabel, logoUrl, extraId, popular);
+
+  /// Create a copy of PayCoin
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$PayCoinImplCopyWith<_$PayCoinImpl> get copyWith =>
+      __$$PayCoinImplCopyWithImpl<_$PayCoinImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$PayCoinImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _PayCoin extends PayCoin {
+  const factory _PayCoin(
+      {required final String code,
+      required final String ticker,
+      required final String name,
+      final String network,
+      @JsonKey(name: 'network_label') final String networkLabel,
+      @JsonKey(name: 'logo_url') final String? logoUrl,
+      @JsonKey(name: 'extra_id') final String? extraId,
+      final bool popular}) = _$PayCoinImpl;
+  const _PayCoin._() : super._();
+
+  factory _PayCoin.fromJson(Map<String, dynamic> json) = _$PayCoinImpl.fromJson;
+
+  @override
+  String get code;
+  @override
+  String get ticker;
+  @override
+  String get name;
+  @override
+  String get network;
+  @override
+  @JsonKey(name: 'network_label')
+  String get networkLabel;
+  @override
+  @JsonKey(name: 'logo_url')
+  String? get logoUrl;
+
+  /// `memo` or `destination_tag` when a deposit needs one to be matched.
+  @override
+  @JsonKey(name: 'extra_id')
+  String? get extraId;
+  @override
+  bool get popular;
+
+  /// Create a copy of PayCoin
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$PayCoinImplCopyWith<_$PayCoinImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+TopupPayment _$TopupPaymentFromJson(Map<String, dynamic> json) {
+  return _TopupPayment.fromJson(json);
+}
+
+/// @nodoc
+mixin _$TopupPayment {
+  @JsonKey(fromJson: _id)
+  String? get id => throw _privateConstructorUsedError;
+  String get status => throw _privateConstructorUsedError;
+  PayCoin get coin => throw _privateConstructorUsedError;
+  String? get amount => throw _privateConstructorUsedError;
+  String? get paid => throw _privateConstructorUsedError;
+  String? get remaining => throw _privateConstructorUsedError;
+  String? get address => throw _privateConstructorUsedError;
+  @JsonKey(name: 'extra_id')
+  String? get extraId => throw _privateConstructorUsedError;
+  String? get uri => throw _privateConstructorUsedError;
+  @JsonKey(name: 'expires_at')
+  DateTime? get expiresAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
+  DateTime? get createdAt => throw _privateConstructorUsedError;
+
+  /// Serializes this TopupPayment to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of TopupPayment
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $TopupPaymentCopyWith<TopupPayment> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $TopupPaymentCopyWith<$Res> {
+  factory $TopupPaymentCopyWith(
+          TopupPayment value, $Res Function(TopupPayment) then) =
+      _$TopupPaymentCopyWithImpl<$Res, TopupPayment>;
+  @useResult
+  $Res call(
+      {@JsonKey(fromJson: _id) String? id,
+      String status,
+      PayCoin coin,
+      String? amount,
+      String? paid,
+      String? remaining,
+      String? address,
+      @JsonKey(name: 'extra_id') String? extraId,
+      String? uri,
+      @JsonKey(name: 'expires_at') DateTime? expiresAt,
+      @JsonKey(name: 'created_at') DateTime? createdAt});
+
+  $PayCoinCopyWith<$Res> get coin;
+}
+
+/// @nodoc
+class _$TopupPaymentCopyWithImpl<$Res, $Val extends TopupPayment>
+    implements $TopupPaymentCopyWith<$Res> {
+  _$TopupPaymentCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of TopupPayment
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = freezed,
+    Object? status = null,
+    Object? coin = null,
+    Object? amount = freezed,
+    Object? paid = freezed,
+    Object? remaining = freezed,
+    Object? address = freezed,
+    Object? extraId = freezed,
+    Object? uri = freezed,
+    Object? expiresAt = freezed,
+    Object? createdAt = freezed,
+  }) {
+    return _then(_value.copyWith(
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String?,
+      status: null == status
+          ? _value.status
+          : status // ignore: cast_nullable_to_non_nullable
+              as String,
+      coin: null == coin
+          ? _value.coin
+          : coin // ignore: cast_nullable_to_non_nullable
+              as PayCoin,
+      amount: freezed == amount
+          ? _value.amount
+          : amount // ignore: cast_nullable_to_non_nullable
+              as String?,
+      paid: freezed == paid
+          ? _value.paid
+          : paid // ignore: cast_nullable_to_non_nullable
+              as String?,
+      remaining: freezed == remaining
+          ? _value.remaining
+          : remaining // ignore: cast_nullable_to_non_nullable
+              as String?,
+      address: freezed == address
+          ? _value.address
+          : address // ignore: cast_nullable_to_non_nullable
+              as String?,
+      extraId: freezed == extraId
+          ? _value.extraId
+          : extraId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      uri: freezed == uri
+          ? _value.uri
+          : uri // ignore: cast_nullable_to_non_nullable
+              as String?,
+      expiresAt: freezed == expiresAt
+          ? _value.expiresAt
+          : expiresAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      createdAt: freezed == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+    ) as $Val);
+  }
+
+  /// Create a copy of TopupPayment
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $PayCoinCopyWith<$Res> get coin {
+    return $PayCoinCopyWith<$Res>(_value.coin, (value) {
+      return _then(_value.copyWith(coin: value) as $Val);
+    });
+  }
+}
+
+/// @nodoc
+abstract class _$$TopupPaymentImplCopyWith<$Res>
+    implements $TopupPaymentCopyWith<$Res> {
+  factory _$$TopupPaymentImplCopyWith(
+          _$TopupPaymentImpl value, $Res Function(_$TopupPaymentImpl) then) =
+      __$$TopupPaymentImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {@JsonKey(fromJson: _id) String? id,
+      String status,
+      PayCoin coin,
+      String? amount,
+      String? paid,
+      String? remaining,
+      String? address,
+      @JsonKey(name: 'extra_id') String? extraId,
+      String? uri,
+      @JsonKey(name: 'expires_at') DateTime? expiresAt,
+      @JsonKey(name: 'created_at') DateTime? createdAt});
+
+  @override
+  $PayCoinCopyWith<$Res> get coin;
+}
+
+/// @nodoc
+class __$$TopupPaymentImplCopyWithImpl<$Res>
+    extends _$TopupPaymentCopyWithImpl<$Res, _$TopupPaymentImpl>
+    implements _$$TopupPaymentImplCopyWith<$Res> {
+  __$$TopupPaymentImplCopyWithImpl(
+      _$TopupPaymentImpl _value, $Res Function(_$TopupPaymentImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of TopupPayment
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = freezed,
+    Object? status = null,
+    Object? coin = null,
+    Object? amount = freezed,
+    Object? paid = freezed,
+    Object? remaining = freezed,
+    Object? address = freezed,
+    Object? extraId = freezed,
+    Object? uri = freezed,
+    Object? expiresAt = freezed,
+    Object? createdAt = freezed,
+  }) {
+    return _then(_$TopupPaymentImpl(
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String?,
+      status: null == status
+          ? _value.status
+          : status // ignore: cast_nullable_to_non_nullable
+              as String,
+      coin: null == coin
+          ? _value.coin
+          : coin // ignore: cast_nullable_to_non_nullable
+              as PayCoin,
+      amount: freezed == amount
+          ? _value.amount
+          : amount // ignore: cast_nullable_to_non_nullable
+              as String?,
+      paid: freezed == paid
+          ? _value.paid
+          : paid // ignore: cast_nullable_to_non_nullable
+              as String?,
+      remaining: freezed == remaining
+          ? _value.remaining
+          : remaining // ignore: cast_nullable_to_non_nullable
+              as String?,
+      address: freezed == address
+          ? _value.address
+          : address // ignore: cast_nullable_to_non_nullable
+              as String?,
+      extraId: freezed == extraId
+          ? _value.extraId
+          : extraId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      uri: freezed == uri
+          ? _value.uri
+          : uri // ignore: cast_nullable_to_non_nullable
+              as String?,
+      expiresAt: freezed == expiresAt
+          ? _value.expiresAt
+          : expiresAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      createdAt: freezed == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$TopupPaymentImpl extends _TopupPayment {
+  const _$TopupPaymentImpl(
+      {@JsonKey(fromJson: _id) this.id,
+      required this.status,
+      required this.coin,
+      this.amount,
+      this.paid,
+      this.remaining,
+      this.address,
+      @JsonKey(name: 'extra_id') this.extraId,
+      this.uri,
+      @JsonKey(name: 'expires_at') this.expiresAt,
+      @JsonKey(name: 'created_at') this.createdAt})
+      : super._();
+
+  factory _$TopupPaymentImpl.fromJson(Map<String, dynamic> json) =>
+      _$$TopupPaymentImplFromJson(json);
+
+  @override
+  @JsonKey(fromJson: _id)
+  final String? id;
+  @override
+  final String status;
+  @override
+  final PayCoin coin;
+  @override
+  final String? amount;
+  @override
+  final String? paid;
+  @override
+  final String? remaining;
+  @override
+  final String? address;
+  @override
+  @JsonKey(name: 'extra_id')
+  final String? extraId;
+  @override
+  final String? uri;
+  @override
+  @JsonKey(name: 'expires_at')
+  final DateTime? expiresAt;
+  @override
+  @JsonKey(name: 'created_at')
+  final DateTime? createdAt;
+
+  @override
+  String toString() {
+    return 'TopupPayment(id: $id, status: $status, coin: $coin, amount: $amount, paid: $paid, remaining: $remaining, address: $address, extraId: $extraId, uri: $uri, expiresAt: $expiresAt, createdAt: $createdAt)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$TopupPaymentImpl &&
+            (identical(other.id, id) || other.id == id) &&
+            (identical(other.status, status) || other.status == status) &&
+            (identical(other.coin, coin) || other.coin == coin) &&
+            (identical(other.amount, amount) || other.amount == amount) &&
+            (identical(other.paid, paid) || other.paid == paid) &&
+            (identical(other.remaining, remaining) ||
+                other.remaining == remaining) &&
+            (identical(other.address, address) || other.address == address) &&
+            (identical(other.extraId, extraId) || other.extraId == extraId) &&
+            (identical(other.uri, uri) || other.uri == uri) &&
+            (identical(other.expiresAt, expiresAt) ||
+                other.expiresAt == expiresAt) &&
+            (identical(other.createdAt, createdAt) ||
+                other.createdAt == createdAt));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(runtimeType, id, status, coin, amount, paid,
+      remaining, address, extraId, uri, expiresAt, createdAt);
+
+  /// Create a copy of TopupPayment
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$TopupPaymentImplCopyWith<_$TopupPaymentImpl> get copyWith =>
+      __$$TopupPaymentImplCopyWithImpl<_$TopupPaymentImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$TopupPaymentImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _TopupPayment extends TopupPayment {
+  const factory _TopupPayment(
+          {@JsonKey(fromJson: _id) final String? id,
+          required final String status,
+          required final PayCoin coin,
+          final String? amount,
+          final String? paid,
+          final String? remaining,
+          final String? address,
+          @JsonKey(name: 'extra_id') final String? extraId,
+          final String? uri,
+          @JsonKey(name: 'expires_at') final DateTime? expiresAt,
+          @JsonKey(name: 'created_at') final DateTime? createdAt}) =
+      _$TopupPaymentImpl;
+  const _TopupPayment._() : super._();
+
+  factory _TopupPayment.fromJson(Map<String, dynamic> json) =
+      _$TopupPaymentImpl.fromJson;
+
+  @override
+  @JsonKey(fromJson: _id)
+  String? get id;
+  @override
+  String get status;
+  @override
+  PayCoin get coin;
+  @override
+  String? get amount;
+  @override
+  String? get paid;
+  @override
+  String? get remaining;
+  @override
+  String? get address;
+  @override
+  @JsonKey(name: 'extra_id')
+  String? get extraId;
+  @override
+  String? get uri;
+  @override
+  @JsonKey(name: 'expires_at')
+  DateTime? get expiresAt;
+  @override
+  @JsonKey(name: 'created_at')
+  DateTime? get createdAt;
+
+  /// Create a copy of TopupPayment
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$TopupPaymentImplCopyWith<_$TopupPaymentImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
 WalletTopup _$WalletTopupFromJson(Map<String, dynamic> json) {
   return _WalletTopup.fromJson(json);
 }
@@ -1989,6 +2686,12 @@ mixin _$WalletTopup {
   String get nextAction => throw _privateConstructorUsedError;
   @JsonKey(name: 'checkout_url')
   String? get checkoutUrl => throw _privateConstructorUsedError;
+
+  /// Where FlixQuest's own checkout is: `preparing`, `choose_coin`,
+  /// `send`, `send_remaining`, `confirming`, `credited` or `closed`.
+  @JsonKey(name: 'checkout_step')
+  String? get checkoutStep => throw _privateConstructorUsedError;
+  TopupPayment? get payment => throw _privateConstructorUsedError;
   @JsonKey(name: 'pay_currency')
   String? get payCurrency => throw _privateConstructorUsedError;
   @JsonKey(name: 'error_code')
@@ -2023,10 +2726,14 @@ abstract class $WalletTopupCopyWith<$Res> {
       @JsonKey(name: 'activate_plus') bool activatePlus,
       @JsonKey(name: 'next_action') String nextAction,
       @JsonKey(name: 'checkout_url') String? checkoutUrl,
+      @JsonKey(name: 'checkout_step') String? checkoutStep,
+      TopupPayment? payment,
       @JsonKey(name: 'pay_currency') String? payCurrency,
       @JsonKey(name: 'error_code') String? errorCode,
       @JsonKey(name: 'created_at') DateTime? createdAt,
       @JsonKey(name: 'credited_at') DateTime? creditedAt});
+
+  $TopupPaymentCopyWith<$Res>? get payment;
 }
 
 /// @nodoc
@@ -2052,6 +2759,8 @@ class _$WalletTopupCopyWithImpl<$Res, $Val extends WalletTopup>
     Object? activatePlus = null,
     Object? nextAction = null,
     Object? checkoutUrl = freezed,
+    Object? checkoutStep = freezed,
+    Object? payment = freezed,
     Object? payCurrency = freezed,
     Object? errorCode = freezed,
     Object? createdAt = freezed,
@@ -2090,6 +2799,14 @@ class _$WalletTopupCopyWithImpl<$Res, $Val extends WalletTopup>
           ? _value.checkoutUrl
           : checkoutUrl // ignore: cast_nullable_to_non_nullable
               as String?,
+      checkoutStep: freezed == checkoutStep
+          ? _value.checkoutStep
+          : checkoutStep // ignore: cast_nullable_to_non_nullable
+              as String?,
+      payment: freezed == payment
+          ? _value.payment
+          : payment // ignore: cast_nullable_to_non_nullable
+              as TopupPayment?,
       payCurrency: freezed == payCurrency
           ? _value.payCurrency
           : payCurrency // ignore: cast_nullable_to_non_nullable
@@ -2107,6 +2824,20 @@ class _$WalletTopupCopyWithImpl<$Res, $Val extends WalletTopup>
           : creditedAt // ignore: cast_nullable_to_non_nullable
               as DateTime?,
     ) as $Val);
+  }
+
+  /// Create a copy of WalletTopup
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $TopupPaymentCopyWith<$Res>? get payment {
+    if (_value.payment == null) {
+      return null;
+    }
+
+    return $TopupPaymentCopyWith<$Res>(_value.payment!, (value) {
+      return _then(_value.copyWith(payment: value) as $Val);
+    });
   }
 }
 
@@ -2127,10 +2858,15 @@ abstract class _$$WalletTopupImplCopyWith<$Res>
       @JsonKey(name: 'activate_plus') bool activatePlus,
       @JsonKey(name: 'next_action') String nextAction,
       @JsonKey(name: 'checkout_url') String? checkoutUrl,
+      @JsonKey(name: 'checkout_step') String? checkoutStep,
+      TopupPayment? payment,
       @JsonKey(name: 'pay_currency') String? payCurrency,
       @JsonKey(name: 'error_code') String? errorCode,
       @JsonKey(name: 'created_at') DateTime? createdAt,
       @JsonKey(name: 'credited_at') DateTime? creditedAt});
+
+  @override
+  $TopupPaymentCopyWith<$Res>? get payment;
 }
 
 /// @nodoc
@@ -2154,6 +2890,8 @@ class __$$WalletTopupImplCopyWithImpl<$Res>
     Object? activatePlus = null,
     Object? nextAction = null,
     Object? checkoutUrl = freezed,
+    Object? checkoutStep = freezed,
+    Object? payment = freezed,
     Object? payCurrency = freezed,
     Object? errorCode = freezed,
     Object? createdAt = freezed,
@@ -2192,6 +2930,14 @@ class __$$WalletTopupImplCopyWithImpl<$Res>
           ? _value.checkoutUrl
           : checkoutUrl // ignore: cast_nullable_to_non_nullable
               as String?,
+      checkoutStep: freezed == checkoutStep
+          ? _value.checkoutStep
+          : checkoutStep // ignore: cast_nullable_to_non_nullable
+              as String?,
+      payment: freezed == payment
+          ? _value.payment
+          : payment // ignore: cast_nullable_to_non_nullable
+              as TopupPayment?,
       payCurrency: freezed == payCurrency
           ? _value.payCurrency
           : payCurrency // ignore: cast_nullable_to_non_nullable
@@ -2224,6 +2970,8 @@ class _$WalletTopupImpl extends _WalletTopup {
       @JsonKey(name: 'activate_plus') this.activatePlus = false,
       @JsonKey(name: 'next_action') this.nextAction = 'none',
       @JsonKey(name: 'checkout_url') this.checkoutUrl,
+      @JsonKey(name: 'checkout_step') this.checkoutStep,
+      this.payment,
       @JsonKey(name: 'pay_currency') this.payCurrency,
       @JsonKey(name: 'error_code') this.errorCode,
       @JsonKey(name: 'created_at') this.createdAt,
@@ -2255,6 +3003,14 @@ class _$WalletTopupImpl extends _WalletTopup {
   @override
   @JsonKey(name: 'checkout_url')
   final String? checkoutUrl;
+
+  /// Where FlixQuest's own checkout is: `preparing`, `choose_coin`,
+  /// `send`, `send_remaining`, `confirming`, `credited` or `closed`.
+  @override
+  @JsonKey(name: 'checkout_step')
+  final String? checkoutStep;
+  @override
+  final TopupPayment? payment;
   @override
   @JsonKey(name: 'pay_currency')
   final String? payCurrency;
@@ -2270,7 +3026,7 @@ class _$WalletTopupImpl extends _WalletTopup {
 
   @override
   String toString() {
-    return 'WalletTopup(id: $id, status: $status, amountCents: $amountCents, creditedCents: $creditedCents, currency: $currency, activatePlus: $activatePlus, nextAction: $nextAction, checkoutUrl: $checkoutUrl, payCurrency: $payCurrency, errorCode: $errorCode, createdAt: $createdAt, creditedAt: $creditedAt)';
+    return 'WalletTopup(id: $id, status: $status, amountCents: $amountCents, creditedCents: $creditedCents, currency: $currency, activatePlus: $activatePlus, nextAction: $nextAction, checkoutUrl: $checkoutUrl, checkoutStep: $checkoutStep, payment: $payment, payCurrency: $payCurrency, errorCode: $errorCode, createdAt: $createdAt, creditedAt: $creditedAt)';
   }
 
   @override
@@ -2292,6 +3048,9 @@ class _$WalletTopupImpl extends _WalletTopup {
                 other.nextAction == nextAction) &&
             (identical(other.checkoutUrl, checkoutUrl) ||
                 other.checkoutUrl == checkoutUrl) &&
+            (identical(other.checkoutStep, checkoutStep) ||
+                other.checkoutStep == checkoutStep) &&
+            (identical(other.payment, payment) || other.payment == payment) &&
             (identical(other.payCurrency, payCurrency) ||
                 other.payCurrency == payCurrency) &&
             (identical(other.errorCode, errorCode) ||
@@ -2314,6 +3073,8 @@ class _$WalletTopupImpl extends _WalletTopup {
       activatePlus,
       nextAction,
       checkoutUrl,
+      checkoutStep,
+      payment,
       payCurrency,
       errorCode,
       createdAt,
@@ -2345,6 +3106,8 @@ abstract class _WalletTopup extends WalletTopup {
           @JsonKey(name: 'activate_plus') final bool activatePlus,
           @JsonKey(name: 'next_action') final String nextAction,
           @JsonKey(name: 'checkout_url') final String? checkoutUrl,
+          @JsonKey(name: 'checkout_step') final String? checkoutStep,
+          final TopupPayment? payment,
           @JsonKey(name: 'pay_currency') final String? payCurrency,
           @JsonKey(name: 'error_code') final String? errorCode,
           @JsonKey(name: 'created_at') final DateTime? createdAt,
@@ -2376,6 +3139,14 @@ abstract class _WalletTopup extends WalletTopup {
   @override
   @JsonKey(name: 'checkout_url')
   String? get checkoutUrl;
+
+  /// Where FlixQuest's own checkout is: `preparing`, `choose_coin`,
+  /// `send`, `send_remaining`, `confirming`, `credited` or `closed`.
+  @override
+  @JsonKey(name: 'checkout_step')
+  String? get checkoutStep;
+  @override
+  TopupPayment? get payment;
   @override
   @JsonKey(name: 'pay_currency')
   String? get payCurrency;

@@ -564,6 +564,38 @@ class _StatusPanel extends StatelessWidget {
   }
 }
 
+/// What the phone is up to in FlixQuest's checkout, for the TV to say.
+(String, String) _phoneStep(WalletTopup topup) {
+  final payment = topup.payment;
+  final coin = payment?.coin;
+  return switch (topup.step) {
+    'send_remaining' when payment != null && coin != null => (
+        tr('plus_payment_partial'),
+        tr('plus_tv_phone_rest_body', args: ['${payment.due} ${coin.ticker}'])
+      ),
+    'send_remaining' => (
+        tr('plus_payment_partial'),
+        tr('plus_payment_partial_body')
+      ),
+    'send' when payment != null && coin != null => (
+        tr('plus_tv_phone_paying_title'),
+        tr('plus_tv_phone_send_body',
+            args: ['${payment.due} ${coin.ticker}', coin.networkLabel])
+      ),
+    'confirming' => (
+        tr('plus_payment_confirming_title',
+            args: [formatUsd(topup.amountCents)]),
+        coin == null
+            ? tr('plus_payment_confirming_body')
+            : tr('plus_confirming_body', args: [coin.ticker, coin.networkLabel])
+      ),
+    _ => (
+        tr('plus_tv_phone_paying_title'),
+        tr('plus_tv_phone_paying_body', args: [formatUsd(topup.amountCents)])
+      ),
+  };
+}
+
 class _CheckoutPanel extends StatelessWidget {
   const _CheckoutPanel({
     required this.plus,
@@ -604,13 +636,7 @@ class _CheckoutPanel extends StatelessWidget {
           )
         : topup.failed
             ? (tr('plus_payment_failed'), tr('plus_payment_nothing_charged'))
-            : topup.status == 'partially_paid'
-                ? (tr('plus_payment_partial'), tr('plus_payment_partial_body'))
-                : (
-                    tr('plus_tv_phone_paying_title'),
-                    tr('plus_tv_phone_paying_body',
-                        args: [formatUsd(topup.amountCents)])
-                  );
+            : _phoneStep(topup);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,

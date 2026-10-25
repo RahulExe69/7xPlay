@@ -166,6 +166,64 @@ Map<String, dynamic> _$$WalletBalanceImplToJson(_$WalletBalanceImpl instance) =>
       'periods_fundable': instance.periodsFundable,
     };
 
+_$PayCoinImpl _$$PayCoinImplFromJson(Map<String, dynamic> json) =>
+    _$PayCoinImpl(
+      code: json['code'] as String,
+      ticker: json['ticker'] as String,
+      name: json['name'] as String,
+      network: json['network'] as String? ?? '',
+      networkLabel: json['network_label'] as String? ?? '',
+      logoUrl: json['logo_url'] as String?,
+      extraId: json['extra_id'] as String?,
+      popular: json['popular'] as bool? ?? false,
+    );
+
+Map<String, dynamic> _$$PayCoinImplToJson(_$PayCoinImpl instance) =>
+    <String, dynamic>{
+      'code': instance.code,
+      'ticker': instance.ticker,
+      'name': instance.name,
+      'network': instance.network,
+      'network_label': instance.networkLabel,
+      'logo_url': instance.logoUrl,
+      'extra_id': instance.extraId,
+      'popular': instance.popular,
+    };
+
+_$TopupPaymentImpl _$$TopupPaymentImplFromJson(Map<String, dynamic> json) =>
+    _$TopupPaymentImpl(
+      id: _id(json['id']),
+      status: json['status'] as String,
+      coin: PayCoin.fromJson(json['coin'] as Map<String, dynamic>),
+      amount: json['amount'] as String?,
+      paid: json['paid'] as String?,
+      remaining: json['remaining'] as String?,
+      address: json['address'] as String?,
+      extraId: json['extra_id'] as String?,
+      uri: json['uri'] as String?,
+      expiresAt: json['expires_at'] == null
+          ? null
+          : DateTime.parse(json['expires_at'] as String),
+      createdAt: json['created_at'] == null
+          ? null
+          : DateTime.parse(json['created_at'] as String),
+    );
+
+Map<String, dynamic> _$$TopupPaymentImplToJson(_$TopupPaymentImpl instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'status': instance.status,
+      'coin': instance.coin.toJson(),
+      'amount': instance.amount,
+      'paid': instance.paid,
+      'remaining': instance.remaining,
+      'address': instance.address,
+      'extra_id': instance.extraId,
+      'uri': instance.uri,
+      'expires_at': instance.expiresAt?.toIso8601String(),
+      'created_at': instance.createdAt?.toIso8601String(),
+    };
+
 _$WalletTopupImpl _$$WalletTopupImplFromJson(Map<String, dynamic> json) =>
     _$WalletTopupImpl(
       id: json['id'] as String,
@@ -176,6 +234,10 @@ _$WalletTopupImpl _$$WalletTopupImplFromJson(Map<String, dynamic> json) =>
       activatePlus: json['activate_plus'] as bool? ?? false,
       nextAction: json['next_action'] as String? ?? 'none',
       checkoutUrl: json['checkout_url'] as String?,
+      checkoutStep: json['checkout_step'] as String?,
+      payment: json['payment'] == null
+          ? null
+          : TopupPayment.fromJson(json['payment'] as Map<String, dynamic>),
       payCurrency: json['pay_currency'] as String?,
       errorCode: json['error_code'] as String?,
       createdAt: json['created_at'] == null
@@ -196,6 +258,8 @@ Map<String, dynamic> _$$WalletTopupImplToJson(_$WalletTopupImpl instance) =>
       'activate_plus': instance.activatePlus,
       'next_action': instance.nextAction,
       'checkout_url': instance.checkoutUrl,
+      'checkout_step': instance.checkoutStep,
+      'payment': instance.payment?.toJson(),
       'pay_currency': instance.payCurrency,
       'error_code': instance.errorCode,
       'created_at': instance.createdAt?.toIso8601String(),

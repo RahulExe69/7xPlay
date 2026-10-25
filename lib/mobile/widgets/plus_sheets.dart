@@ -19,8 +19,8 @@ import 'pill_button.dart';
 import 'settings_kit.dart';
 
 /// Add funds: an amount, an optional "start Plus when it confirms", and the
-/// crypto disclosure. Continuing creates the invoice and opens the payment
-/// screen, which hands over to NOWPayments.
+/// crypto disclosure. Continuing creates the top-up and opens FlixQuest's
+/// checkout, where the viewer picks a coin.
 Future<void> showAddFundsSheet(BuildContext context,
     {bool offerActivation = true}) {
   final plus = context.read<PlusController>();
@@ -112,7 +112,7 @@ class _AddFundsSheetState extends State<_AddFundsSheet> {
       if (!mounted) return;
       Navigator.of(context).pop();
       if (widget.host.mounted) {
-        unawaited(openPlusPayment(widget.host, topup, openCheckout: true));
+        unawaited(openPlusPayment(widget.host, topup));
       }
     } on BillingError catch (error) {
       if (mounted) setState(() => _error = billingMessage(error));

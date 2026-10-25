@@ -24,6 +24,8 @@ class PlusController extends ChangeNotifier {
     DateTime Function()? now,
     this.pollInterval = const Duration(seconds: 4),
     this.pollWindow = const Duration(minutes: 2),
+    this.slowPollInterval = const Duration(seconds: 15),
+    this.slowPollWindow = const Duration(minutes: 30),
   })  : _repository = repository,
         _store = store,
         _ownerSource = owner,
@@ -35,6 +37,12 @@ class PlusController extends ChangeNotifier {
   final DateTime Function() _now;
   final Duration pollInterval;
   final Duration pollWindow;
+
+  /// After [pollWindow], checks keep going at this pace until
+  /// [slowPollWindow]: sending from an exchange, then waiting for the chain,
+  /// often takes longer than two minutes.
+  final Duration slowPollInterval;
+  final Duration slowPollWindow;
 
   /// How long a verified entitlement stays usable without the network.
   static const offlineGrace = Duration(hours: 24);
@@ -442,6 +450,62 @@ class PlusController extends ChangeNotifier {
     unawaited(refresh(full: true));
   }
 
+  // ---- in-app checkout --------------------------------------------------
+
+  List<PayCoin>? _coins;
+  DateTime? _coinsAt;
+  bool _loadingCoins = false;
+  BillingError? _coinsError;
+
+  /// The coins a top-up can be paid in, once loaded; popular ones first.
+  List<PayCoin>? get coins => _coins;
+  bool get loadingCoins => _loadingCoins;
+  BillingError? get coinsError => _coinsError;
+
+  /// Loads the coin list; a list under ten minutes old is kept.
+  Future<void> loadCoins({bool force = false}) async {
+    if (_loadingCoins) return;
+    final loadedAt = _coinsAt;
+    if (!force &&
+        _coins != null &&
+        loadedAt != null &&
+        _now().difference(loadedAt) < const Duration(minutes: 10)) {
+      return;
+    }
+    _loadingCoins = true;
+    _coinsError = null;
+    notifyListeners();
+    try {
+      final coins = await _repository.coins();
+      if (_disposed) return;
+      _coins = coins;
+      _coinsAt = _now();
+    } on BillingError catch (error) {
+      if (_disposed) return;
+      _coinsError = error;
+    } finally {
+      if (!_disposed) {
+        _loadingCoins = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Pays the followed top-up in [coin]: Laravel creates the payment and the
+  /// checkout shows its address and exact amount. Asking again for the same
+  /// coin returns the same payment, re-quoted if its amount ran out.
+  Future<WalletTopup> payWith(String coin, {bool emailReceipt = false}) async {
+    final current = _topup;
+    if (current == null) {
+      throw const BillingError(Failure.unknown(), code: 'topup_closed');
+    }
+    final next = await _owned(() =>
+        _repository.payTopup(current.id, coin, emailReceipt: emailReceipt));
+    if (_topup?.id != current.id) return next;
+    _watchTopup(next, restart: true);
+    return next;
+  }
+
   /// A link for a phone to add funds to this account; TVs show it as a QR.
   Future<({Uri url, DateTime expiresAt})> topupLink() =>
       _owned(_repository.topupLink);
@@ -454,6 +518,7 @@ class PlusController extends ChangeNotifier {
   WalletTopup? _topup;
   Timer? _pollTimer;
   DateTime? _pollUntil;
+  DateTime? _slowPollUntil;
   int _polls = 0;
   bool _checking = false;
 
@@ -476,10 +541,7 @@ class PlusController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (restart || _pollUntil == null) {
-      _pollUntil = _now().add(pollWindow);
-      _polls = 0;
-    }
+    if (restart || _pollUntil == null) _restartPollWindow();
     _pollTimer?.cancel();
     _pollTimer = Timer(pollInterval, () => unawaited(checkTopup()));
     notifyListeners();
@@ -493,7 +555,7 @@ class PlusController extends ChangeNotifier {
     _pollTimer?.cancel();
     _pollTimer = null;
     _checking = true;
-    if (manual) _pollUntil = _now().add(pollWindow);
+    if (manual) _restartPollWindow(keepCount: true);
     notifyListeners();
     final revision = _revision;
     try {
@@ -503,6 +565,12 @@ class PlusController extends ChangeNotifier {
           ? await _repository.reconcileTopup(current.id)
           : await _repository.topup(current.id);
       if (revision != _revision || _disposed) return;
+      // Something happened (coin chosen elsewhere, deposit seen): look
+      // closely again for a while.
+      if (next.step != current.step ||
+          next.payment?.status != current.payment?.status) {
+        _restartPollWindow(keepCount: true);
+      }
       _topup = next;
       if (next.settled) {
         _stopTopupWatch(keep: true);
@@ -514,19 +582,32 @@ class PlusController extends ChangeNotifier {
       if (revision == _revision && !_disposed) {
         _checking = false;
         final topup = _topup;
-        final until = _pollUntil;
-        if (topup != null &&
-            topup.isOpen &&
-            _foreground &&
-            until != null &&
-            _now().isBefore(until)) {
-          _pollTimer = Timer(pollInterval, () => unawaited(checkTopup()));
-        } else {
-          _pollTimer = null;
-        }
+        final wait = _nextPoll();
+        _pollTimer =
+            topup != null && topup.isOpen && _foreground && wait != null
+                ? Timer(wait, () => unawaited(checkTopup()))
+                : null;
         notifyListeners();
       }
     }
+  }
+
+  void _restartPollWindow({bool keepCount = false}) {
+    final now = _now();
+    _pollUntil = now.add(pollWindow);
+    _slowPollUntil = now.add(slowPollWindow);
+    if (!keepCount) _polls = 0;
+  }
+
+  /// The wait before the next automatic check, or null once both windows
+  /// have closed.
+  Duration? _nextPoll() {
+    final now = _now();
+    final fast = _pollUntil;
+    final slow = _slowPollUntil;
+    if (fast != null && now.isBefore(fast)) return pollInterval;
+    if (slow != null && now.isBefore(slow)) return slowPollInterval;
+    return null;
   }
 
   /// Forgets the finished top-up once its result has been shown.
@@ -539,6 +620,7 @@ class PlusController extends ChangeNotifier {
     _pollTimer?.cancel();
     _pollTimer = null;
     _pollUntil = null;
+    _slowPollUntil = null;
     _checking = false;
     if (!keep) _topup = null;
   }
