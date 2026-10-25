@@ -33,6 +33,7 @@ class MediaLink {
 
   static final RegExp _imdbTitleId = RegExp(r'^tt\d+$');
   static final RegExp _imdbNameId = RegExp(r'^nm\d+$');
+  static final RegExp _imdbListId = RegExp(r'^ls\d{6,12}$');
   static final RegExp _leadingDigits = RegExp(r'^\d+');
 
   /// A flix.quest film is its id alone. A series is its id with, optionally, a season and then an
@@ -144,6 +145,9 @@ class MediaLink {
           return TmdbMovieLink(id: id, title: name);
         case 'collection':
           return TmdbCollectionLink(id: id, name: name);
+        // Someone's own list, which is imported rather than opened.
+        case 'list':
+          return TmdbListLink(id: id, name: name);
         case 'person':
           return TmdbPersonLink(id: id, name: name);
         case 'tv':
@@ -234,6 +238,9 @@ class MediaLink {
       }
       if (kind == 'name' && _imdbNameId.hasMatch(id)) {
         return ImdbNameLink(imdbId: id);
+      }
+      if (kind == 'list' && _imdbListId.hasMatch(id)) {
+        return ImdbListLink(listId: id);
       }
     }
     return null;
@@ -363,4 +370,20 @@ class ImdbNameLink extends MediaLinkTarget {
   const ImdbNameLink({required this.imdbId});
 
   final String imdbId;
+}
+
+/// Someone's public TMDB list, which the app imports as one of its own.
+class TmdbListLink extends MediaLinkTarget {
+  const TmdbListLink({required this.id, this.name});
+
+  final int id;
+  final String? name;
+}
+
+/// An IMDb list. IMDb only lets these out as its CSV export, so the link
+/// leads to the import screen's IMDb steps.
+class ImdbListLink extends MediaLinkTarget {
+  const ImdbListLink({required this.listId});
+
+  final String listId;
 }

@@ -1,6 +1,7 @@
 import '../../data/repositories/announcement_repository.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/bookmark_repository.dart';
+import '../../data/repositories/playlist_repository.dart';
 import '../../data/repositories/recently_watched_repository.dart';
 import '../../data/repositories/wellness_repository.dart';
 import '../../data/sync/laravel_sync_coordinator.dart';
@@ -129,6 +130,7 @@ Future<AppInjector> buildInjector({
   late final SessionViewModel session;
   final sync = LaravelSyncCoordinator(
     bookmarkRepository: BookmarkRepository(laravelClient, preferences),
+    playlistRepository: PlaylistRepository(laravelClient),
     recentRepository: RecentlyWatchedRepository(laravelClient, preferences, clock),
     wellnessRepository: WellnessRepository(laravelClient, preferences, clock),
     store: preferences, clock: clock, authenticatedOwner: () => session.token == null ? null : session.ownerId.value);

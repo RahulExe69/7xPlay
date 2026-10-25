@@ -215,6 +215,7 @@ class _FlixQuestState extends State<FlixQuest>
     unawaited(RecentlyWatchedSyncService.instance.autoSyncIfSignedIn());
     if (SyncRuntime.enabled) {
       unawaited(BookmarkSyncService.instance.autoSyncIfSignedIn());
+      unawaited(SyncRuntime.coordinator?.playlists.autoSync());
       unawaited(WellnessProvider.instance.autoSyncIfSignedIn());
     }
   }

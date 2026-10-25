@@ -41,7 +41,9 @@ import '../../services/ambient_theme_service.dart';
 import '../../services/media_link.dart';
 import '../collections.dart';
 import '../episode_playback.dart';
+import '../../provider/playlist_provider.dart';
 import '../my_list.dart';
+import '../playlists.dart';
 import '../widgets/details_header.dart';
 import '../widgets/details_parts.dart';
 import '../widgets/episodes_section.dart';
@@ -971,6 +973,11 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
 
   Widget _actions(BuildContext context) {
     final saved = MyList.contains(context, _item);
+    final inList = context
+            .watch<PlaylistProvider?>()
+            ?.listsContaining(_item)
+            .isNotEmpty ??
+        false;
     return FutureBuilder<Videos>(
       future: _videos,
       builder: (context, snapshot) {
@@ -984,6 +991,15 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
                     : PhosphorIcons.plus(),
                 label: tr('my_list'),
                 onPressed: _toggleMyList,
+              ),
+            ),
+            Expanded(
+              child: DetailsAction(
+                icon: inList
+                    ? PhosphorIcons.listChecks()
+                    : PhosphorIcons.listPlus(),
+                label: tr('playlist_save'),
+                onPressed: () => showSaveToListSheet(context, _item),
               ),
             ),
             if (trailer != null)

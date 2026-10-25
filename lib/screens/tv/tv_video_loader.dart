@@ -209,7 +209,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
         });
       }
       // The player's episode list is not needed until it opens, so fetch it
-      // alongside the source race instead of in front of it. Downloads never
+      // alongside source loading instead of in front of it. Downloads never
       // open the player.
       final seasonEpisodesFetch =
           widget.download ? null : _fetchSeasonEpisodes();
@@ -268,7 +268,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           if (selection != null || !mounted) break;
         }
       } else {
-        // Race the sources in batches and use the first playable response.
+        // Try sources one at a time until one returns playable links.
         selection = await _fetchSelection(
           providers: selectedDownloadProvider == null
               ? videoProviders
@@ -364,7 +364,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
               videoHeaders: videoHeaders,
               videoSizeTokens: videoSizeTokens,
               initialVideoLinks: tvVideoLinks ?? const [],
-              prefetchedProviderResults: selection?.batchResults ?? const {},
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               onEpisodeChange: (episodeId, episodeNumber, seasonNumber) async {
@@ -401,9 +400,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     return currentProviderIndex;
   }
 
-  /// Shows [provider] as the one being played, once the race has chosen it.
-  /// Sources later in its batch may still be answering, and would otherwise
-  /// keep the focus.
+  /// Shows [provider] as the one selected for playback.
   void _showSelectedProvider(VideoProvider provider) {
     if (!mounted) return;
     setState(() {
@@ -413,7 +410,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     });
   }
 
-  /// Races [providers] (in configured order) until one returns playable links.
+  /// Tries [providers] in configured order until one returns playable links.
   Future<ProviderSelection?> _fetchSelection({
     required List<VideoProvider> providers,
   }) {
@@ -421,7 +418,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       providers: providers,
       load: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
-        // Only the batch in flight shows as loading; the rest wait their turn.
+        // Only the current provider shows as loading; the rest wait their turn.
         if (mounted) {
           setState(() {
             final providerIndex = providerStates.indexWhere(

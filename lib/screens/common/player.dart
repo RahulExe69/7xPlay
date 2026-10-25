@@ -89,7 +89,6 @@ class PlayerOne extends StatefulWidget {
       this.videoHeaders = const {},
       this.videoSizeTokens = const {},
       this.initialVideoLinks = const [],
-      this.prefetchedProviderResults = const {},
       this.useTvControls = false,
       this.onTvPlayerExit,
       super.key});
@@ -112,7 +111,6 @@ class PlayerOne extends StatefulWidget {
   final Map<String, Map<String, String>> videoHeaders;
   final Map<String, String> videoSizeTokens;
   final List<RegularVideoLinks> initialVideoLinks;
-  final Map<String, Future<ProviderLoaderResult>> prefetchedProviderResults;
   final bool useTvControls;
   final VoidCallback? onTvPlayerExit;
 
@@ -226,7 +224,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late String? _currentProviderCode; // Track current provider
   final Map<String, ProviderVideoSource> _loadedProviders =
       {}; // Cache loaded providers
-  late final Map<String, Future<ProviderLoaderResult>> _providerResults;
+  final Map<String, Future<ProviderLoaderResult>> _providerResults = {};
   final Map<String, List<RegularVideoLinks>> _rawVideoLinksByProvider = {};
   late Map<String, String> _activeSources;
   late List<BetterPlayerSubtitlesSource> _activeSubtitles;
@@ -262,7 +260,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _streamingDnd =
         StreamingDndSession(settings, television: widget.useTvControls);
     _currentProviderCode = widget.currentProviderCode; // Initialize from widget
-    _providerResults = Map.of(widget.prefetchedProviderResults);
     _activeSources = Map.of(widget.sources);
     _activeSubtitles = List.of(widget.subs);
     _activeVideoFormats =

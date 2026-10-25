@@ -12,10 +12,12 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../catalog/continue_watching.dart';
 import '../../catalog/media_item.dart';
+import '../../data/playlists/playlist.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../models/offline_download.dart';
 import '../../provider/bookmark_provider.dart';
+import '../../provider/playlist_provider.dart';
 import '../../provider/offline_download_provider.dart';
 import '../../provider/recently_watched_provider.dart';
 import '../../provider/settings_provider.dart';
@@ -32,12 +34,14 @@ import '../../presentation/billing/plus_controller.dart';
 import '../../services/auth_navigation_service.dart';
 import '../../services/plus_navigation.dart';
 import '../../widgets/plus/plus_visuals.dart';
+import '../playlists.dart';
 import '../widgets/media_rows.dart';
 import '../widgets/page_kit.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/plus_card.dart';
 import '../widgets/verified_badge.dart';
 import '../widgets/section_header.dart';
+import 'playlists_screen.dart';
 
 /// The phone library and account tab. Local media is useful immediately and
 /// remote profile data only enhances the header when it is available.
@@ -172,6 +176,24 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 title: tr('my_list'),
                 items: saved,
                 onSeeAll: () => _push(const BookmarkScreen()),
+              ),
+            ],
+            if (context.watch<PlaylistProvider?>()
+                case final playlists?) ...<Widget>[
+              const SizedBox(height: AppSpace.xxl),
+              SectionHeader(
+                title: tr('playlists'),
+                onSeeAll: () => _push(const PlaylistsScreen()),
+              ),
+              _PlaylistShelf(
+                lists: playlists.lists,
+                onOpen: (id) => openPlaylist(context, id),
+                onCreate: () async {
+                  final id = await createPlaylist(context);
+                  if (id != null && context.mounted) {
+                    await openPlaylist(context, id);
+                  }
+                },
               ),
             ],
             const SizedBox(height: AppSpace.xxl),
@@ -576,4 +598,106 @@ class MyFlixQuestScreen extends StatelessWidget {
   const MyFlixQuestScreen({super.key});
   @override
   Widget build(BuildContext context) => const LaravelMyFlixQuestScreen();
+}
+
+/// The lists as a row of covers, with a new list always first so the row is
+/// never empty and making one is a tap away.
+class _PlaylistShelf extends StatelessWidget {
+  const _PlaylistShelf({
+    required this.lists,
+    required this.onOpen,
+    required this.onCreate,
+  });
+
+  final List<Playlist> lists;
+  final ValueChanged<String> onOpen;
+  final VoidCallback onCreate;
+
+  static const _width = 112.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final gutter = AppSpace.gutter(context);
+    Widget caption(String title, String? subtitle) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.cardTitle
+                  .copyWith(fontSize: 14, color: palette.foreground),
+            ),
+            if (subtitle != null)
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.metadata
+                    .copyWith(fontSize: 12, color: palette.mutedText),
+              ),
+          ],
+        );
+    return SizedBox(
+      height: _width * 3 / 2 + 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: gutter),
+        itemCount: lists.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: AppSpace.md),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return SizedBox(
+              width: _width,
+              child: InkWell(
+                onTap: onCreate,
+                borderRadius: BorderRadius.circular(AppRadii.card),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Container(
+                      width: _width,
+                      height: _width * 3 / 2,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(AppRadii.card),
+                        border: Border.all(color: palette.hairline),
+                      ),
+                      child: Icon(PhosphorIcons.plus(),
+                          size: 32, color: palette.mutedText),
+                    ),
+                    caption(tr('playlist_new'), null),
+                  ],
+                ),
+              ),
+            );
+          }
+          final list = lists[index - 1];
+          return SizedBox(
+            width: _width,
+            child: Semantics(
+              button: true,
+              label: list.name,
+              child: InkWell(
+                onTap: () => onOpen(list.id),
+                borderRadius: BorderRadius.circular(AppRadii.card),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    PlaylistCover(list: list, width: _width),
+                    caption(
+                      list.name,
+                      plural('playlist_title_count', list.entries.length,
+                          namedArgs: {'count': '${list.entries.length}'}),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }

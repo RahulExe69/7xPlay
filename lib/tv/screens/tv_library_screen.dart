@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/playlists/playlist.dart';
+import '../../provider/playlist_provider.dart';
 import '../../provider/recently_watched_provider.dart';
 import '../app/tv_design.dart';
 import '../app/tv_shell_layout.dart';
@@ -14,8 +16,12 @@ import '../models/tv_media_item.dart';
 import '../widgets/tv_browse_skeleton.dart';
 import '../widgets/tv_browse_view.dart';
 import '../widgets/tv_continue_watching_menu.dart';
+import '../widgets/tv_dialog.dart';
+import '../widgets/tv_playlist_picker.dart';
 import '../widgets/tv_shortcut_tile.dart';
 import '../widgets/tv_state_panel.dart';
+import 'tv_playlist_import_screen.dart';
+import 'tv_playlist_name_screen.dart';
 
 /// My List as a browse page: saved movies and series, then what is being
 /// watched, with the spotlight and backdrop following focus.
@@ -97,10 +103,109 @@ class _TvLibraryScreenState extends State<TvLibraryScreen> {
     );
   }
 
+  TvCollection _listCollection(Playlist list) {
+    const page = 24;
+    final items = list.items;
+    return TvCollection(
+      id: 'playlist-${list.id}',
+      title: list.name,
+      kicker: tr('playlist'),
+      loadPage: (number) async {
+        final start = (number - 1) * page;
+        if (start >= items.length) return const <TvMediaItem>[];
+        return items.sublist(start, (start + page).clamp(0, items.length));
+      },
+    );
+  }
+
+  Future<void> _removeFromList(Playlist list, TvMediaItem item) async {
+    final confirmed = await showTvDialog<bool>(
+      context: context,
+      title: tr('tv_playlist_remove_title'),
+      content: Text(tr('tv_playlist_remove_body',
+          namedArgs: {'title': item.title, 'name': list.name})),
+      actions: <TvDialogAction>[
+        TvDialogAction(
+          label: tr('remove'),
+          isPrimary: true,
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+        TvDialogAction(
+          label: tr('cancel'),
+          autofocus: true,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+      ],
+    );
+    if (confirmed != true || !mounted) return;
+    await context.read<PlaylistProvider>().remove(list.id, item);
+  }
+
+  /// Hold OK on a list's tile: rename it or delete it.
+  Future<void> _manageList(Playlist list) async {
+    final playlists = context.read<PlaylistProvider>();
+    final action = await showTvDialog<String>(
+      context: context,
+      title: list.name,
+      content: Text(playlistSummaryForTv(list)),
+      actions: <TvDialogAction>[
+        TvDialogAction(
+          label: tr('tv_playlist_rename'),
+          autofocus: true,
+          onPressed: () => Navigator.of(context).pop('rename'),
+        ),
+        TvDialogAction(
+          label: tr('playlist_delete'),
+          onPressed: () => Navigator.of(context).pop('delete'),
+        ),
+        TvDialogAction(
+          label: tr('cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+    if (!mounted) return;
+    if (action == 'rename') {
+      final name = await TvPlaylistNameScreen.open(
+        context,
+        title: tr('tv_playlist_rename'),
+        actionLabel: tr('save'),
+        initialName: list.name,
+      );
+      if (name != null) {
+        await playlists.rename(list.id, name, description: list.description);
+      }
+    } else if (action == 'delete') {
+      final confirmed = await showTvDialog<bool>(
+        context: context,
+        title: tr('playlist_delete_title', namedArgs: {'name': list.name}),
+        content: Text(tr('playlist_delete_message')),
+        actions: <TvDialogAction>[
+          TvDialogAction(
+            label: tr('delete'),
+            isPrimary: true,
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+          TvDialogAction(
+            label: tr('cancel'),
+            autofocus: true,
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+        ],
+      );
+      if (confirmed == true) await playlists.delete(list.id);
+    }
+  }
+
+  void _importList() => Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const TvPlaylistImportScreen()));
+
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final insets = TvShellInsets.of(context);
+    final lists =
+        context.watch<PlaylistProvider?>()?.lists ?? const <Playlist>[];
     final recent = context.watch<RecentProvider?>();
     final continueWatching = <TvMediaItem>[
       ...?recent?.movies.map(TvMediaItem.fromRecentMovie),
@@ -123,7 +228,7 @@ class _TvLibraryScreenState extends State<TvLibraryScreen> {
           );
         }
         final saved = snapshot.data ?? const <TvMediaItem>[];
-        if (saved.isEmpty && continueWatching.isEmpty) {
+        if (saved.isEmpty && continueWatching.isEmpty && lists.isEmpty) {
           return Padding(
             padding: insets,
             child: TvStatePanel(
@@ -150,7 +255,19 @@ class _TvLibraryScreenState extends State<TvLibraryScreen> {
         ];
 
         return TvBrowseView(
-          featured: saved.firstOrNull ?? continueWatching.first,
+          featured: saved.firstOrNull ??
+              continueWatching.firstOrNull ??
+              lists.expand((list) => list.items).firstOrNull ??
+              TvMediaItem(
+                kind: TvMediaKind.movie,
+                id: -1,
+                title: tr('playlists'),
+                overview: '',
+                posterPath: null,
+                backdropPath: null,
+                rating: null,
+                releaseDate: null,
+              ),
           metrics: widget.metrics,
           onOpenMedia: widget.onOpenMedia,
           focusController: widget.focusController,
@@ -176,6 +293,21 @@ class _TvLibraryScreenState extends State<TvLibraryScreen> {
               itemMenuHint: tr('tv_hold_ok_to_remove'),
               showBadges: false,
             ),
+            for (final list in lists)
+              TvMediaRow(
+                title: list.name,
+                scopeId: 'library-list-${list.id}',
+                items: list.items.take(TvLibraryScreen.rowLimit).toList(),
+                onItemMenu: (item) => _removeFromList(list, item),
+                itemMenuHint: tr('tv_hold_ok_to_remove'),
+                seeAll: list.entries.length > TvLibraryScreen.rowLimit &&
+                        widget.onOpenCollection != null
+                    ? TvRowSeeAll(
+                        onActivate: () =>
+                            widget.onOpenCollection!(_listCollection(list)),
+                      )
+                    : null,
+              ),
             if (widget.onOpenCollection case final open?)
               TvShortcutRow(
                 title: tr('see_all'),
@@ -201,9 +333,54 @@ class _TvLibraryScreenState extends State<TvLibraryScreen> {
                     ),
                 ],
               ),
+            TvShortcutRow(
+              title: tr('playlists'),
+              scopeId: 'library-lists',
+              menuHint: tr('tv_playlist_hold_to_manage'),
+              onShortcutMenu: (shortcut) {
+                for (final list in lists) {
+                  if (shortcut.id == 'list-${list.id}') _manageList(list);
+                }
+              },
+              shortcuts: <TvBrowseShortcut>[
+                TvBrowseShortcut(
+                  id: 'new-list',
+                  title: tr('playlist_new'),
+                  icon: PhosphorIcons.plus(),
+                  description: tr('tv_playlist_new_description'),
+                  onActivate: () => tvCreatePlaylist(context),
+                ),
+                TvBrowseShortcut(
+                  id: 'import-list',
+                  title: tr('playlist_import'),
+                  icon: PhosphorIcons.downloadSimple(),
+                  description: tr('tv_playlist_import_description'),
+                  onActivate: _importList,
+                ),
+                for (final list in lists)
+                  TvBrowseShortcut(
+                    id: 'list-${list.id}',
+                    title: list.name,
+                    icon: PhosphorIcons.listBullets(),
+                    facts: <String>[playlistSummaryForTv(list)],
+                    description: list.description ??
+                        tr('tv_playlist_hold_to_manage'),
+                    onActivate: () {
+                      if (widget.onOpenCollection case final open?) {
+                        open(_listCollection(list));
+                      }
+                    },
+                  ),
+              ],
+            ),
           ],
         );
       },
     );
   }
 }
+
+/// "12 titles", the line a TV tile shows under a list's name.
+String playlistSummaryForTv(Playlist list) => plural(
+    'playlist_title_count', list.entries.length,
+    namedArgs: {'count': '${list.entries.length}'});

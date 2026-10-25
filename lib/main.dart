@@ -46,6 +46,7 @@ import 'package:flutter_downloader/flutter_downloader.dart';
 import 'constants/app_constants.dart';
 import 'functions/function.dart';
 import 'provider/bookmark_provider.dart';
+import 'provider/playlist_provider.dart';
 import 'provider/recently_watched_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -75,6 +76,7 @@ bool isTablet(BuildContext context) {
 SettingsProvider settingsProvider = SettingsProvider();
 RecentProvider recentProvider = RecentProvider();
 BookmarkProvider bookmarkProvider = BookmarkProvider();
+PlaylistProvider playlistProvider = PlaylistProvider();
 AppDependencyProvider appDependencyProvider = AppDependencyProvider();
 WellnessProvider wellnessProvider = WellnessProvider.instance;
 final Future<FirebaseApp> _initialization = Firebase.initializeApp();
@@ -205,6 +207,7 @@ void main() async {
       deleteLocalData: (owner) async {
     await LocalAccountData.delete(owner);
     await bookmarkProvider.fetchBookmarks();
+    await playlistProvider.load();
     await recentProvider.fetchMovies();
     await recentProvider.fetchEpisodes();
     await wellnessProvider.reload();
@@ -244,8 +247,10 @@ void main() async {
     wellnessProvider.syncService.bind();
     injector.session.ownerId.addListener(() {
       bookmarkProvider.resetForOwner();
+      playlistProvider.resetForOwner();
       recentProvider.resetForOwner();
       unawaited(bookmarkProvider.fetchBookmarks());
+      unawaited(playlistProvider.load());
       unawaited(recentProvider.fetchMovies());
       unawaited(recentProvider.fetchEpisodes());
     });
@@ -283,6 +288,8 @@ void main() async {
       await recentProvider.fetchEpisodes();
       unawaited(injector.syncCoordinator.syncAll());
     }
+    // Read after the owner is known, so the first frame shows this account's.
+    await playlistProvider.load();
   }
   NotificationController? notifications;
   if (injector.migrationFlags.notifications) {
@@ -344,6 +351,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider<SessionViewModel>.value(value: injector.session),
         ChangeNotifierProvider<PlusController>.value(value: injector.plus),
+        ChangeNotifierProvider<PlaylistProvider>.value(value: playlistProvider),
       ],
       child: Provider<AppInjector>.value(
           value: injector,

@@ -374,4 +374,27 @@ void main() {
       expect(MediaLink.parse('https://www.imdb.com/chart/top/'), isNull);
     });
   });
+
+  group('list addresses', () {
+    test('a TMDB list is a list to import, not a franchise', () {
+      final target = MediaLink.parse(
+          'https://www.themoviedb.org/list/8136-cosy-picks?utm_source=share');
+      expect(target, isA<TmdbListLink>());
+      expect((target as TmdbListLink).id, 8136);
+      expect(MediaLink.parse('https://www.themoviedb.org/collection/10'),
+          isA<TmdbCollectionLink>());
+    });
+
+    test('an IMDb list keeps its ls id, on any IMDb host', () {
+      final target = MediaLink.parse('Watch these https://m.imdb.com/list/ls055592025/');
+      expect((target as ImdbListLink).listId, 'ls055592025');
+    });
+
+    test('a look-alike host or a malformed id is not a list', () {
+      expect(MediaLink.parse('https://themoviedb.org.evil.example/list/1'),
+          isNull);
+      expect(MediaLink.parse('https://www.imdb.com/list/watchlist'), isNull);
+      expect(MediaLink.parse('https://www.imdb.com/list/ls12'), isNull);
+    });
+  });
 }

@@ -2,12 +2,15 @@ import 'sync_cursor.dart';
 import '../../controllers/wellness_database_controller.dart';
 import '../../core/storage/kv_store.dart';
 import '../../core/time/server_clock.dart';
+import '../playlists/playlist_store.dart';
 import '../repositories/bookmark_repository.dart';
+import '../repositories/playlist_repository.dart';
 import '../repositories/recently_watched_repository.dart';
 import '../repositories/wellness_repository.dart';
 import 'bookmark_sync_engine.dart';
 import 'library_scope.dart';
 import 'local_library.dart';
+import 'playlist_sync_engine.dart';
 import 'recent_sync_engine.dart';
 import 'sync_runner.dart';
 import 'wellness_sync_engine.dart';
@@ -20,10 +23,13 @@ class LaravelSyncCoordinator {
       required this.store,
       required this.clock,
       required this.authenticatedOwner,
+      this.playlistRepository,
       WellnessDatabaseController? wellness,
-      Future<LocalLibrary> Function(String)? openLibrary})
+      Future<LocalLibrary> Function(String)? openLibrary,
+      Future<PlaylistStore> Function(String)? openPlaylists})
       : wellness = wellness ?? WellnessDatabaseController.instance,
-        _openLibrary = openLibrary ?? LocalLibrary.open {
+        _openLibrary = openLibrary ?? LocalLibrary.open,
+        _openPlaylists = openPlaylists ?? PlaylistStore.forOwner {
     bookmarks = SyncRunner(
         canSync: () => canSync,
         autoInterval: const Duration(minutes: 10),
@@ -47,6 +53,19 @@ class LaravelSyncCoordinator {
               owner, db.recentMovies, db.recentEpisodes,
               isCurrent: current);
         });
+    playlists = SyncRunner(
+        canSync: () => canSync && playlistRepository != null,
+        autoInterval: const Duration(minutes: 10),
+        debounce: const Duration(seconds: 2),
+        run: (owner, current) async {
+          final more = await PlaylistSyncEngine(playlistRepository!)
+              .sync(owner, await _openPlaylists(owner), isCurrent: current);
+          if (current()) {
+            await store.setInt(
+                'sync.$owner.playlists.last_synced', clock.nowUtcMs());
+            if (more) playlists.changed();
+          }
+        });
     wellnessSync = SyncRunner(
         canSync: () => canSync,
         autoInterval: const Duration(minutes: 2),
@@ -56,6 +75,9 @@ class LaravelSyncCoordinator {
                 .sync(owner, isCurrent: current));
   }
   final BookmarkRepository bookmarkRepository;
+
+  /// Null where the app is built without custom-list sync (some tests).
+  final PlaylistRepository? playlistRepository;
   final RecentlyWatchedRepository recentRepository;
   final WellnessRepository wellnessRepository;
   final KvStore store;
@@ -63,7 +85,11 @@ class LaravelSyncCoordinator {
   final String? Function() authenticatedOwner;
   final WellnessDatabaseController wellness;
   final Future<LocalLibrary> Function(String) _openLibrary;
-  late final SyncRunner bookmarks, recents, wellnessSync;
+  final Future<PlaylistStore> Function(String) _openPlaylists;
+  late final SyncRunner bookmarks, recents, wellnessSync, playlists;
+
+  /// [owner]'s custom lists on this device.
+  Future<PlaylistStore> openPlaylists(String owner) => _openPlaylists(owner);
   bool get canSync =>
       LibraryScope.enabled &&
       authenticatedOwner() == LibraryScope.owner &&
@@ -72,6 +98,7 @@ class LaravelSyncCoordinator {
   void activateOwner(String? owner) {
     if (LibraryScope.owner != (owner ?? 'guest')) {
       bookmarks.ownerChanged();
+      playlists.ownerChanged();
       recents.ownerChanged();
       wellnessSync.ownerChanged();
     }
@@ -81,6 +108,10 @@ class LaravelSyncCoordinator {
       bookmarks.lastSynced.value = stamp == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(stamp, isUtc: true);
+      final listsStamp = store.getInt('sync.$owner.playlists.last_synced');
+      playlists.lastSynced.value = listsStamp == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(listsStamp, isUtc: true);
       recents.lastSynced.value =
           SyncCursor.load(store, owner, 'recent').lastSyncAt;
       wellnessSync.lastSynced.value =
@@ -93,6 +124,8 @@ class LaravelSyncCoordinator {
     final bookmarkSuccess = await bookmarks.sync();
     final recentSuccess = await recents.sync();
     final wellnessSuccess = await wellnessSync.sync();
+    // Lists are not part of the guest copy below, so they do not hold it up.
+    await playlists.sync();
     final success = bookmarkSuccess && recentSuccess && wellnessSuccess;
     if (success && owner != null && authenticatedOwner() == owner) {
       await _clearGuestCopy(owner);
@@ -112,6 +145,11 @@ class LaravelSyncCoordinator {
     final account = await _openLibrary(owner);
     final copied = await guest.copyInto(account);
     await store.setJson('sync.guest.copied', copied);
+    // Guest lists are only queued edits; they move as edits, keyed by id.
+    if (playlistRepository != null) {
+      await (await _openPlaylists('guest'))
+          .moveInto(await _openPlaylists(owner));
+    }
     await wellness.moveOwner(fromOwnerId: 'guest', toOwnerId: owner);
     await syncAll();
   }
@@ -134,6 +172,7 @@ class LaravelSyncCoordinator {
     // Invalidate an old request before wiping its captured database handles.
     LibraryScope.generation++;
     await (await _openLibrary(owner)).clear();
+    if (playlistRepository != null) await (await _openPlaylists(owner)).clear();
     await wellness.permanentlyDeleteOwner(owner);
     await store.removePrefix('sync.$owner.');
     if (store.getString('sync.guest.claimed_by') == owner) {
@@ -144,6 +183,7 @@ class LaravelSyncCoordinator {
 
   void dispose() {
     bookmarks.dispose();
+    playlists.dispose();
     recents.dispose();
     wellnessSync.dispose();
   }

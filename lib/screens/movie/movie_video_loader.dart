@@ -226,7 +226,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
         });
       }
       // The player's recommendations are not needed until it opens, so fetch
-      // them alongside the source race instead of in front of it. Downloads
+      // them alongside source loading instead of in front of it. Downloads
       // never open the player.
       final recommendationsFetch =
           widget.download ? null : _fetchMovieRecommendations();
@@ -283,7 +283,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           if (selection != null || !mounted) break;
         }
       } else {
-        // Race the sources in batches and use the first playable response.
+        // Try sources one at a time until one returns playable links.
         selection = await _fetchSelection(
           providers: selectedDownloadProvider == null
               ? videoProviders
@@ -391,7 +391,6 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
               videoHeaders: videoHeaders,
               videoSizeTokens: videoSizeTokens,
               initialVideoLinks: movieVideoLinks ?? const [],
-              prefetchedProviderResults: selection?.batchResults ?? const {},
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               useTvControls: widget.useTvPlayer,
@@ -424,9 +423,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
     return currentProviderIndex;
   }
 
-  /// Shows [provider] as the one being played, once the race has chosen it.
-  /// Sources later in its batch may still be answering, and would otherwise
-  /// keep the focus.
+  /// Shows [provider] as the one selected for playback.
   void _showSelectedProvider(VideoProvider provider) {
     if (!mounted) return;
     setState(() {
@@ -436,7 +433,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
     });
   }
 
-  /// Races [providers] (in configured order) until one returns playable links.
+  /// Tries [providers] in configured order until one returns playable links.
   Future<ProviderSelection?> _fetchSelection({
     required List<VideoProvider> providers,
   }) {
@@ -444,7 +441,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
       providers: providers,
       load: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
-        // Only the batch in flight shows as loading; the rest wait their turn.
+        // Only the current provider shows as loading; the rest wait their turn.
         if (mounted) {
           setState(() {
             final providerIndex = providerStates.indexWhere(

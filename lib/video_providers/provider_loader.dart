@@ -15,62 +15,38 @@ class ProviderSelection {
     required this.index,
     required this.provider,
     required this.result,
-    required this.batchResults,
   });
 
   final int index;
   final VideoProvider provider;
   final ProviderLoadResult result;
-  final Map<String, Future<ProviderLoadResult>> batchResults;
 }
 
 /// Single loading boundary for direct and API-backed stream providers.
 abstract final class ProviderLoader {
-  /// Starts providers in groups of three while resolving their results in the
-  /// configured order. A fast lower-priority result is retained until every
-  /// provider before it has failed; the next group only starts if the current
-  /// group has no playable result.
+  /// Tries providers one at a time in configured order, starting the next only
+  /// after the current provider fails or returns no playable links.
   static Future<ProviderSelection?> loadFirstSuccessful({
     required List<VideoProvider> providers,
     required Future<ProviderLoadResult> Function(VideoProvider provider) load,
     ProviderResultCallback? onResult,
   }) async {
-    for (var batchStart = 0; batchStart < providers.length; batchStart += 3) {
-      final batchEnd =
-          batchStart + 3 < providers.length ? batchStart + 3 : providers.length;
-      final requests = <Future<ProviderLoadResult>>[];
-      final batchResults = <String, Future<ProviderLoadResult>>{};
-
-      // Creating every future before awaiting any of them starts the batch
-      // concurrently while keeping ordered resolution below.
-      for (var index = batchStart; index < batchEnd; index++) {
-        final provider = providers[index];
-        final request = () async {
-          ProviderLoadResult result;
-          try {
-            result = await load(provider);
-          } catch (error) {
-            result = ProviderLoadResult(errorMessage: error.toString());
-          }
-
-          onResult?.call(index, provider, result);
-          return result;
-        }();
-        requests.add(request);
-        batchResults[provider.codeName] = request;
+    for (var index = 0; index < providers.length; index++) {
+      final provider = providers[index];
+      ProviderLoadResult result;
+      try {
+        result = await load(provider);
+      } catch (error) {
+        result = ProviderLoadResult(errorMessage: error.toString());
       }
 
-      for (var offset = 0; offset < requests.length; offset++) {
-        final result = await requests[offset];
-        if (result.success && result.videoLinks?.isNotEmpty == true) {
-          final index = batchStart + offset;
-          return ProviderSelection(
-            index: index,
-            provider: providers[index],
-            result: result,
-            batchResults: batchResults,
-          );
-        }
+      onResult?.call(index, provider, result);
+      if (result.success && result.videoLinks?.isNotEmpty == true) {
+        return ProviderSelection(
+          index: index,
+          provider: provider,
+          result: result,
+        );
       }
     }
     return null;

@@ -20,6 +20,7 @@ import '../../models/tv.dart';
 import '../../models/tv_stream_metadata.dart';
 import '../../models/videos.dart';
 import '../../provider/app_dependency_provider.dart';
+import '../../provider/playlist_provider.dart';
 import '../../provider/recently_watched_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../../screens/movie/movie_video_loader.dart';
@@ -35,6 +36,7 @@ import '../models/tv_media_item.dart';
 import '../widgets/tv_content_grid.dart';
 import '../widgets/tv_content_row.dart';
 import '../widgets/tv_dialog.dart';
+import '../widgets/tv_playlist_picker.dart';
 import '../widgets/tv_media_card.dart';
 import '../widgets/tv_spotlight.dart';
 
@@ -964,12 +966,23 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
           );
         },
       ),
+      if (context.watch<PlaylistProvider?>() case final playlists?)
+        _DetailButton(
+          focusNode: _actionNode('lists'),
+          label: tr('playlist_save'),
+          icon: playlists.listsContaining(_item).isNotEmpty
+              ? PhosphorIcons.listChecks()
+              : PhosphorIcons.listPlus(),
+          onFocused: () => _lastActionId = 'lists',
+          onActivate: () => showTvPlaylistPicker(context, _item),
+        ),
     ];
     _actionOrder = <String>[
       if (canWatch) 'play',
       if (canWatch && resuming) 'restart',
       if (!_isMovie && (_loaded?.seasons.isNotEmpty ?? false)) 'episodes',
       'list',
+      if (context.read<PlaylistProvider?>() != null) 'lists',
     ];
     // One line, even when the buttons run wider than the text above them: a
     // wrapped second line sent Right from the first line's end off to
