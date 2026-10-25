@@ -11,6 +11,7 @@ import '../../services/plus_navigation.dart';
 import '../../widgets/plus/plus_format.dart';
 import '../../widgets/plus/plus_visuals.dart';
 
+import '../../mobile/widgets/verified_badge.dart';
 import '../../services/auth_navigation_service.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_screen_focus_controller.dart';
@@ -42,6 +43,7 @@ class LaravelTvProfileScreen extends StatelessWidget {
                   : '@${user.username}',
               profileId: user?.profileId ?? 0,
               photoUrl: user?.photoUrl,
+              verified: user?.isAccountVerified ?? false,
               isGuest: user == null,
               focusController: focusController,
               onSignOut: () => _confirmSignOut(context));
@@ -85,12 +87,16 @@ class _ProfileLayout extends StatelessWidget {
     required this.profileId,
     required this.onSignOut,
     this.photoUrl,
+    this.verified = false,
     this.isGuest = false,
     this.focusController,
   });
 
   final TvShellMetrics metrics;
   final String name;
+
+  /// The admin-granted badge, after the name as on the phone.
+  final bool verified;
   final String subtitle;
   final int profileId;
   final String? photoUrl;
@@ -181,17 +187,27 @@ class _ProfileLayout extends StatelessWidget {
                             ),
                           )
                         else ...<Widget>[
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: palette.foreground,
-                              fontFamily: 'FigtreeBold',
-                              fontSize: compact ? 34 : 46,
-                              height: 1.05,
-                              letterSpacing: -1,
-                            ),
+                          Row(
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: palette.foreground,
+                                    fontFamily: 'FigtreeBold',
+                                    fontSize: compact ? 34 : 46,
+                                    height: 1.05,
+                                    letterSpacing: -1,
+                                  ),
+                                ),
+                              ),
+                              if (verified) ...<Widget>[
+                                SizedBox(width: compact ? 8 : 12),
+                                VerifiedBadge(size: compact ? 32 : 42),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 6),
                           Text(
