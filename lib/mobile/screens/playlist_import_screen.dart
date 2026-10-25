@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:file_picker/file_picker.dart';
+// IMDb import is switched off for now.
+// import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -41,9 +42,11 @@ String playlistProblemReason(String reason) => switch (reason) {
       _ => tr('playlist_problem_type'),
     };
 
-enum _Source { tmdb, imdb }
+// IMDb import is switched off for now.
+// enum _Source { tmdb, imdb }
 
-/// Brings a public TMDB list, or an IMDb list's CSV export, in as a list.
+/// Brings a public TMDB list in as a list. (IMDb CSV exports are switched off
+/// for now; their code is commented out below.)
 ///
 /// The list is read on Laravel and shown here as a preview first: how many
 /// titles were found, what could not be placed and why, and whether to make
@@ -66,7 +69,8 @@ class PlaylistImportScreen extends StatefulWidget {
 class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
   final _url = TextEditingController();
   final _name = TextEditingController();
-  _Source _source = _Source.tmdb;
+  // IMDb import is switched off for now.
+  // _Source _source = _Source.tmdb;
   PlaylistImport? _import;
   String? _error;
   bool _busy = false;
@@ -86,7 +90,8 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
     final initial = widget.initialUrl;
     if (initial != null) {
       _url.text = initial;
-      if (MediaLink.parse(initial) is ImdbListLink) _source = _Source.imdb;
+      // IMDb import is switched off for now.
+      // if (MediaLink.parse(initial) is ImdbListLink) _source = _Source.imdb;
     }
   }
 
@@ -110,13 +115,14 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
   Future<void> _startTmdb() async {
     final text = _url.text.trim();
     final target = MediaLink.parse(text);
-    if (target is ImdbListLink) {
-      setState(() {
-        _source = _Source.imdb;
-        _error = null;
-      });
-      return;
-    }
+    // IMDb import is switched off for now.
+    // if (target is ImdbListLink) {
+    //   setState(() {
+    //     _source = _Source.imdb;
+    //     _error = null;
+    //   });
+    //   return;
+    // }
     if (target is! TmdbListLink) {
       setState(() => _error = tr('playlist_import_error_link'));
       return;
@@ -125,18 +131,19 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
         .startImport(url: 'https://www.themoviedb.org/list/${target.id}'));
   }
 
-  Future<void> _startImdb() async {
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const <String>['csv'],
-      withData: true,
-    );
-    final file = picked?.files.singleOrNull;
-    final bytes = file?.bytes;
-    if (file == null || bytes == null || !mounted) return;
-    await _start(
-        () => _repository!.startImport(csv: bytes, filename: file.name));
-  }
+  // IMDb import is switched off for now.
+  // Future<void> _startImdb() async {
+  // final picked = await FilePicker.platform.pickFiles(
+  // type: FileType.custom,
+  // allowedExtensions: const <String>['csv'],
+  // withData: true,
+  // );
+  // final file = picked?.files.singleOrNull;
+  // final bytes = file?.bytes;
+  // if (file == null || bytes == null || !mounted) return;
+  // await _start(
+  // () => _repository!.startImport(csv: bytes, filename: file.name));
+  // }
 
   Future<void> _start(Future<PlaylistImport> Function() request) async {
     if (_busy) return;
@@ -148,13 +155,15 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
       _show(await request());
     } on PlaylistImportException catch (error) {
       if (!mounted) return;
-      setState(() {
-        if (error.code == 'imdb_export_required') {
-          _source = _Source.imdb;
-        } else {
-          _error = playlistImportMessage(error.code);
-        }
-      });
+      // IMDb import is switched off for now.
+      // setState(() {
+      //   if (error.code == 'imdb_export_required') {
+      //     _source = _Source.imdb;
+      //   } else {
+      //     _error = playlistImportMessage(error.code);
+      //   }
+      // });
+      setState(() => _error = playlistImportMessage(error.code));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -275,85 +284,87 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
         padding: EdgeInsets.symmetric(
             horizontal: AppSpace.gutter(context), vertical: AppSpace.lg),
         children: <Widget>[
-          SegmentSwitch<_Source>(
-            selected: _source,
-            onChanged: (source) => setState(() {
-              _source = source;
-              _error = null;
-            }),
-            segments: <Segment<_Source>>[
-              Segment<_Source>(_Source.tmdb, 'TMDB'),
-              Segment<_Source>(_Source.imdb, 'IMDb'),
-            ],
+          // IMDb import is switched off for now.
+          // SegmentSwitch<_Source>(
+          // selected: _source,
+          // onChanged: (source) => setState(() {
+          // _source = source;
+          // _error = null;
+          // }),
+          // segments: <Segment<_Source>>[
+          // Segment<_Source>(_Source.tmdb, 'TMDB'),
+          // Segment<_Source>(_Source.imdb, 'IMDb'),
+          // ],
+          // ),
+          // const SizedBox(height: AppSpace.xl),
+          // if (_source == _Source.tmdb) ...<Widget>[
+          Text(
+            tr('playlist_import_tmdb_intro'),
+            style: AppType.body.copyWith(color: palette.secondaryText),
+          ),
+          const SizedBox(height: AppSpace.lg),
+          TextField(
+            controller: _url,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            textInputAction: TextInputAction.go,
+            onSubmitted: (_) => _startTmdb(),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+            decoration: InputDecoration(
+              labelText: tr('playlist_import_link'),
+              hintText: 'themoviedb.org/list/8136',
+              errorText: error,
+              errorMaxLines: 3,
+              suffixIcon: IconButton(
+                tooltip: tr('paste'),
+                onPressed: _paste,
+                icon: Icon(PhosphorIcons.clipboardText()),
+              ),
+            ),
           ),
           const SizedBox(height: AppSpace.xl),
-          if (_source == _Source.tmdb) ...<Widget>[
-            Text(
-              tr('playlist_import_tmdb_intro'),
-              style: AppType.body.copyWith(color: palette.secondaryText),
-            ),
-            const SizedBox(height: AppSpace.lg),
-            TextField(
-              controller: _url,
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              textInputAction: TextInputAction.go,
-              onSubmitted: (_) => _startTmdb(),
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
-              decoration: InputDecoration(
-                labelText: tr('playlist_import_link'),
-                hintText: 'themoviedb.org/list/8136',
-                errorText: error,
-                errorMaxLines: 3,
-                suffixIcon: IconButton(
-                  tooltip: tr('paste'),
-                  onPressed: _paste,
-                  icon: Icon(PhosphorIcons.clipboardText()),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpace.xl),
-            ListenableBuilder(
-              listenable: _url,
-              builder: (context, _) => PillButton(
-                primary: true,
-                busy: _busy,
-                icon: PhosphorIcons.magnifyingGlass(),
-                label: tr('playlist_import_find'),
-                onPressed: _url.text.trim().isEmpty ? null : _startTmdb,
-              ),
-            ),
-          ] else ...<Widget>[
-            Text(
-              tr('playlist_import_imdb_intro'),
-              style: AppType.body.copyWith(color: palette.secondaryText),
-            ),
-            const SizedBox(height: AppSpace.lg),
-            for (final (index, step) in <String>[
-              tr('playlist_import_imdb_step_open'),
-              tr('playlist_import_imdb_step_export'),
-              tr('playlist_import_imdb_step_choose'),
-            ].indexed)
-              ListRow(flush: true, leadingNumber: index + 1, label: step),
-            if (error != null) ...<Widget>[
-              const SizedBox(height: AppSpace.md),
-              Text(
-                error,
-                style: AppType.body
-                    .copyWith(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            const SizedBox(height: AppSpace.xl),
-            PillButton(
+          ListenableBuilder(
+            listenable: _url,
+            builder: (context, _) => PillButton(
               primary: true,
               busy: _busy,
-              icon: PhosphorIcons.fileCsv(),
-              label: tr('playlist_import_choose_csv'),
-              onPressed: _startImdb,
+              icon: PhosphorIcons.magnifyingGlass(),
+              label: tr('playlist_import_find'),
+              onPressed: _url.text.trim().isEmpty ? null : _startTmdb,
             ),
-          ],
+          ),
+          // IMDb import is switched off for now.
+          // ] else ...<Widget>[
+          // Text(
+          // tr('playlist_import_imdb_intro'),
+          // style: AppType.body.copyWith(color: palette.secondaryText),
+          // ),
+          // const SizedBox(height: AppSpace.lg),
+          // for (final (index, step) in <String>[
+          // tr('playlist_import_imdb_step_open'),
+          // tr('playlist_import_imdb_step_export'),
+          // tr('playlist_import_imdb_step_choose'),
+          // ].indexed)
+          // ListRow(flush: true, leadingNumber: index + 1, label: step),
+          // if (error != null) ...<Widget>[
+          // const SizedBox(height: AppSpace.md),
+          // Text(
+          // error,
+          // style: AppType.body
+          // .copyWith(color: Theme.of(context).colorScheme.error),
+          // ),
+          // ],
+          // const SizedBox(height: AppSpace.xl),
+          // PillButton(
+          // primary: true,
+          // busy: _busy,
+          // icon: PhosphorIcons.fileCsv(),
+          // label: tr('playlist_import_choose_csv'),
+          // onPressed: _startImdb,
+          // ),
+          // ],
         ],
       ),
     );

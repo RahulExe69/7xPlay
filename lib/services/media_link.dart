@@ -33,7 +33,8 @@ class MediaLink {
 
   static final RegExp _imdbTitleId = RegExp(r'^tt\d+$');
   static final RegExp _imdbNameId = RegExp(r'^nm\d+$');
-  static final RegExp _imdbListId = RegExp(r'^ls\d{6,12}$');
+  // IMDb import is switched off for now.
+  // static final RegExp _imdbListId = RegExp(r'^ls\d{6,12}$');
   static final RegExp _leadingDigits = RegExp(r'^\d+');
 
   /// A flix.quest film is its id alone. A series is its id with, optionally, a season and then an
@@ -247,9 +248,11 @@ class MediaLink {
       if (kind == 'name' && _imdbNameId.hasMatch(id)) {
         return ImdbNameLink(imdbId: id);
       }
-      if (kind == 'list' && _imdbListId.hasMatch(id)) {
-        return ImdbListLink(listId: id);
-      }
+      // IMDb import is switched off for now. IMDb list links are not read, so they
+      // reach the app as unreadable rather than opening the import screen.
+      // if (kind == 'list' && _imdbListId.hasMatch(id)) {
+      //   return ImdbListLink(listId: id);
+      // }
     }
     return null;
   }

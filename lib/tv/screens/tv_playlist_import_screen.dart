@@ -21,8 +21,7 @@ import 'tv_playlist_name_screen.dart';
 
 /// Imports a public TMDB list on the TV: its number (or whole link) typed on
 /// FlixQuest's keyboard, then the read's progress, then a preview to keep as
-/// a new list. IMDb exports are files, which a TV has nowhere to pick from,
-/// so they are pointed to the phone.
+/// a new list. (IMDb import is switched off for now.)
 class TvPlaylistImportScreen extends StatefulWidget {
   const TvPlaylistImportScreen({this.initialUrl, this.repository, super.key});
 
@@ -88,10 +87,11 @@ class _TvPlaylistImportScreenState extends State<TvPlaylistImportScreen> {
 
   Future<void> _find() async {
     if (_busy) return;
-    if (MediaLink.parse(_text) is ImdbListLink) {
-      setState(() => _error = tr('tv_playlist_import_imdb'));
-      return;
-    }
+    // IMDb import is switched off for now.
+    // if (MediaLink.parse(_text) is ImdbListLink) {
+    //   setState(() => _error = tr('tv_playlist_import_imdb'));
+    //   return;
+    // }
     final id = _listId;
     if (id == null) {
       setState(() => _error = tr('tv_playlist_import_hint'));
@@ -365,7 +365,9 @@ class _TvPlaylistImportScreenState extends State<TvPlaylistImportScreen> {
                   ),
                   SizedBox(height: compact ? 10 : 14),
                   Text(
-                    error ?? tr('tv_playlist_import_imdb'),
+                    // IMDb import is switched off for now; this line used to
+                    // point IMDb lists to the phone (tv_playlist_import_imdb).
+                    error ?? tr('tv_playlist_import_hint'),
                     style: TextStyle(
                       color: error != null
                           ? Theme.of(context).colorScheme.error

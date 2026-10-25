@@ -138,7 +138,7 @@
                 <data android:host="m.imdb.com" />
                 <data android:pathPrefix="/title/" />
                 <data android:pathPrefix="/name/" />
-                <data android:pathPrefix="/list/" />
+                <!-- IMDb import is switched off for now. <data android:pathPrefix="/list/" /> -->
                 <data android:pathPattern="/.*/title/.*" />
                 <data android:pathPattern="/.*/name/.*" />
             </intent-filter>

@@ -385,9 +385,13 @@ void main() {
           isA<TmdbCollectionLink>());
     });
 
-    test('an IMDb list keeps its ls id, on any IMDb host', () {
-      final target = MediaLink.parse('Watch these https://m.imdb.com/list/ls055592025/');
-      expect((target as ImdbListLink).listId, 'ls055592025');
+    // IMDb import is switched off for now.
+    // test('an IMDb list keeps its ls id, on any IMDb host', () {
+    //   final target = MediaLink.parse('Watch these https://m.imdb.com/list/ls055592025/');
+    //   expect((target as ImdbListLink).listId, 'ls055592025');
+    // });
+    test('an IMDb list is not read while IMDb import is off', () {
+      expect(MediaLink.parse('https://www.imdb.com/list/ls055592025/'), isNull);
     });
 
     test('a look-alike host or a malformed id is not a list', () {
