@@ -1837,5 +1837,20 @@
   "flix_ai_no_matches": "No hay títulos coincidentes. Prueba con otro género, ambiente o título de referencia.",
   "flix_ai_search_cta": "Encuentra películas y series conversando",
   "flix_ai_try": "Prueba a preguntar",
-  "flix_ai_delete_message": "Esta conversación se eliminará de tu cuenta."
+  "flix_ai_delete_message": "Esta conversación se eliminará de tu cuenta.",
+  "tv_create_free_account": "Crear cuenta gratis",
+  "tv_landing_pitch": "Una cuenta gratis guarda tu lista y tu progreso en todas tus pantallas.",
+  "tv_benefit_resume": "Sigue donde lo dejaste, en tu teléfono o en esta TV.",
+  "tv_benefit_plus": "Disfruta sin anuncios con FlixQuest Plus.",
+  "tv_guest_caption": "Tu lista se queda solo en esta TV",
+  "tv_guest_confirm_title": "¿Continuar sin una cuenta?",
+  "tv_guest_confirm_body": "Como invitado, tu lista y tu progreso se quedan solo en esta TV, y FlixQuest Plus no está disponible. Crear una cuenta gratis lleva un minuto y también funciona en tu teléfono.",
+  "tv_sign_in_subtitle": "Hola de nuevo. Tu lista y tu progreso te esperan.",
+  "tv_create_account_subtitle": "Es gratis, y tu lista te acompaña en todas tus pantallas.",
+  "tv_new_to_flixquest": "¿Nuevo en FlixQuest?",
+  "tv_already_have_an_account": "¿Ya tienes una cuenta?",
+  "tv_keyboard_next": "Siguiente",
+  "tv_keyboard_shift": "Mayúsculas",
+  "tv_show_password": "Mostrar",
+  "tv_hide_password": "Ocultar"
 }

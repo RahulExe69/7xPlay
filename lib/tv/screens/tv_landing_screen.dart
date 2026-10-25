@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../provider/settings_provider.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_focusable.dart';
+import '../widgets/tv_dialog.dart';
 import '../widgets/tv_poster_wall.dart';
 import 'tv_auth_screen.dart';
 import '../../widgets/app_logo.dart';
@@ -53,6 +54,35 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
       }
     } finally {
       if (mounted) setState(() => _isGoogleSigningIn = false);
+    }
+  }
+
+  /// Guests are asked once more, with what an account adds, since a guest's
+  /// list never leaves this TV.
+  Future<void> _confirmGuest() async {
+    if (_isEnteringAsGuest || _isGoogleSigningIn) return;
+    final choice = await showTvDialog<bool>(
+      context: context,
+      title: tr('tv_guest_confirm_title'),
+      content: Text(tr('tv_guest_confirm_body')),
+      actions: <TvDialogAction>[
+        TvDialogAction(
+          label: tr('tv_create_free_account'),
+          isPrimary: true,
+          autofocus: true,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        TvDialogAction(
+          label: tr('tv_continue_as_guest'),
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ],
+    );
+    if (!mounted || choice == null) return;
+    if (choice) {
+      await _continueAsGuest();
+    } else {
+      _open(const TvAuthScreen.createAccount());
     }
   }
 
@@ -230,7 +260,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   ),
                                   SizedBox(height: compact ? 8 : 12),
                                   Text(
-                                    tr('tv_use_your_remote_to_choose_how_you_want_to_continue'),
+                                    tr('tv_landing_pitch'),
                                     style: TextStyle(
                                       color: palette.mutedText,
                                       fontSize: compact ? 16 : 19,
@@ -239,24 +269,24 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   ),
                                   SizedBox(height: compact ? 20 : 28),
                                   _TvLandingAction(
-                                    label: tr('tv_sign_in'),
-                                    icon: PhosphorIcons.signIn(),
+                                    label: tr('tv_create_free_account'),
+                                    icon: PhosphorIcons.userPlus(),
                                     autofocus: true,
                                     primary: true,
-                                    enabled: !_isGoogleSigningIn &&
-                                        !_isEnteringAsGuest,
-                                    onActivate: () =>
-                                        _open(const TvAuthScreen.signIn()),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _TvLandingAction(
-                                    label: tr('tv_create_account'),
-                                    icon: PhosphorIcons.userPlus(),
                                     enabled: !_isGoogleSigningIn &&
                                         !_isEnteringAsGuest,
                                     onActivate: () => _open(
                                       const TvAuthScreen.createAccount(),
                                     ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _TvLandingAction(
+                                    label: tr('tv_sign_in'),
+                                    icon: PhosphorIcons.signIn(),
+                                    enabled: !_isGoogleSigningIn &&
+                                        !_isEnteringAsGuest,
+                                    onActivate: () =>
+                                        _open(const TvAuthScreen.signIn()),
                                   ),
                                   const SizedBox(height: 12),
                                   _TvLandingAction(
@@ -268,15 +298,15 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                         !_isEnteringAsGuest,
                                     onActivate: _continueWithGoogle,
                                   ),
-                                  const SizedBox(height: 12),
-                                  _TvLandingAction(
+                                  SizedBox(height: compact ? 14 : 20),
+                                  _TvGuestLink(
                                     label: _isEnteringAsGuest
                                         ? tr('tv_starting_guest_session')
                                         : tr('tv_continue_as_guest'),
-                                    icon: PhosphorIcons.userCircle(),
+                                    caption: tr('tv_guest_caption'),
                                     enabled: !_isEnteringAsGuest &&
                                         !_isGoogleSigningIn,
-                                    onActivate: _continueAsGuest,
+                                    onActivate: _confirmGuest,
                                   ),
                                 ],
                               ),
@@ -349,7 +379,108 @@ class _TvLandingIntro extends StatelessWidget {
             ),
           ),
         ),
+        SizedBox(height: compact ? 22 : 32),
+        for (final (icon, text) in <(IconData, String)>[
+          (
+            PhosphorIcons.devices(),
+            tr('tv_your_list_and_history_stay_in_sync_across_your_signed_in_devices'),
+          ),
+          (PhosphorIcons.playCircle(), tr('tv_benefit_resume')),
+          (PhosphorIcons.sparkle(), tr('tv_benefit_plus')),
+        ])
+          Padding(
+            padding: EdgeInsets.only(bottom: compact ? 10 : 14),
+            child: Row(
+              children: <Widget>[
+                Icon(icon, color: palette.foreground, size: compact ? 22 : 26),
+                const SizedBox(width: 14),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        color: palette.foreground,
+                        fontFamily: 'FigtreeSB',
+                        fontSize: compact ? 16 : 19,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
+    );
+  }
+}
+
+/// Guest mode, kept quiet below the account options: a plain line with what
+/// it leaves out, not a button that competes with them.
+class _TvGuestLink extends StatefulWidget {
+  const _TvGuestLink({
+    required this.label,
+    required this.caption,
+    required this.enabled,
+    required this.onActivate,
+  });
+
+  final String label;
+  final String caption;
+  final bool enabled;
+  final VoidCallback onActivate;
+
+  @override
+  State<_TvGuestLink> createState() => _TvGuestLinkState();
+}
+
+class _TvGuestLinkState extends State<_TvGuestLink> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    Localizations.localeOf(context);
+    final palette = TvPalette.of(context);
+    return TvFocusable(
+      semanticLabel: '${widget.label}. ${widget.caption}',
+      enabled: widget.enabled,
+      onActivate: widget.onActivate,
+      onFocusChanged: (hasFocus) {
+        if (hasFocus != _focused) setState(() => _focused = hasFocus);
+      },
+      focusScale: 1,
+      focusColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: _focused ? palette.focusFill : Colors.transparent,
+          borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              widget.label,
+              style: TextStyle(
+                color: _focused ? palette.onFocus : palette.secondaryText,
+                fontFamily: 'FigtreeSB',
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              widget.caption,
+              style: TextStyle(
+                color: _focused ? palette.onFocusMuted : palette.mutedText,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1775,5 +1775,20 @@ abstract class  LocaleKeys {
   static const flix_ai_search_cta = 'flix_ai_search_cta';
   static const flix_ai_try = 'flix_ai_try';
   static const flix_ai_delete_message = 'flix_ai_delete_message';
+  static const tv_create_free_account = 'tv_create_free_account';
+  static const tv_landing_pitch = 'tv_landing_pitch';
+  static const tv_benefit_resume = 'tv_benefit_resume';
+  static const tv_benefit_plus = 'tv_benefit_plus';
+  static const tv_guest_caption = 'tv_guest_caption';
+  static const tv_guest_confirm_title = 'tv_guest_confirm_title';
+  static const tv_guest_confirm_body = 'tv_guest_confirm_body';
+  static const tv_sign_in_subtitle = 'tv_sign_in_subtitle';
+  static const tv_create_account_subtitle = 'tv_create_account_subtitle';
+  static const tv_new_to_flixquest = 'tv_new_to_flixquest';
+  static const tv_already_have_an_account = 'tv_already_have_an_account';
+  static const tv_keyboard_next = 'tv_keyboard_next';
+  static const tv_keyboard_shift = 'tv_keyboard_shift';
+  static const tv_show_password = 'tv_show_password';
+  static const tv_hide_password = 'tv_hide_password';
 
 }

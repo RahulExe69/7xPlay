@@ -1,7 +1,7 @@
 import 'package:flixquest/data/models/auth_session.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -11,10 +11,21 @@ import '../../provider/settings_provider.dart';
 import '../../services/auth_navigation_service.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_focusable.dart';
+import '../widgets/tv_form_keyboard.dart';
 import '../widgets/tv_pill_button.dart';
 
 enum TvAuthMode { signIn, createAccount }
 
+enum _Field { name, email, username, password }
+
+/// Sign-in and sign-up on the TV, typed with FlixQuest's own keyboard
+/// instead of the system one, which covers half the screen and hides which
+/// field it is filling.
+///
+/// The fields sit on the left and the keyboard on the right. Whichever field
+/// was last focused is the one being typed into; the keyboard's wide key
+/// steps to the next field and, on the last, submits. Left off the keyboard
+/// returns to that field.
 class LaravelTvAuthScreen extends StatefulWidget {
   const LaravelTvAuthScreen({required this.mode, super.key});
 
@@ -30,52 +41,167 @@ class LaravelTvAuthScreen extends StatefulWidget {
 }
 
 class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _authService = FlixQuestAuthService();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  final _nameFocus = FocusNode(debugLabel: 'TV full name');
-  final _emailFocus = FocusNode(debugLabel: 'TV email');
-  final _usernameFocus = FocusNode(debugLabel: 'TV username');
-  final _passwordFocus = FocusNode(debugLabel: 'TV password');
-  final _confirmPasswordFocus = FocusNode(debugLabel: 'TV confirm password');
+  final _keyboard = GlobalKey<TvFormKeyboardState>();
+  final Map<_Field, String> _values = <_Field, String>{
+    for (final field in _Field.values) field: '',
+  };
+  final Map<_Field, FocusNode> _nodes = <_Field, FocusNode>{
+    for (final field in _Field.values)
+      field: FocusNode(debugLabel: 'TV auth ${field.name}'),
+  };
+  late _Field _active = _fields.first;
+  bool _revealPassword = false;
+
+  /// Field errors show only once a submit has been tried.
+  bool _attempted = false;
   bool _submitting = false;
-  final bool _obscurePassword = true;
   String? _error;
   int _profileId = 0;
 
+  static const _maxLength = 128;
+  static final _usernameCharacter = RegExp(r'[a-zA-Z0-9_]');
+
   bool get _isSignIn => widget.mode == TvAuthMode.signIn;
+
+  List<_Field> get _fields => _isSignIn
+      ? const <_Field>[_Field.email, _Field.password]
+      : const <_Field>[
+          _Field.name,
+          _Field.email,
+          _Field.username,
+          _Field.password,
+        ];
+
+  String get _submitLabel =>
+      _isSignIn ? tr('tv_sign_in') : tr('tv_create_account');
 
   @override
   void initState() {
     super.initState();
     // Prefilled for 4.2.x accounts that need one manual sign-in.
     final hint = FirebaseSessionBridge.signInEmailHint;
-    if (_isSignIn && hint != null) _emailController.text = hint;
+    if (_isSignIn && hint != null) {
+      _values[_Field.email] = hint;
+      _active = _Field.password;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _keyboard.currentState?.requestFocus();
+    });
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    _nameFocus.dispose();
-    _emailFocus.dispose();
-    _usernameFocus.dispose();
-    _passwordFocus.dispose();
-    _confirmPasswordFocus.dispose();
+    for (final node in _nodes.values) {
+      node.dispose();
+    }
     super.dispose();
   }
 
+  String _label(_Field field) => switch (field) {
+        _Field.name => tr('full_name'),
+        _Field.email => tr('email_address'),
+        _Field.username => tr('username'),
+        _Field.password => tr('password'),
+      };
+
+  IconData _icon(_Field field) => switch (field) {
+        _Field.name => PhosphorIcons.user(),
+        _Field.email => PhosphorIcons.envelopeSimple(),
+        _Field.username => PhosphorIcons.at(),
+        _Field.password => PhosphorIcons.lock(),
+      };
+
+  /// What the field needs, shown above the keyboard while it is typed into.
+  String? _hint(_Field field) => switch (field) {
+        _Field.username => tr('tv_use_at_least_3_letters_or_numbers'),
+        _Field.password => tr('tv_use_at_least_7_characters'),
+        _ => null,
+      };
+
+  String? _validate(_Field field) {
+    final value = _values[field]!;
+    return switch (field) {
+      _Field.name =>
+        value.trim().length < 2 ? tr('tv_enter_your_full_name') : null,
+      _Field.email =>
+        !value.contains('@') ? tr('tv_enter_a_valid_email_address') : null,
+      _Field.username =>
+        value.length < 3 ? tr('tv_use_at_least_3_letters_or_numbers') : null,
+      _Field.password =>
+        value.length < 7 ? tr('tv_use_at_least_7_characters') : null,
+    };
+  }
+
+  bool _accepts(_Field field, String character) => switch (field) {
+        _Field.username => _usernameCharacter.hasMatch(character),
+        _Field.email => character.trim().isNotEmpty,
+        _ => true,
+      };
+
+  void _type(String text) {
+    if (_submitting) return;
+    final typed =
+        text.split('').where((character) => _accepts(_active, character));
+    final value = _values[_active]! + typed.join();
+    if (typed.isEmpty || value.length > _maxLength) return;
+    setState(() => _values[_active] = value);
+  }
+
+  void _delete() {
+    if (_submitting) return;
+    setState(() =>
+        _values[_active] = _values[_active]!.characters.skipLast(1).toString());
+  }
+
+  void _clear() {
+    if (_submitting) return;
+    setState(() => _values[_active] = '');
+  }
+
+  void _activate(_Field field) {
+    if (field != _active) setState(() => _active = field);
+  }
+
+  /// The keyboard's wide key: the next field, or submit on the last.
+  void _next() {
+    final index = _fields.indexOf(_active);
+    if (index == _fields.length - 1) {
+      _submit();
+    } else {
+      _activate(_fields[index + 1]);
+    }
+  }
+
+  bool _focusKeyboard() => _keyboard.currentState?.requestFocus() ?? false;
+
+  bool _focusActiveField() {
+    _nodes[_active]!.requestFocus();
+    return true;
+  }
+
+  void _switchMode() {
+    Navigator.of(context).pushReplacement<void, void>(
+      MaterialPageRoute<void>(
+        builder: (_) => LaravelTvAuthScreen(
+          mode: _isSignIn ? TvAuthMode.createAccount : TvAuthMode.signIn,
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
-    if (_submitting || !_formKey.currentState!.validate()) return;
-    FocusScope.of(context).unfocus();
+    if (_submitting) return;
+    final invalid = _fields.where((field) => _validate(field) != null);
+    if (invalid.isNotEmpty) {
+      setState(() {
+        _attempted = true;
+        _active = invalid.first;
+      });
+      return;
+    }
     setState(() {
+      _attempted = true;
       _submitting = true;
       _error = null;
     });
@@ -83,18 +209,18 @@ class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
       late final AuthSession credential;
       if (_isSignIn) {
         credential = await _authService.signIn(
-          email: _emailController.text,
-          password: _passwordController.text,
+          email: _values[_Field.email]!,
+          password: _values[_Field.password]!,
         );
         if (mounted) {
           context.read<SettingsProvider>().analytics.trackLogin('email');
         }
       } else {
         credential = await _authService.createAccount(
-          fullName: _nameController.text,
-          email: _emailController.text,
-          username: _usernameController.text,
-          password: _passwordController.text,
+          fullName: _values[_Field.name]!,
+          email: _values[_Field.email]!,
+          username: _values[_Field.username]!,
+          password: _values[_Field.password]!,
           profileId: _profileId,
         );
         if (mounted) {
@@ -168,7 +294,6 @@ class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
 
   Future<void> _signInWithGoogle() async {
     if (_submitting) return;
-    FocusScope.of(context).unfocus();
     setState(() {
       _submitting = true;
       _error = null;
@@ -207,395 +332,516 @@ class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final palette = TvPalette.of(context);
-    final colors = Theme.of(context).colorScheme;
+    final accent = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: TvDesign.surfaceFor(context),
-      body: SafeArea(
-        minimum: const EdgeInsets.symmetric(horizontal: 52, vertical: 30),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxHeight < 650;
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                SizedBox(
-                  width: 170,
-                  child: _BackAction(onActivate: () => Navigator.pop(context)),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(-0.9, -1),
+            radius: 1.4,
+            colors: <Color>[
+              accent.withValues(alpha: palette.dark ? 0.16 : 0.08),
+              palette.page.withValues(alpha: 0),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          minimum: const EdgeInsets.symmetric(horizontal: 48, vertical: 28),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxHeight < 650;
+              final keyboardWidth = <double>[
+                constraints.maxWidth * 0.5,
+                TvFormKeyboard.widthFor(
+                  constraints.maxHeight - (compact ? 64 : 84),
                 ),
-                const SizedBox(width: 36),
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 780),
-                      child: SingleChildScrollView(
-                        clipBehavior: Clip.hardEdge,
-                        padding: const EdgeInsets.all(TvDesign.focusOutset),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: <Color>[
-                                palette.raisedSurface,
-                                palette.surface,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: palette.hairline),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Colors.black.withValues(
-                                  alpha: palette.dark ? 0.34 : 0.1,
-                                ),
-                                blurRadius: 30,
-                                offset: const Offset(0, 16),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: EdgeInsets.all(compact ? 24 : 34),
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: <Widget>[
-                                  Row(
-                                    children: <Widget>[
-                                      Icon(
-                                        _isSignIn
-                                            ? PhosphorIcons.signIn()
-                                            : PhosphorIcons.userPlus(),
-                                        color: palette.mutedText,
-                                        size: 30,
-                                      ),
-                                      const SizedBox(width: 13),
-                                      Text(
-                                        _isSignIn
-                                            ? tr('tv_sign_in_to_flixquest')
-                                            : tr('tv_create_your_account'),
-                                        style: TextStyle(
-                                          color: palette.foreground,
-                                          fontFamily: 'FigtreeBold',
-                                          fontSize: compact ? 28 : 34,
-                                          letterSpacing: -0.45,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: compact ? 18 : 25),
-                                  if (_isSignIn) ...<Widget>[
-                                    TvFocusable(
-                                      semanticLabel: tr('continue_with_google'),
-                                      enabled: !_submitting,
-                                      onActivate: _signInWithGoogle,
-                                      focusScale: 1.02,
-                                      borderRadius: BorderRadius.circular(11),
-                                      child: Container(
-                                        height: 56,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: palette.raisedSurface,
-                                          border: Border.all(
-                                            color: palette.hairline,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(9),
-                                        ),
-                                        child: Row(
-                                          children: <Widget>[
-                                            Icon(
-                                              PhosphorIcons.googleLogo(),
-                                              color: palette.foreground,
-                                              size: 24,
-                                            ),
-                                            const SizedBox(width: 13),
-                                            Expanded(
-                                              child: Text(
-                                                tr('continue_with_google'),
-                                                style: TextStyle(
-                                                  color: palette.foreground,
-                                                  fontFamily: 'FigtreeSB',
-                                                  fontSize: 18,
-                                                ),
-                                              ),
-                                            ),
-                                            Icon(
-                                              PhosphorIcons.caretRight(),
-                                              color: palette.mutedText,
-                                              size: 21,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(height: compact ? 20 : 26),
-                                    Row(
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Divider(
-                                            color: palette.hairline,
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                          ),
-                                          child: Text(
-                                            'or',
-                                            style: TextStyle(
-                                              color: palette.mutedText,
-                                              fontFamily: 'FigtreeSB',
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Divider(
-                                            color: palette.hairline,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: compact ? 18 : 24),
-                                  ],
-                                  if (!_isSignIn) ...<Widget>[
-                                    _TvAuthField(
-                                      controller: _nameController,
-                                      focusNode: _nameFocus,
-                                      nextFocusNode: _emailFocus,
-                                      label: tr('full_name'),
-                                      icon: PhosphorIcons.user(),
-                                      autofocus: true,
-                                      validator: (value) => value == null ||
-                                              value.trim().length < 2
-                                          ? tr('tv_enter_your_full_name')
-                                          : null,
-                                    ),
-                                    const SizedBox(height: 13),
-                                  ],
-                                  _TvAuthField(
-                                    controller: _emailController,
-                                    focusNode: _emailFocus,
-                                    nextFocusNode: _isSignIn
-                                        ? _passwordFocus
-                                        : _usernameFocus,
-                                    label: tr('email_address'),
-                                    icon: PhosphorIcons.envelopeSimple(),
-                                    autofocus: _isSignIn,
-                                    keyboardType: TextInputType.emailAddress,
-                                    validator: (value) => value == null ||
-                                            !value.trim().contains('@')
-                                        ? tr('tv_enter_a_valid_email_address')
-                                        : null,
-                                  ),
-                                  if (!_isSignIn) ...<Widget>[
-                                    const SizedBox(height: 13),
-                                    _TvAuthField(
-                                      controller: _usernameController,
-                                      focusNode: _usernameFocus,
-                                      nextFocusNode: _passwordFocus,
-                                      label: tr('username'),
-                                      icon: PhosphorIcons.at(),
-                                      inputFormatters: <TextInputFormatter>[
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp(r'[a-zA-Z0-9_]'),
-                                        ),
-                                      ],
-                                      validator: (value) => value == null ||
-                                              value.trim().length < 3
-                                          ? tr(
-                                              'tv_use_at_least_3_letters_or_numbers')
-                                          : null,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 13),
-                                  _TvAuthField(
-                                    controller: _passwordController,
-                                    focusNode: _passwordFocus,
-                                    nextFocusNode: _isSignIn
-                                        ? null
-                                        : _confirmPasswordFocus,
-                                    label: tr('password'),
-                                    icon: PhosphorIcons.lock(),
-                                    obscureText: _obscurePassword,
-                                    textInputAction: _isSignIn
-                                        ? TextInputAction.done
-                                        : TextInputAction.next,
-                                    onSubmitted:
-                                        _isSignIn ? (_) => _submit() : null,
-                                    validator: (value) =>
-                                        value == null || value.length < 7
-                                            ? tr('tv_use_at_least_7_characters')
-                                            : null,
-                                  ),
-                                  if (!_isSignIn) ...<Widget>[
-                                    const SizedBox(height: 13),
-                                    _TvAuthField(
-                                      controller: _confirmPasswordController,
-                                      focusNode: _confirmPasswordFocus,
-                                      label: tr('tv_confirm_password'),
-                                      icon: PhosphorIcons.checkCircle(),
-                                      obscureText: _obscurePassword,
-                                      textInputAction: TextInputAction.done,
-                                      onSubmitted: (_) => _submit(),
-                                      validator: (value) =>
-                                          value != _passwordController.text
-                                              ? tr('tv_passwords_do_not_match')
-                                              : null,
-                                    ),
-                                    const SizedBox(height: 18),
-                                    _ProfilePicker(
-                                      selectedId: _profileId,
-                                      onSelected: (value) =>
-                                          setState(() => _profileId = value),
-                                    ),
-                                  ],
-                                  if (_error != null) ...<Widget>[
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      _error!,
-                                      style: TextStyle(
-                                        color: colors.error,
-                                        fontFamily: 'FigtreeSB',
-                                        fontSize: 17,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 20),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TvPillButton(
-                                      label: _submitting
-                                          ? tr('tv_please_wait')
-                                          : _isSignIn
-                                              ? tr('tv_sign_in')
-                                              : tr('tv_create_account'),
-                                      semanticLabel: _isSignIn
-                                          ? tr('tv_sign_in')
-                                          : tr('tv_create_account'),
-                                      icon: _isSignIn
-                                          ? PhosphorIcons.signIn()
-                                          : PhosphorIcons.userPlus(),
-                                      enabled: !_submitting,
-                                      prominent: true,
-                                      height: 52,
-                                      onActivate: _submit,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                620,
+              ].reduce((a, b) => a < b ? a : b);
+              return Row(
+                children: <Widget>[
+                  Expanded(child: _form(context, compact)),
+                  SizedBox(width: compact ? 32 : 48),
+                  _keyboardPanel(context, keyboardWidth, compact),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _form(BuildContext context, bool compact) {
+    final palette = TvPalette.of(context);
+    final colors = Theme.of(context).colorScheme;
+    final fieldGap = compact ? 10.0 : 14.0;
+    return FocusTraversalGroup(
+      child: SingleChildScrollView(
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.all(TvDesign.focusOutset),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              _isSignIn
+                  ? tr('tv_sign_in_to_flixquest')
+                  : tr('tv_create_your_account'),
+              style: TextStyle(
+                color: palette.foreground,
+                fontFamily: 'FigtreeBold',
+                fontSize: compact ? 28 : 36,
+                letterSpacing: -0.45,
+                height: 1.1,
+              ),
+            ),
+            SizedBox(height: compact ? 6 : 10),
+            Text(
+              _isSignIn
+                  ? tr('tv_sign_in_subtitle')
+                  : tr('tv_create_account_subtitle'),
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: compact ? 15 : 18,
+                height: 1.3,
+              ),
+            ),
+            SizedBox(height: compact ? 16 : 24),
+            for (final field in _fields) ...<Widget>[
+              _FieldTile(
+                focusNode: _nodes[field]!,
+                label: _label(field),
+                icon: _icon(field),
+                value: _values[field]!,
+                obscured: field == _Field.password && !_revealPassword,
+                active: field == _active,
+                compact: compact,
+                error: _attempted ? _validate(field) : null,
+                onFocused: () => _activate(field),
+                onActivate: _focusKeyboard,
+                trailing: field == _Field.password
+                    ? _RevealButton(
+                        revealed: _revealPassword,
+                        onActivate: () => setState(
+                          () => _revealPassword = !_revealPassword,
                         ),
-                      ),
-                    ),
-                  ),
+                        onExitTowardKeyboard: _focusKeyboard,
+                      )
+                    : null,
+              ),
+              SizedBox(height: fieldGap),
+            ],
+            if (!_isSignIn) ...<Widget>[
+              _ProfilePicker(
+                selectedId: _profileId,
+                compact: compact,
+                onSelected: (value) => setState(() => _profileId = value),
+              ),
+              SizedBox(height: fieldGap),
+            ],
+            if (_error != null) ...<Widget>[
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: colors.error,
+                  fontFamily: 'FigtreeSB',
+                  fontSize: compact ? 15 : 17,
+                ),
+              ),
+              SizedBox(height: fieldGap),
+            ],
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: <Widget>[
+                TvPillButton(
+                  label: _submitting ? tr('tv_please_wait') : _submitLabel,
+                  semanticLabel: _submitLabel,
+                  icon: _isSignIn
+                      ? PhosphorIcons.signIn()
+                      : PhosphorIcons.userPlus(),
+                  enabled: !_submitting,
+                  prominent: true,
+                  height: compact ? 46 : 52,
+                  onActivate: _submit,
+                ),
+                TvPillButton(
+                  label: tr('continue_with_google'),
+                  icon: PhosphorIcons.googleLogo(),
+                  enabled: !_submitting,
+                  height: compact ? 46 : 52,
+                  onActivate: _signInWithGoogle,
                 ),
               ],
-            );
-          },
+            ),
+            SizedBox(height: compact ? 14 : 20),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: _SwitchModeLink(
+                prompt: _isSignIn
+                    ? tr('tv_new_to_flixquest')
+                    : tr('tv_already_have_an_account'),
+                action: _isSignIn ? tr('tv_create_account') : tr('tv_sign_in'),
+                enabled: !_submitting,
+                onActivate: _switchMode,
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _keyboardPanel(BuildContext context, double width, bool compact) {
+    final palette = TvPalette.of(context);
+    final hint = _hint(_active);
+    final last = _active == _fields.last;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    return SizedBox(
+      width: width,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(_icon(_active), color: palette.foreground, size: 20),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  _label(_active).toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: palette.foreground,
+                    fontFamily: 'FigtreeBold',
+                    fontSize: compact ? 14 : 16,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hint ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: compact ? 14 : 16,
+            ),
+          ),
+          SizedBox(height: compact ? 10 : 16),
+          TvFormKeyboard(
+            key: _keyboard,
+            width: width,
+            onType: _type,
+            onDelete: _delete,
+            onClear: _clear,
+            onAction: _next,
+            actionLabel: last
+                ? (_submitting ? tr('tv_please_wait') : _submitLabel)
+                : tr('tv_keyboard_next'),
+            actionIcon: last
+                ? (_isSignIn
+                    ? PhosphorIcons.signIn()
+                    : PhosphorIcons.userPlus())
+                : PhosphorIcons.arrowRight(),
+            // The fields sit on the keyboard's left, or its right in RTL.
+            onExitLeft: rtl ? null : _focusActiveField,
+            onExitRight: rtl ? _focusActiveField : null,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TvAuthField extends StatefulWidget {
-  const _TvAuthField({
-    required this.controller,
+/// The arrow that points from the fields to the keyboard.
+LogicalKeyboardKey _towardKeyboard(BuildContext context) =>
+    Directionality.of(context) == TextDirection.rtl
+        ? LogicalKeyboardKey.arrowLeft
+        : LogicalKeyboardKey.arrowRight;
+
+/// A field as the remote sees it: a tile showing what has been typed, with a
+/// cursor while it is the one the keyboard fills. Select, or the arrow
+/// toward the keyboard, hands focus to it.
+class _FieldTile extends StatefulWidget {
+  const _FieldTile({
     required this.focusNode,
     required this.label,
     required this.icon,
-    this.nextFocusNode,
-    this.autofocus = false,
-    this.keyboardType,
-    this.obscureText = false,
-    this.textInputAction = TextInputAction.next,
-    this.onSubmitted,
-    this.validator,
-    this.inputFormatters,
+    required this.value,
+    required this.obscured,
+    required this.active,
+    required this.compact,
+    required this.onFocused,
+    required this.onActivate,
+    this.error,
+    this.trailing,
   });
 
-  final TextEditingController controller;
   final FocusNode focusNode;
-  final FocusNode? nextFocusNode;
   final String label;
   final IconData icon;
-  final bool autofocus;
-  final TextInputType? keyboardType;
-  final bool obscureText;
-  final TextInputAction textInputAction;
-  final ValueChanged<String>? onSubmitted;
-  final FormFieldValidator<String>? validator;
-  final List<TextInputFormatter>? inputFormatters;
+  final String value;
+  final bool obscured;
+  final bool active;
+  final bool compact;
+  final String? error;
+  final VoidCallback onFocused;
+  final bool Function() onActivate;
+
+  /// Beside the tile, where Right goes first.
+  final Widget? trailing;
 
   @override
-  State<_TvAuthField> createState() => _TvAuthFieldState();
+  State<_FieldTile> createState() => _FieldTileState();
 }
 
-class _TvAuthFieldState extends State<_TvAuthField> {
+class _FieldTileState extends State<_FieldTile> {
   bool _focused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.focusNode.addListener(_onFocus);
-  }
-
-  void _onFocus() {
-    if (_focused != widget.focusNode.hasFocus) {
-      setState(() => _focused = widget.focusNode.hasFocus);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.focusNode.removeListener(_onFocus);
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final palette = TvPalette.of(context);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      decoration: BoxDecoration(
-        color: palette.raisedSurface,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(
-          color: _focused
-              ? palette.foreground
-              : palette.foreground.withValues(alpha: 0.09),
-          width: _focused ? 3 : 1,
+    final colors = Theme.of(context).colorScheme;
+    final error = widget.error;
+    final empty = widget.value.isEmpty;
+    final foreground = _focused ? palette.onFocus : palette.foreground;
+    final muted = _focused ? palette.onFocusMuted : palette.mutedText;
+    final shown = widget.obscured ? '•' * widget.value.length : widget.value;
+    final valueSize = widget.compact ? 18.0 : 21.0;
+    final tile = TvFocusable(
+      focusNode: widget.focusNode,
+      semanticLabel: widget.label,
+      onActivate: () => widget.onActivate(),
+      onFocusChanged: (hasFocus) {
+        if (hasFocus) widget.onFocused();
+        if (hasFocus != _focused) setState(() => _focused = hasFocus);
+      },
+      onKeyEvent: (_, event) {
+        if (widget.trailing == null &&
+            event is KeyDownEvent &&
+            event.logicalKey == _towardKeyboard(context) &&
+            widget.onActivate()) {
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      focusScale: 1,
+      focusColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(TvDesign.cardRadius * 2),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        height: widget.compact ? 56 : 66,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: _focused ? palette.focusFill : palette.idleFill,
+          borderRadius: BorderRadius.circular(TvDesign.cardRadius * 2),
+          border: Border.all(
+            color: error != null
+                ? colors.error
+                : widget.active && !_focused
+                    ? palette.foreground
+                    : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(widget.icon, color: muted, size: 22),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: muted,
+                      fontFamily: 'FigtreeSB',
+                      fontSize: widget.compact ? 12 : 14,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: <Widget>[
+                      Flexible(
+                        // Scrolled to its end, so a long value shows what
+                        // was typed last, where the cursor is.
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          reverse: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Text(
+                            shown,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                              color: foreground,
+                              fontFamily: 'FigtreeSB',
+                              fontSize: valueSize,
+                              height: 1.15,
+                              letterSpacing: widget.obscured ? 2 : 0,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (widget.active)
+                        Container(
+                          width: 2,
+                          height: valueSize + 2,
+                          margin: EdgeInsetsDirectional.only(
+                            start: empty ? 0 : 2,
+                          ),
+                          color: foreground,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      child: TextFormField(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        autofocus: widget.autofocus,
-        keyboardType: widget.keyboardType,
-        obscureText: widget.obscureText,
-        textInputAction: widget.textInputAction,
-        inputFormatters: widget.inputFormatters,
-        validator: widget.validator,
-        onFieldSubmitted: (value) {
-          if (widget.nextFocusNode != null) {
-            widget.nextFocusNode!.requestFocus();
-          } else {
-            widget.onSubmitted?.call(value);
-          }
-        },
-        style: TextStyle(color: palette.foreground, fontSize: 19),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          prefixIcon: Icon(widget.icon, color: palette.mutedText),
-          labelText: widget.label,
-          labelStyle: TextStyle(color: palette.mutedText),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (widget.trailing == null)
+          tile
+        else
+          Row(
+            children: <Widget>[
+              Expanded(child: tile),
+              const SizedBox(width: 10),
+              widget.trailing!,
+            ],
+          ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              error,
+              style: TextStyle(
+                color: colors.error,
+                fontFamily: 'FigtreeSB',
+                fontSize: widget.compact ? 13 : 15,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Shows or hides the password, beside its field.
+class _RevealButton extends StatelessWidget {
+  const _RevealButton({
+    required this.revealed,
+    required this.onActivate,
+    required this.onExitTowardKeyboard,
+  });
+
+  final bool revealed;
+  final VoidCallback onActivate;
+
+  /// Toward the keyboard, past this button.
+  final bool Function() onExitTowardKeyboard;
+
+  @override
+  Widget build(BuildContext context) {
+    Localizations.localeOf(context);
+    final label = revealed ? tr('tv_hide_password') : tr('tv_show_password');
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == _towardKeyboard(context) &&
+            onExitTowardKeyboard()) {
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TvPillButton(
+        label: label,
+        icon: revealed ? PhosphorIcons.eyeSlash() : PhosphorIcons.eye(),
+        onActivate: onActivate,
+        height: 46,
+      ),
+    );
+  }
+}
+
+/// "New to FlixQuest? Create account": swaps sign-in and sign-up in place.
+class _SwitchModeLink extends StatefulWidget {
+  const _SwitchModeLink({
+    required this.prompt,
+    required this.action,
+    required this.enabled,
+    required this.onActivate,
+  });
+
+  final String prompt;
+  final String action;
+  final bool enabled;
+  final VoidCallback onActivate;
+
+  @override
+  State<_SwitchModeLink> createState() => _SwitchModeLinkState();
+}
+
+class _SwitchModeLinkState extends State<_SwitchModeLink> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    Localizations.localeOf(context);
+    final palette = TvPalette.of(context);
+    return TvFocusable(
+      semanticLabel: '${widget.prompt} ${widget.action}',
+      enabled: widget.enabled,
+      onActivate: widget.onActivate,
+      onFocusChanged: (hasFocus) {
+        if (hasFocus != _focused) setState(() => _focused = hasFocus);
+      },
+      focusScale: 1,
+      focusColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: _focused ? palette.focusFill : Colors.transparent,
+          borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+        ),
+        child: Text.rich(
+          TextSpan(
+            children: <InlineSpan>[
+              TextSpan(
+                text: '${widget.prompt} ',
+                style: TextStyle(
+                  color: _focused ? palette.onFocusMuted : palette.mutedText,
+                ),
+              ),
+              TextSpan(
+                text: widget.action,
+                style: TextStyle(
+                  color: _focused ? palette.onFocus : palette.foreground,
+                  fontFamily: 'FigtreeBold',
+                  decoration: _focused ? null : TextDecoration.underline,
+                ),
+              ),
+            ],
+          ),
+          style: const TextStyle(fontFamily: 'FigtreeSB', fontSize: 17),
         ),
       ),
     );
@@ -603,50 +849,58 @@ class _TvAuthFieldState extends State<_TvAuthField> {
 }
 
 class _ProfilePicker extends StatelessWidget {
-  const _ProfilePicker({required this.selectedId, required this.onSelected});
+  const _ProfilePicker({
+    required this.selectedId,
+    required this.compact,
+    required this.onSelected,
+  });
 
   final int selectedId;
+  final bool compact;
   final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final palette = TvPalette.of(context);
+    final size = compact ? 44.0 : 56.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
           tr('tv_choose_a_profile_image'),
           style: TextStyle(
-            color: palette.foreground,
+            color: palette.mutedText,
             fontFamily: 'FigtreeSB',
-            fontSize: 18,
+            fontSize: compact ? 14 : 16,
           ),
         ),
-        const SizedBox(height: 11),
+        const SizedBox(height: 8),
         Wrap(
-          spacing: 13,
-          runSpacing: 13,
+          spacing: 10,
+          runSpacing: 10,
           children: <Widget>[
             for (final id in const <int>[0, 1, 2, 3, 4])
               TvFocusable(
-                semanticLabel: tr('tv_profile_image_semantics',
-                    namedArgs: {'number': '${id + 1}'}),
+                semanticLabel: tr(
+                  'tv_profile_image_semantics',
+                  namedArgs: {'number': '${id + 1}'},
+                ),
+                selected: selectedId == id,
                 onActivate: () => onSelected(id),
-                focusScale: 1.04,
-                borderRadius: BorderRadius.circular(13),
+                focusScale: 1.08,
+                borderRadius: BorderRadius.circular(size),
                 child: Container(
-                  padding: EdgeInsets.all(selectedId == id ? 3 : 0),
+                  padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
+                    shape: BoxShape.circle,
                     color: selectedId == id ? palette.foreground : null,
-                    borderRadius: BorderRadius.circular(11),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(9),
+                  child: ClipOval(
                     child: Image.asset(
                       'assets/images/profiles/$id.png',
-                      width: 62,
-                      height: 62,
+                      width: size,
+                      height: size,
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -655,48 +909,6 @@ class _ProfilePicker extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _BackAction extends StatelessWidget {
-  const _BackAction({required this.onActivate});
-
-  final VoidCallback onActivate;
-
-  @override
-  Widget build(BuildContext context) {
-    Localizations.localeOf(context);
-    final palette = TvPalette.of(context);
-    return TvFocusable(
-      semanticLabel: tr('player_back'),
-      onActivate: onActivate,
-      focusScale: 1.025,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-        decoration: BoxDecoration(
-          color: palette.raisedSurface,
-          border: Border.all(
-            color: palette.foreground.withValues(alpha: 0.09),
-          ),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(PhosphorIcons.caretLeft(), color: palette.foreground),
-            const SizedBox(width: 8),
-            Text(
-              tr('player_back'),
-              style: TextStyle(
-                color: palette.foreground,
-                fontFamily: 'FigtreeSB',
-                fontSize: 18,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

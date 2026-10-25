@@ -1837,5 +1837,20 @@
   "flix_ai_no_matches": "कोई मेल खाता शीर्षक नहीं मिला। दूसरा मूड, शैली या पसंदीदा शीर्षक बताएँ।",
   "flix_ai_search_cta": "बातचीत से फ़िल्में और सीरीज़ खोजें",
   "flix_ai_try": "ऐसे पूछकर देखें",
-  "flix_ai_delete_message": "यह बातचीत आपके खाते से हटा दी जाएगी।"
+  "flix_ai_delete_message": "यह बातचीत आपके खाते से हटा दी जाएगी।",
+  "tv_create_free_account": "मुफ़्त खाता बनाएं",
+  "tv_landing_pitch": "मुफ़्त खाता आपकी सूची और प्रगति को हर स्क्रीन पर साथ रखता है।",
+  "tv_benefit_resume": "जहां छोड़ा था वहीं से देखें, फ़ोन पर या इस टीवी पर।",
+  "tv_benefit_plus": "FlixQuest Plus के साथ बिना विज्ञापन देखें।",
+  "tv_guest_caption": "आपकी सूची सिर्फ़ इसी टीवी पर रहेगी",
+  "tv_guest_confirm_title": "बिना खाते के जारी रखें?",
+  "tv_guest_confirm_body": "मेहमान के रूप में आपकी सूची और देखने की प्रगति सिर्फ़ इसी टीवी पर रहेगी, और FlixQuest Plus उपलब्ध नहीं होगा। मुफ़्त खाता बनाने में एक मिनट लगता है और यह आपके फ़ोन पर भी काम करता है।",
+  "tv_sign_in_subtitle": "फिर से स्वागत है। आपकी सूची और प्रगति आपका इंतज़ार कर रही हैं।",
+  "tv_create_account_subtitle": "यह मुफ़्त है, और आपकी सूची हर स्क्रीन पर आपके साथ रहती है।",
+  "tv_new_to_flixquest": "FlixQuest पर नए हैं?",
+  "tv_already_have_an_account": "पहले से खाता है?",
+  "tv_keyboard_next": "आगे",
+  "tv_keyboard_shift": "शिफ़्ट",
+  "tv_show_password": "दिखाएं",
+  "tv_hide_password": "छिपाएं"
 }

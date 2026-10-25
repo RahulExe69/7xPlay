@@ -56,8 +56,8 @@ void main() {
   }
 
   Future<void> pumpPage(WidgetTester tester, Widget page,
-      {bool gate = false}) async {
-    tester.view.physicalSize = const Size(1000, 1000);
+      {bool gate = false, Size size = const Size(1000, 1000)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MultiProvider(
@@ -258,19 +258,59 @@ void main() {
         {'current_password': ' secret123 ', 'password': ' newsecret123 '});
     expect(tester.takeException(), null);
   });
-  authTest('TV auth accepts a Laravel login with the existing remote form',
+  Future<void> typeOnTv(WidgetTester tester, String text) async {
+    for (final character in text.split('')) {
+      final lower = character.toLowerCase();
+      if (character != lower) {
+        await tester.tap(find.byKey(const ValueKey('tv-form-key-shift')));
+        await tester.pump();
+      }
+      await tester.tap(find.byKey(ValueKey('tv-form-key-$lower')));
+      await tester.pump();
+    }
+  }
+
+  Future<void> pressTvAction(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('tv-form-key-action')));
+    await tester.pumpAndSettle();
+  }
+
+  authTest('TV auth signs in with the on-screen keyboard, field by field',
       (tester) async {
     h.adapter.enqueueJson(authFixture());
     await pumpPage(tester, const TvAuthScreen.signIn(), gate: true);
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'beamlak@example.com');
-    await tester.enterText(fields.at(1), 'secret123');
-    final signIn = find.text('Sign in').last;
-    await tester.ensureVisible(signIn);
-    await tester.tap(signIn);
-    await tester.pumpAndSettle();
+    await typeOnTv(tester, 'Beamlak@example.com');
+    expect(find.text('Beamlak@example.com'), findsOneWidget);
+    await pressTvAction(tester);
+    await typeOnTv(tester, 'secret123');
+    expect(find.text('secret123'), findsNothing);
+    await pressTvAction(tester);
     expect(h.session.user?.id, 7);
     expect(find.text('account home'), findsOneWidget);
+    expect((h.adapter.requests.single.data as Map)['email'],
+        'beamlak@example.com');
+    expect(tester.takeException(), null);
+  });
+  authTest('TV sign-in and sign-up fit a 1080p TV screen', (tester) async {
+    // 1920x1080 at density 2, as Android TV lays it out.
+    for (final page in const <Widget>[
+      TvAuthScreen.signIn(),
+      TvAuthScreen.createAccount(),
+    ]) {
+      await pumpPage(tester, page, size: const Size(960, 540));
+      expect(find.byKey(const ValueKey('tv-form-key-action')), findsOneWidget);
+      expect(tester.takeException(), null);
+    }
+  });
+  authTest('TV sign-up names what is missing instead of sending the form',
+      (tester) async {
+    await pumpPage(tester, const TvAuthScreen.createAccount());
+    for (var field = 0; field < 4; field++) {
+      await pressTvAction(tester);
+    }
+    expect(find.text('Enter your full name.'), findsOneWidget);
+    expect(find.text('Use at least 7 characters.'), findsWidgets);
+    expect(h.adapter.requests, isEmpty);
     expect(tester.takeException(), null);
   });
 }

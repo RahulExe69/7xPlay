@@ -1853,7 +1853,22 @@ class CodegenLoader extends AssetLoader{
   "flix_ai_no_matches": "No matching titles this time. Try a broader mood, genre, or another reference title.",
   "flix_ai_search_cta": "Find movies and series by mood or conversation",
   "flix_ai_try": "Try asking",
-  "flix_ai_delete_message": "This conversation will be removed from your account."
+  "flix_ai_delete_message": "This conversation will be removed from your account.",
+  "tv_create_free_account": "Create free account",
+  "tv_landing_pitch": "A free account keeps your list and progress on every screen.",
+  "tv_benefit_resume": "Pick up where you left off, on your phone or this TV.",
+  "tv_benefit_plus": "Go ad-free with FlixQuest Plus.",
+  "tv_guest_caption": "Your list stays on this TV only",
+  "tv_guest_confirm_title": "Continue without an account?",
+  "tv_guest_confirm_body": "As a guest, your list and watch progress stay on this TV only, and FlixQuest Plus isn't available. A free account takes a minute and works on your phone too.",
+  "tv_sign_in_subtitle": "Welcome back. Your list and progress are waiting.",
+  "tv_create_account_subtitle": "It's free, and your list follows you to every screen.",
+  "tv_new_to_flixquest": "New to FlixQuest?",
+  "tv_already_have_an_account": "Already have an account?",
+  "tv_keyboard_next": "Next",
+  "tv_keyboard_shift": "Shift",
+  "tv_show_password": "Show",
+  "tv_hide_password": "Hide"
 };
 static const Map<String,dynamic> _hi = {
   "popularity_descending": "लोकप्रियता घटती",
@@ -3694,7 +3709,22 @@ static const Map<String,dynamic> _hi = {
   "flix_ai_no_matches": "कोई मेल खाता शीर्षक नहीं मिला। दूसरा मूड, शैली या पसंदीदा शीर्षक बताएँ।",
   "flix_ai_search_cta": "बातचीत से फ़िल्में और सीरीज़ खोजें",
   "flix_ai_try": "ऐसे पूछकर देखें",
-  "flix_ai_delete_message": "यह बातचीत आपके खाते से हटा दी जाएगी।"
+  "flix_ai_delete_message": "यह बातचीत आपके खाते से हटा दी जाएगी।",
+  "tv_create_free_account": "मुफ़्त खाता बनाएं",
+  "tv_landing_pitch": "मुफ़्त खाता आपकी सूची और प्रगति को हर स्क्रीन पर साथ रखता है।",
+  "tv_benefit_resume": "जहां छोड़ा था वहीं से देखें, फ़ोन पर या इस टीवी पर।",
+  "tv_benefit_plus": "FlixQuest Plus के साथ बिना विज्ञापन देखें।",
+  "tv_guest_caption": "आपकी सूची सिर्फ़ इसी टीवी पर रहेगी",
+  "tv_guest_confirm_title": "बिना खाते के जारी रखें?",
+  "tv_guest_confirm_body": "मेहमान के रूप में आपकी सूची और देखने की प्रगति सिर्फ़ इसी टीवी पर रहेगी, और FlixQuest Plus उपलब्ध नहीं होगा। मुफ़्त खाता बनाने में एक मिनट लगता है और यह आपके फ़ोन पर भी काम करता है।",
+  "tv_sign_in_subtitle": "फिर से स्वागत है। आपकी सूची और प्रगति आपका इंतज़ार कर रही हैं।",
+  "tv_create_account_subtitle": "यह मुफ़्त है, और आपकी सूची हर स्क्रीन पर आपके साथ रहती है।",
+  "tv_new_to_flixquest": "FlixQuest पर नए हैं?",
+  "tv_already_have_an_account": "पहले से खाता है?",
+  "tv_keyboard_next": "आगे",
+  "tv_keyboard_shift": "शिफ़्ट",
+  "tv_show_password": "दिखाएं",
+  "tv_hide_password": "छिपाएं"
 };
 static const Map<String,dynamic> _es = {
   "popularity_descending": "Popularidad descendiente",
@@ -5535,7 +5565,22 @@ static const Map<String,dynamic> _es = {
   "flix_ai_no_matches": "No hay títulos coincidentes. Prueba con otro género, ambiente o título de referencia.",
   "flix_ai_search_cta": "Encuentra películas y series conversando",
   "flix_ai_try": "Prueba a preguntar",
-  "flix_ai_delete_message": "Esta conversación se eliminará de tu cuenta."
+  "flix_ai_delete_message": "Esta conversación se eliminará de tu cuenta.",
+  "tv_create_free_account": "Crear cuenta gratis",
+  "tv_landing_pitch": "Una cuenta gratis guarda tu lista y tu progreso en todas tus pantallas.",
+  "tv_benefit_resume": "Sigue donde lo dejaste, en tu teléfono o en esta TV.",
+  "tv_benefit_plus": "Disfruta sin anuncios con FlixQuest Plus.",
+  "tv_guest_caption": "Tu lista se queda solo en esta TV",
+  "tv_guest_confirm_title": "¿Continuar sin una cuenta?",
+  "tv_guest_confirm_body": "Como invitado, tu lista y tu progreso se quedan solo en esta TV, y FlixQuest Plus no está disponible. Crear una cuenta gratis lleva un minuto y también funciona en tu teléfono.",
+  "tv_sign_in_subtitle": "Hola de nuevo. Tu lista y tu progreso te esperan.",
+  "tv_create_account_subtitle": "Es gratis, y tu lista te acompaña en todas tus pantallas.",
+  "tv_new_to_flixquest": "¿Nuevo en FlixQuest?",
+  "tv_already_have_an_account": "¿Ya tienes una cuenta?",
+  "tv_keyboard_next": "Siguiente",
+  "tv_keyboard_shift": "Mayúsculas",
+  "tv_show_password": "Mostrar",
+  "tv_hide_password": "Ocultar"
 };
 static const Map<String,dynamic> _ar = {
   "popularity_descending": "ترتيب تنازلي حسب الشعبية",
@@ -7423,7 +7468,22 @@ static const Map<String,dynamic> _ar = {
   "flix_ai_no_matches": "لم نجد أعمالًا مطابقة. جرب أجواءً أوسع أو نوعًا أو عملًا مرجعيًا آخر.",
   "flix_ai_search_cta": "اكتشف الأفلام والمسلسلات بالمحادثة",
   "flix_ai_try": "جرّب أن تسأل",
-  "flix_ai_delete_message": "ستُحذف هذه المحادثة من حسابك."
+  "flix_ai_delete_message": "ستُحذف هذه المحادثة من حسابك.",
+  "tv_create_free_account": "إنشاء حساب مجاني",
+  "tv_landing_pitch": "يحفظ الحساب المجاني قائمتك وتقدّمك على كل الشاشات.",
+  "tv_benefit_resume": "تابع من حيث توقفت، على هاتفك أو على هذا التلفاز.",
+  "tv_benefit_plus": "شاهد بلا إعلانات مع FlixQuest Plus.",
+  "tv_guest_caption": "تبقى قائمتك على هذا التلفاز فقط",
+  "tv_guest_confirm_title": "المتابعة بدون حساب؟",
+  "tv_guest_confirm_body": "كضيف، تبقى قائمتك وتقدّم المشاهدة على هذا التلفاز فقط، ولا يتوفر FlixQuest Plus. إنشاء حساب مجاني يستغرق دقيقة ويعمل على هاتفك أيضًا.",
+  "tv_sign_in_subtitle": "مرحبًا بعودتك. قائمتك وتقدّمك بانتظارك.",
+  "tv_create_account_subtitle": "إنه مجاني، وتنتقل قائمتك معك إلى كل الشاشات.",
+  "tv_new_to_flixquest": "جديد على FlixQuest؟",
+  "tv_already_have_an_account": "لديك حساب بالفعل؟",
+  "tv_keyboard_next": "التالي",
+  "tv_keyboard_shift": "حروف كبيرة",
+  "tv_show_password": "إظهار",
+  "tv_hide_password": "إخفاء"
 };
 static const Map<String, Map<String,dynamic>> mapLocales = {"en": _en, "hi": _hi, "es": _es, "ar": _ar};
 }

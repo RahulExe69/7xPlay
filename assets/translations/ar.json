@@ -1884,5 +1884,20 @@
   "flix_ai_no_matches": "لم نجد أعمالًا مطابقة. جرب أجواءً أوسع أو نوعًا أو عملًا مرجعيًا آخر.",
   "flix_ai_search_cta": "اكتشف الأفلام والمسلسلات بالمحادثة",
   "flix_ai_try": "جرّب أن تسأل",
-  "flix_ai_delete_message": "ستُحذف هذه المحادثة من حسابك."
+  "flix_ai_delete_message": "ستُحذف هذه المحادثة من حسابك.",
+  "tv_create_free_account": "إنشاء حساب مجاني",
+  "tv_landing_pitch": "يحفظ الحساب المجاني قائمتك وتقدّمك على كل الشاشات.",
+  "tv_benefit_resume": "تابع من حيث توقفت، على هاتفك أو على هذا التلفاز.",
+  "tv_benefit_plus": "شاهد بلا إعلانات مع FlixQuest Plus.",
+  "tv_guest_caption": "تبقى قائمتك على هذا التلفاز فقط",
+  "tv_guest_confirm_title": "المتابعة بدون حساب؟",
+  "tv_guest_confirm_body": "كضيف، تبقى قائمتك وتقدّم المشاهدة على هذا التلفاز فقط، ولا يتوفر FlixQuest Plus. إنشاء حساب مجاني يستغرق دقيقة ويعمل على هاتفك أيضًا.",
+  "tv_sign_in_subtitle": "مرحبًا بعودتك. قائمتك وتقدّمك بانتظارك.",
+  "tv_create_account_subtitle": "إنه مجاني، وتنتقل قائمتك معك إلى كل الشاشات.",
+  "tv_new_to_flixquest": "جديد على FlixQuest؟",
+  "tv_already_have_an_account": "لديك حساب بالفعل؟",
+  "tv_keyboard_next": "التالي",
+  "tv_keyboard_shift": "حروف كبيرة",
+  "tv_show_password": "إظهار",
+  "tv_hide_password": "إخفاء"
 }
