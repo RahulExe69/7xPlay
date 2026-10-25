@@ -3,13 +3,16 @@ import 'package:flixquest/presentation/session/session_view_model.dart';
 import 'error_interceptor.dart';
 
 class AuthInterceptor extends Interceptor {
-  AuthInterceptor(this.session, String apiUrl) : _api = Uri.parse(apiUrl);
+  AuthInterceptor(this.session, String apiUrl,
+      {String Function()? apiUrlProvider})
+      : _apiUrl = apiUrlProvider ?? (() => apiUrl);
   final SessionViewModel session;
-  final Uri _api;
+  final String Function() _apiUrl;
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final uri = options.uri;
-    final allowed = uri.origin == _api.origin && uri.path.startsWith(_api.path);
+    final api = Uri.parse(_apiUrl());
+    final allowed = uri.origin == api.origin && uri.path.startsWith(api.path);
     options.extra.remove('sessionToken');
     // Device requests belong to the account (guests included); sync requests
     // belong to the signed-in owner whose library they carry.
@@ -17,8 +20,10 @@ class AuthInterceptor extends Interceptor {
     final syncOwner = options.extra['syncOwner'];
     if ((sessionOwner != null && sessionOwner != session.accountId.value) ||
         (syncOwner != null && syncOwner != session.ownerId.value)) {
-      handler.reject(DioException(requestOptions: options,
-          type: DioExceptionType.cancel, message: 'Sync account changed.'));
+      handler.reject(DioException(
+          requestOptions: options,
+          type: DioExceptionType.cancel,
+          message: 'Sync account changed.'));
       return;
     }
     if (allowed &&

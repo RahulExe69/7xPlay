@@ -10,4 +10,16 @@ void main() {
     expect(overrides.acceptsBadCertificate('evil.backend.flix.quest.example'),
         isTrue);
   });
+
+  test('new backend hosts become verified for already-created HTTP clients',
+      () {
+    final overrides = MyHttpOverrides(verifiedHosts: {'bundled.example'});
+    final client = overrides.createHttpClient(null);
+    addTearDown(() => client.close(force: true));
+    expect(overrides.acceptsBadCertificate('remote.example'), isTrue);
+    overrides.verifiedHosts.add('remote.example');
+    // The callback reads the current host set rather than capturing a snapshot.
+    expect(overrides.acceptsBadCertificate('remote.example'), isFalse);
+    expect(overrides.acceptsBadCertificate('bundled.example'), isFalse);
+  });
 }

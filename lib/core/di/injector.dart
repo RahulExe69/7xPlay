@@ -73,6 +73,12 @@ class AppInjector {
   /// FlixQuest Plus for the signed-in account; it also drives AdsPolicy.
   final PlusController plus;
 
+  /// Existing repositories share this client, so their next request uses the
+  /// new endpoint without rebuilding the session or billing controllers.
+  void updateLaravelApiUrl(String url) {
+    laravelDio.options.baseUrl = AppEnvironment.normalizeLaravelApiUrl(url);
+  }
+
   Future<void> dispose() async {
     plus.dispose();
     session.dispose();
@@ -139,7 +145,8 @@ Future<AppInjector> buildInjector({
         sync.activateOwner(owner);
       } : null,
       mergeGuestData: syncEnabled ? (user) => sync.mergeGuest('user:${user.id}') : null);
-  laravelClient.interceptors.insert(0, AuthInterceptor(session, config.laravelApiUrl));
+  laravelClient.interceptors.insert(0, AuthInterceptor(session, config.laravelApiUrl,
+      apiUrlProvider: () => laravelClient.options.baseUrl));
   final billing = BillingRepository(laravelClient);
   return AppInjector._(
     environment: config,

@@ -9,6 +9,31 @@ refreshing them over the network. A slow refresh therefore keeps the cached ad
 selection usable for the first playback attempt. A fresh install still uses
 the disabled ad defaults until its first successful fetch.
 
+## Users, billing and wallet backend
+
+| Parameter | Firebase type | Default | Purpose |
+| --- | --- | --- | --- |
+| `laravel_api_url` | String | Empty (use bundled `LARAVEL_API_URL`) | Base URL for users, auth, billing, wallet, sync, devices and other Laravel APIs. For example, `https://backend.example.com` or `https://backend.example.com/api/v1/`. |
+
+Every launch initially uses `LARAVEL_API_URL` from `.env` (or its existing
+`--dart-define` override). A separate Firebase controller starts in the
+background, applies an activated cached URL if available, then fetches fresh
+values and listens for real-time updates. Backend discovery runs in all build
+modes, independently of migration flags and Laravel's `config_source`, so an
+unreachable bundled backend does not prevent discovery of its replacement.
+Failed fetches retry and recover on connectivity changes or app resume.
+
+The URL automatically ends in `/api/v1/`. A valid update changes subsequent
+requests on the shared client without restarting the app or signing out.
+Existing requests continue with the URL they started with. Authentication is
+scoped to the current backend, and both bundled and newly selected backend
+hosts retain TLS certificate verification. Invalid URLs (including credentials,
+query strings or fragments) retain the current working URL. Publishing an empty
+value or removing the parameter restores the bundled URL after activation.
+
+This parameter is separate from `flixquest_api_url_v2` and
+`flixquest_api_instances`, which configure the scraper/streaming service.
+
 ## Feature toggles
 
 | Parameter | Firebase type | Default | Purpose |

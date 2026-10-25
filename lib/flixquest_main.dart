@@ -35,6 +35,7 @@ import 'services/home_widget_service.dart';
 import 'services/recently_watched_sync_service.dart';
 import 'services/tmdb_connectivity.dart';
 import 'services/firebase_config_controller.dart';
+import 'services/firebase_backend_config_controller.dart';
 import 'presentation/config/refresh_controller.dart';
 import 'mobile/app/mobile_shell.dart';
 import 'mobile/app/mobile_update_gate.dart';
@@ -50,6 +51,7 @@ class FlixQuest extends StatefulWidget {
       required this.appDependencyProvider,
       required this.devicePresentation,
       this.configController,
+      this.backendConfigController,
       this.adsController,
       this.notifications,
       this.firebaseSession,
@@ -61,6 +63,7 @@ class FlixQuest extends StatefulWidget {
   final AppDependencyProvider appDependencyProvider;
   final DevicePresentation devicePresentation;
   final ConfigLifecycle? configController;
+  final FirebaseBackendConfigController? backendConfigController;
   final AdEventsController? adsController;
   final NotificationController? notifications;
   final FirebaseSessionBridge? firebaseSession;
@@ -105,6 +108,7 @@ class _FlixQuestState extends State<FlixQuest>
 
   Future<void> _refreshConfigAfterReload() async {
     try {
+      await widget.backendConfigController?.refresh();
       final controller = widget.configController;
       if (controller != null) {
         await controller.onResume();
@@ -122,6 +126,10 @@ class _FlixQuestState extends State<FlixQuest>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      widget.backendConfigController?.pause();
+    }
     WellnessProvider.instance.addListener(_scheduleLocalWidgetRefresh);
     widget.bookmarkProvider.addListener(_scheduleLocalWidgetRefresh);
     TmdbConnectivity.instance.proxyUrlSource =
@@ -178,6 +186,7 @@ class _FlixQuestState extends State<FlixQuest>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
+      widget.backendConfigController?.pause();
       _firebaseConfig?.pause();
       if (state == AppLifecycleState.paused) {
         context.read<PlusController?>()?.onPause();
@@ -192,6 +201,7 @@ class _FlixQuestState extends State<FlixQuest>
     }
     DeepLinkDispatcher.onAppReady();
     unawaited(_checkTmdb());
+    unawaited(widget.backendConfigController?.resume());
     unawaited(widget.configController?.onResume());
     unawaited(_firebaseConfig?.resume());
     unawaited(widget.adsController?.onResume());
@@ -218,6 +228,7 @@ class _FlixQuestState extends State<FlixQuest>
     _tmdbNetworkSubscription?.cancel();
     TmdbConnectivity.instance.proxyUrlSource = null;
     _firebaseConfig?.dispose();
+    widget.backendConfigController?.dispose();
     widget.configController?.dispose();
     unawaited(widget.adsController?.dispose());
     InAppMessagingService.dispose();

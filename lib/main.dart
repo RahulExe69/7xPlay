@@ -14,6 +14,7 @@ import 'data/sync/sync_runtime.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'data/ads/ad_events_controller.dart';
 import 'services/hosted_ads_repository.dart';
+import 'services/firebase_backend_config_controller.dart';
 import 'presentation/config/bootstrap_view_model.dart';
 import 'presentation/config/refresh_controller.dart';
 import 'presentation/config/config_source_controller.dart';
@@ -196,8 +197,9 @@ Future<DevicePresentation> appInitialize({
 void main() async {
   final devicePresentation = await appInitialize();
   final environment = AppEnvironment.fromRuntime();
-  HttpOverrides.global = MyHttpOverrides(
+  final httpOverrides = MyHttpOverrides(
       verifiedHosts: {Uri.parse(environment.laravelApiUrl).host});
+  HttpOverrides.global = httpOverrides;
   final injector = await buildInjector(
       environment: environment,
       deleteLocalData: (owner) async {
@@ -207,6 +209,15 @@ void main() async {
     await recentProvider.fetchEpisodes();
     await wellnessProvider.reload();
   });
+  final backendConfig = FirebaseBackendConfigController(
+    fallbackUrl: environment.laravelApiUrl,
+    onUrlChanged: (url) {
+      // Register the new host before any credential-bearing request can use it.
+      httpOverrides.verifiedHosts.add(Uri.parse(url).host.toLowerCase());
+      injector.updateLaravelApiUrl(url);
+    },
+  );
+  unawaited(backendConfig.start());
   HostedAdsRepository.instance.configure(injector.adsRepository);
   if (injector.migrationFlags.ads) {
     // Observe each rendered frame so brief visibility interruptions reset dwell.
@@ -348,6 +359,7 @@ void main() async {
               appDependencyProvider: appDependencyProvider,
               devicePresentation: devicePresentation,
               configController: configController,
+              backendConfigController: backendConfig,
               adsController: adsController,
               notifications: notifications,
               firebaseSession: firebaseSession,

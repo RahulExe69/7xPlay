@@ -27,6 +27,18 @@ class AppEnvironment {
           'LARAVEL_API_URL must be configured for release builds.');
     }
     final raw = configured.isEmpty ? 'http://10.0.2.2:8000' : configured;
+    return AppEnvironment._(
+      normalizeLaravelApiUrl(raw),
+      isDebug,
+      defineOneSignalAppId.trim().isNotEmpty
+          ? defineOneSignalAppId.trim()
+          : (env['ONESIGNAL_APP_ID'] ?? '').trim(),
+    );
+  }
+
+  /// Shared validation for bundled and remotely supplied backend URLs.
+  static String normalizeLaravelApiUrl(String value) {
+    final raw = value.trim();
     final uri = Uri.tryParse(raw);
     if (uri == null ||
         !['http', 'https'].contains(uri.scheme) ||
@@ -40,13 +52,7 @@ class AppEnvironment {
     if (!path.endsWith('/api/v1')) {
       path = '$path/api/v1';
     }
-    return AppEnvironment._(
-      uri.replace(path: '$path/').toString(),
-      isDebug,
-      defineOneSignalAppId.trim().isNotEmpty
-          ? defineOneSignalAppId.trim()
-          : (env['ONESIGNAL_APP_ID'] ?? '').trim(),
-    );
+    return uri.replace(path: '$path/').toString();
   }
 
   final String laravelApiUrl;

@@ -21,6 +21,7 @@ class AppRemoteConfig {
   static const legacyAppLogoKey = 'cinemax_logo';
   static const flixquestApiInstancesKey = 'flixquest_api_instances';
   static const flixquestApiUrlKey = 'flixquest_api_url_v2';
+  static const laravelApiUrlKey = 'laravel_api_url';
   static const tmdbApiKey = 'tmdb_api_key';
   static const enableWatchNowKey = 'enable_stream';
   static const enableDownloadKey = 'enable_download';
@@ -112,6 +113,8 @@ class AppRemoteConfig {
         'change_log': '',
         flixquestApiInstancesKey: '',
         flixquestApiUrlKey: '',
+        // Backend routing is applied independently of the feature config source.
+        laravelApiUrlKey: '',
         tmdbApiKey: '',
         // Feature toggles ship enabled so a failed or offline fetch never hides
         // playback, downloads or Live TV.

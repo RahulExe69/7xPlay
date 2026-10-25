@@ -47,6 +47,66 @@ void main() {
     expect(laravel.requests.length, 4);
     expect(await injector.tokenStore.read(), null);
   });
+  test('backend updates move existing user and billing repositories with auth',
+      () async {
+    final h = await SessionHarness.create();
+    addTearDown(h.dispose);
+    final adapter = FakeDioAdapter()..enqueueJson(authFixture());
+    final injector = await buildInjector(
+        migrationFlags: MigrationFlags.parse('auth'),
+        environment: AppEnvironment.resolve(
+            env: {'LARAVEL_API_URL': 'https://bundled.test'}),
+        kvStore: h.preferences,
+        tokenStore: h.tokens,
+        responseCacheStore: MemCacheStore(),
+        laravelDio: Dio()..httpClientAdapter = adapter);
+    addTearDown(injector.dispose);
+
+    await injector.session.signIn(
+        const LoginRequest(email: 'beamlak@example.com', password: 'password'));
+    expect(adapter.requests.single.uri.origin, 'https://bundled.test');
+    final auth = injector.authRepository;
+    final billing = injector.billingRepository;
+
+    injector.updateLaravelApiUrl(' https://remote.test/backend/ ');
+    expect(injector.authRepository, same(auth));
+    expect(injector.billingRepository, same(billing));
+    adapter.enqueueJson(authFixture());
+    await auth.profile();
+    expect(adapter.requests.last.uri.toString(),
+        'https://remote.test/backend/api/v1/user/profile');
+    expect(adapter.requests.last.headers['Authorization'],
+        'Bearer 7|sanitized-test-token');
+
+    adapter.enqueueJson({
+      'success': true,
+      'entitlements': {'ad_free': true},
+    });
+    expect((await billing.wallet()).entitlements.adFree, isTrue);
+    expect(adapter.requests.last.uri.toString(),
+        'https://remote.test/backend/api/v1/wallet');
+    expect(adapter.requests.last.headers['Authorization'],
+        'Bearer 7|sanitized-test-token');
+
+    expect(() => injector.updateLaravelApiUrl('https://remote.test?secret=x'),
+        throwsArgumentError);
+    expect(injector.laravelDio.options.baseUrl,
+        'https://remote.test/backend/api/v1/');
+
+    for (final url in [
+      'https://bundled.test/api/v1/user/profile',
+      'https://unrelated.test/backend/api/v1/user/profile',
+      'https://remote.test/outside/user/profile',
+    ]) {
+      adapter.enqueueJson({'success': true});
+      await injector.laravelDio.get<Object>(url,
+          options: Options(headers: {'Authorization': 'Bearer stale'}));
+      expect(adapter.requests.last.headers['Authorization'], isNull,
+          reason: url);
+    }
+    expect(injector.session.token, '7|sanitized-test-token');
+    expect(injector.publicDio.options.baseUrl, isEmpty);
+  });
   test(
       'new injector restores a previous lifecycle session from persisted token and profile',
       () async {
