@@ -22,6 +22,7 @@ internal object DownloadCacheReuse {
     private const val ETAG = "custom_fq_strong_etag"
     private const val LENGTH = "custom_fq_resource_length"
     private const val DIGEST = "custom_fq_sha256"
+    private const val SNIFF_BYTES = 512
 
     fun keyFactory(namespace: String): CacheKeyFactory = CacheKeyFactory { spec ->
         val key = spec.key ?: spec.uri.toString()
@@ -43,6 +44,9 @@ internal object DownloadCacheReuse {
         private var expectedLength = -1L
         private var readLength = 0L
         private var currentKey: String? = null
+        // Bytes read to sniff a mislabelled body, replayed before the rest of the stream.
+        private var pending: ByteArray? = null
+        private var pendingOffset = 0
         override fun addTransferListener(transferListener: TransferListener) = network.addTransferListener(transferListener)
         override fun getUri(): Uri? = spec?.uri
         override fun getResponseHeaders(): Map<String, List<String>> = network.responseHeaders
@@ -53,7 +57,13 @@ internal object DownloadCacheReuse {
                 val length = network.open(dataSpec)
                 fun header(name: String) = network.responseHeaders.entries.firstOrNull { it.key.equals(name, true) }?.value?.firstOrNull()
                 val type = header("Content-Type").orEmpty().lowercase()
-                if (type.contains("text/html") || type.contains("application/json")) throw IOException("The stream returned an error document instead of media.")
+                // Some hosts label real segments text/html, so judge the body, not the label.
+                if (type.contains("text/html") || type.contains("application/json")) {
+                    val prefix = peek()
+                    if (looksLikeDocument(prefix)) throw IOException("The stream returned an error document instead of media.")
+                    pending = prefix
+                    pendingOffset = 0
+                }
                 val etag = header("ETag")?.takeIf { it.startsWith('"') && it.endsWith('"') }
                 // A range response's validator covers the whole resource, but its
                 // length does not. Reuse only full resources and full responses.
@@ -79,6 +89,7 @@ internal object DownloadCacheReuse {
                             .setCacheWriteDataSinkFactory(null).createDataSource().also {
                                 it.open(dataSpec.buildUpon().setKey(oldKey).build())
                             }
+                        pending = null
                         network.close()
                     }
                     cache.applyContentMetadataMutations(key, ContentMetadataMutations().set(ETAG, etag!!).set(LENGTH, length))
@@ -110,8 +121,33 @@ internal object DownloadCacheReuse {
             } catch (_: IOException) { false } finally { input.close() }
         }
 
+        private fun peek(): ByteArray {
+            val prefix = ByteArray(SNIFF_BYTES)
+            var filled = 0
+            while (filled < prefix.size) {
+                val count = network.read(prefix, filled, prefix.size - filled)
+                if (count == C.RESULT_END_OF_INPUT) break
+                filled += count
+            }
+            return prefix.copyOf(filled)
+        }
+
+        /** Markup or JSON text, rather than TS/fMP4/AAC bytes or a binary key. */
+        private fun looksLikeDocument(prefix: ByteArray): Boolean {
+            val text = String(prefix, Charsets.ISO_8859_1).removePrefix("ï»¿").trimStart()
+            if (text.isEmpty()) return true
+            return text[0] in "<{[" && text.none { it < ' ' && it !in "\t\r\n" || it == '\u007F' }
+        }
+
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-            val count = (cached ?: network).read(buffer, offset, length)
+            val prefix = pending
+            val count = if (prefix != null) {
+                val copied = minOf(length, prefix.size - pendingOffset)
+                System.arraycopy(prefix, pendingOffset, buffer, offset, copied)
+                pendingOffset += copied
+                if (pendingOffset == prefix.size) pending = null
+                copied
+            } else (cached ?: network).read(buffer, offset, length)
             val hash = digest
             if (count > 0 && hash != null) {
                 hash.update(buffer, offset, count)
@@ -128,7 +164,7 @@ internal object DownloadCacheReuse {
         override fun close() {
             try { cached?.close() } finally {
                 cached = null
-                try { network.close() } finally { spec = null; digest = null; currentKey = null }
+                try { network.close() } finally { spec = null; digest = null; currentKey = null; pending = null }
             }
         }
     }
