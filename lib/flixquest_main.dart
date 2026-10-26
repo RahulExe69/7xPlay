@@ -332,15 +332,16 @@ class _FlixQuestState extends State<FlixQuest>
                           television: devicePresentation ==
                               DevicePresentation.television,
                         ),
-                        if (devicePresentation != DevicePresentation.television)
-                          OccasionalEffectOverlay(
-                            theme: appDependencyProvider.activeOccasionalTheme,
-                            enabled: appDependencyProvider
-                                .shouldShowOccasionalEffects,
-                            visibilityListenable: appDependencyProvider,
-                            visibilityResolver: () => appDependencyProvider
-                                .shouldShowOccasionalEffects,
-                          ),
+                        OccasionalEffectOverlay(
+                          theme: appDependencyProvider.activeOccasionalTheme,
+                          television: devicePresentation ==
+                              DevicePresentation.television,
+                          enabled:
+                              appDependencyProvider.shouldShowOccasionalEffects,
+                          visibilityListenable: appDependencyProvider,
+                          visibilityResolver: () =>
+                              appDependencyProvider.shouldShowOccasionalEffects,
+                        ),
                       ],
                     ),
                   ),

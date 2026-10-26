@@ -3,6 +3,93 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('TV effect overrides', () {
+    OccasionalEffect parse(Map<String, dynamic> json) =>
+        OccasionalEffect.fromJson(json,
+            presetType: OccasionalEffectType.confetti);
+
+    test('TV values differ while mobile keeps shared values after caching', () {
+      final catalog = OccasionalThemeCatalog.fromJson(<String, dynamic>{
+        'enabled': true,
+        'themes': <Object>[
+          <String, dynamic>{
+            'id': 'new_year',
+            'enabled': true,
+            'effect': <String, dynamic>{
+              'enabled': true,
+              'type': 'confetti',
+              'density': 32,
+              'speed': 1.2,
+              'opacity': .8,
+              'tv_density': 10,
+              'tv_speed': .5,
+              'tv_opacity': .4,
+              'colors': <String>['#112233'],
+            },
+          },
+        ],
+      });
+      final cached =
+          OccasionalThemeCatalog.fromJsonString(catalog.toJsonString());
+      final effect = cached.themes.single.effect;
+      final mobile = effect.forDevice(television: false);
+      final tv = effect.forDevice(television: true);
+      expect(mobile.density, 32);
+      expect(mobile.speed, 1.2);
+      expect(mobile.opacity, .8);
+      expect(tv.density, 10);
+      expect(tv.speed, .5);
+      expect(tv.opacity, .4);
+      expect(tv.enabled, mobile.enabled);
+      expect(tv.type, mobile.type);
+      expect(tv.colors, mobile.colors);
+    });
+
+    test('each omitted or invalid override inherits its shared value', () {
+      for (final overrides in <Map<String, dynamic>>[
+        <String, dynamic>{},
+        <String, dynamic>{'tv_speed': .5},
+        <String, dynamic>{
+          'tv_density': 'invalid',
+          'tv_speed': 'NaN',
+          'tv_opacity': double.infinity,
+        },
+        <String, dynamic>{
+          'tv_density': null,
+          'tv_speed': null,
+          'tv_opacity': null,
+        },
+      ]) {
+        final effect = parse(<String, dynamic>{
+          'density': 35,
+          'speed': 1.4,
+          'opacity': .7,
+          ...overrides,
+        });
+        final tv = effect.forDevice(television: true);
+        expect(tv.density, 35);
+        expect(tv.speed, overrides['tv_speed'] == .5 ? .5 : 1.4);
+        expect(tv.opacity, .7);
+        if (overrides['tv_speed'] != .5) {
+          expect(effect.toJson().keys, isNot(contains('tv_speed')));
+        }
+      }
+    });
+
+    test('TV values respect particle cost and animation bounds', () {
+      for (final high in <bool>[false, true]) {
+        final tv = parse(<String, dynamic>{
+          'tv_density': high ? 10000 : -1,
+          'tv_speed': high ? 20 : -1,
+          'tv_opacity': high ? 20 : -1,
+        }).forDevice(television: true);
+        expect(tv.density, high ? 80 : 4);
+        expect(tv.speed, high ? 3 : .2);
+        expect(tv.opacity, high ? 1 : .1);
+      }
+    });
+  });
+
   group('OccasionalTheme', () {
     test('uses built-in Christmas palette and effect type', () {
       final theme = OccasionalTheme.fromJson(<String, dynamic>{
