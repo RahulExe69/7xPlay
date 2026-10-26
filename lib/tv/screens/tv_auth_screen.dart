@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../core/error/failure.dart';
 import '../../presentation/session/firebase_session_bridge.dart';
 import '../../provider/settings_provider.dart';
 import '../../services/auth_navigation_service.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_focusable.dart';
+import '../widgets/tv_device_limit_picker.dart';
 import '../widgets/tv_form_keyboard.dart';
 import '../widgets/tv_pill_button.dart';
 
@@ -208,10 +210,16 @@ class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
     try {
       late final AuthSession credential;
       if (_isSignIn) {
-        credential = await _authService.signIn(
-          email: _values[_Field.email]!,
-          password: _values[_Field.password]!,
+        final session = await _authService.withinDeviceLimit(
+          (replaceDeviceId) => _authService.signIn(
+            email: _values[_Field.email]!,
+            password: _values[_Field.password]!,
+            replaceDeviceId: replaceDeviceId,
+          ),
+          pick: _pickDeviceToSignOut,
         );
+        if (session == null) return;
+        credential = session;
         if (mounted) {
           context.read<SettingsProvider>().analytics.trackLogin('email');
         }
@@ -243,6 +251,9 @@ class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
       if (mounted) setState(() => _submitting = false);
     }
   }
+
+  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
+      mounted ? showTvDeviceLimitPicker(context, limit) : null;
 
   String _authMessage(AuthActionException error) {
     return switch (error.code) {
@@ -299,7 +310,11 @@ class _TvAuthScreenState extends State<LaravelTvAuthScreen> {
       _error = null;
     });
     try {
-      final credential = await _authService.signInWithGoogle();
+      final credential = await _authService.withinDeviceLimit(
+        (replaceDeviceId) =>
+            _authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
+        pick: _pickDeviceToSignOut,
+      );
       if (credential == null) return;
       if (mounted) {
         context.read<SettingsProvider>().analytics.trackLogin('google');

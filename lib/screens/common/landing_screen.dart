@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/error/failure.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
+import '../../mobile/widgets/device_limit_sheet.dart';
 import '../../mobile/widgets/pill_button.dart';
 import '../../provider/settings_provider.dart';
 import '../../services/globle_method.dart';
@@ -164,11 +166,17 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
     }
   }
 
+  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
+      mounted ? showDeviceLimitSheet(context, limit) : null;
+
   Future<void> _continueWithGoogle(SettingsProvider settings) async {
     if (_loadingAnonymous) return;
     setState(() => _loadingGoogle = true);
     try {
-      final credential = await _authService.signInWithGoogle();
+      final credential = await _authService.withinDeviceLimit(
+          (replaceDeviceId) =>
+              _authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
+          pick: _pickDeviceToSignOut);
       if (credential == null) return;
       settings.analytics.trackLogin('google');
       // UserState's session gate swaps this landing screen for the app shell.

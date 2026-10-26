@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../data/models/signed_in_device.dart';
+
 part 'failure.freezed.dart';
 part 'failure.g.dart';
 
@@ -24,6 +26,13 @@ sealed class Failure with _$Failure {
     required int driftMs,
     String? message,
   }) = ClockSkewFailure;
+  /// The account is signed in on as many devices as its plan allows; signing
+  /// in again with one of [devices] to replace succeeds.
+  const factory Failure.deviceLimit({
+    required int limit,
+    required List<SignedInDevice> devices,
+    String? message,
+  }) = DeviceLimitFailure;
   const factory Failure.cache({String? message}) = CacheFailure;
   const factory Failure.unknown({String? message}) = UnknownFailure;
 

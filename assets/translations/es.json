@@ -2006,5 +2006,12 @@
   "playlist_save_copy_hint": "La copia es tuya para cambiarla; los cambios en esta no le llegarán.",
   "playlist_copy_saved": "Se guardó «{name}» en tus listas",
   "tv_playlist_browse": "Ver títulos",
-  "tv_playlist_share_scan": "Escanéalo con tu teléfono para abrir o enviar la lista, o comparte este enlace."
+  "tv_playlist_share_scan": "Escanéalo con tu teléfono para abrir o enviar la lista, o comparte este enlace.",
+  "device_limit_title": "Demasiados dispositivos",
+  "device_limit_body": "Esta cuenta ya tiene la sesión iniciada en tantos dispositivos como permite su plan. Elige un dispositivo para cerrar su sesión y poder iniciar sesión aquí.",
+  "device_unknown": "Dispositivo desconocido",
+  "device_platform_tv": "Televisor",
+  "device_platform_ios": "iPhone o iPad",
+  "device_platform_android": "Dispositivo Android",
+  "device_last_used": "Último uso: {date}"
 }

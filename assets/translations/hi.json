@@ -2006,5 +2006,12 @@
   "playlist_save_copy_hint": "कॉपी आपकी है, आप उसे बदल सकते हैं; इस सूची में हुए बदलाव उस तक नहीं पहुँचेंगे।",
   "playlist_copy_saved": "“{name}” आपकी सूचियों में सहेजी गई",
   "tv_playlist_browse": "शीर्षक देखें",
-  "tv_playlist_share_scan": "सूची खोलने या भेजने के लिए फ़ोन से स्कैन करें, या यह लिंक शेयर करें।"
+  "tv_playlist_share_scan": "सूची खोलने या भेजने के लिए फ़ोन से स्कैन करें, या यह लिंक शेयर करें।",
+  "device_limit_title": "बहुत सारे डिवाइस",
+  "device_limit_body": "यह खाता पहले से ही उतने डिवाइस पर साइन इन है जितने इसका प्लान अनुमति देता है। यहाँ साइन इन करने के लिए किसी एक डिवाइस से साइन आउट करें।",
+  "device_unknown": "अज्ञात डिवाइस",
+  "device_platform_tv": "टीवी",
+  "device_platform_ios": "iPhone या iPad",
+  "device_platform_android": "Android डिवाइस",
+  "device_last_used": "आखिरी इस्तेमाल {date}"
 }

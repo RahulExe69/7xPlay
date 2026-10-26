@@ -76,9 +76,12 @@ class FirebaseSessionBridge {
       },
       err: (failure) async {
         // Network, rate-limit and server failures retry on the next resume.
+        // At the device limit the person signs in by hand, where the app
+        // asks which device to sign out.
         if (failure is UnauthorizedFailure ||
             failure is ForbiddenFailure ||
-            failure is ConflictFailure) {
+            failure is ConflictFailure ||
+            failure is DeviceLimitFailure) {
           await _finish(
               signOut: true, email: session.user == null ? user!.email : null);
         }

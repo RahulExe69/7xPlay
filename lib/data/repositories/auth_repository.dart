@@ -9,8 +9,13 @@ import '../models/auth_session.dart';
 import '../sources/laravel_api.dart';
 
 class AuthRepository {
-  const AuthRepository(this.api);
+  const AuthRepository(this.api, {this.deviceFields});
   final LaravelApi api;
+
+  /// The `device_id`, `device_name` and `platform` every sign-in sends.
+  final Future<Map<String, Object>> Function()? deviceFields;
+  Future<Map<String, Object>> _device() async =>
+      await deviceFields?.call() ?? const {};
   Future<Result<T>> _result<T>(Future<T> Function() work) async {
     try {
       return Result.ok(await work());
@@ -67,15 +72,20 @@ class AuthRepository {
         }
         return (id: id, token: token);
       });
+  /// [replaceDeviceId] signs that device out first, after the account was
+  /// found at its device limit.
   Future<Result<AuthSession>> signIn(LoginRequest request,
-          {String? guestToken}) =>
+          {String? guestToken, int? replaceDeviceId}) =>
       _result(() async => _session(await api.request('auth/login',
               method: 'POST',
               authenticated: false,
               data: {
                 ...request.toJson(),
+                ...await _device(),
                 'email': request.email.trim().toLowerCase(),
-                if (guestToken != null) 'guest_token': guestToken
+                if (guestToken != null) 'guest_token': guestToken,
+                if (replaceDeviceId != null)
+                  'replace_device_id': replaceDeviceId
               })));
   Future<Result<AuthSession>> signUp(RegisterRequest request,
           {String? guestToken}) =>
@@ -84,25 +94,28 @@ class AuthRepository {
               authenticated: false,
               data: {
                 ...request.toJson(),
+                ...await _device(),
                 'name': request.name.trim(),
                 'email': request.email.trim().toLowerCase(),
                 'username': request.username.trim().toLowerCase(),
                 if (guestToken != null) 'guest_token': guestToken
               })));
   Future<Result<AuthSession>> signInWithGoogle(String idToken,
-          {String? guestToken}) =>
+          {String? guestToken, int? replaceDeviceId}) =>
       _result(() async => _session(await api.request('auth/google',
           method: 'POST',
           authenticated: false,
           data: {
+            ...await _device(),
             'id_token': idToken,
-            if (guestToken != null) 'guest_token': guestToken
+            if (guestToken != null) 'guest_token': guestToken,
+            if (replaceDeviceId != null) 'replace_device_id': replaceDeviceId
           })));
   Future<Result<AuthSession>> exchangeFirebaseSession(String idToken) =>
       _result(() async => _session(await api.request('auth/firebase/exchange',
           method: 'POST',
           authenticated: false,
-          data: {'id_token': idToken})));
+          data: {...await _device(), 'id_token': idToken})));
   Future<Result<AppUser>> profile() => _result(() async => AppUser.fromJson(
       (await api.request('user/profile'))['user'] as Map<String, dynamic>));
   Future<Result<AppUser>> updateProfile(UpdateProfileRequest request) =>

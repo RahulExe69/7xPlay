@@ -1906,5 +1906,12 @@ abstract class  LocaleKeys {
   static const playlist_copy_saved = 'playlist_copy_saved';
   static const tv_playlist_browse = 'tv_playlist_browse';
   static const tv_playlist_share_scan = 'tv_playlist_share_scan';
+  static const device_limit_title = 'device_limit_title';
+  static const device_limit_body = 'device_limit_body';
+  static const device_unknown = 'device_unknown';
+  static const device_platform_tv = 'device_platform_tv';
+  static const device_platform_ios = 'device_platform_ios';
+  static const device_platform_android = 'device_platform_android';
+  static const device_last_used = 'device_last_used';
 
 }

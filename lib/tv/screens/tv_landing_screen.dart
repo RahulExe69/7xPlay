@@ -6,9 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/error/failure.dart';
 import '../../provider/settings_provider.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_focusable.dart';
+import '../widgets/tv_device_limit_picker.dart';
 import '../widgets/tv_dialog.dart';
 import '../widgets/tv_poster_wall.dart';
 import 'tv_auth_screen.dart';
@@ -33,7 +35,11 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
 
     setState(() => _isGoogleSigningIn = true);
     try {
-      await _authService.signInWithGoogle();
+      await _authService.withinDeviceLimit(
+        (replaceDeviceId) =>
+            _authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
+        pick: _pickDeviceToSignOut,
+      );
       if (!mounted) return;
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
@@ -109,6 +115,9 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
       if (mounted) setState(() => _isEnteringAsGuest = false);
     }
   }
+
+  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
+      mounted ? showTvDeviceLimitPicker(context, limit) : null;
 
   void _open(Widget screen) {
     Navigator.of(context).push<void>(

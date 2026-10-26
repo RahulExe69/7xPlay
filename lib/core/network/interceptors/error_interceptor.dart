@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flixquest/core/error/failure.dart';
+import 'package:flixquest/core/json/json_reader.dart';
+import 'package:flixquest/data/models/signed_in_device.dart';
 import 'package:flixquest/data/models/api_error.dart';
 import 'retry_interceptor.dart';
 
@@ -25,6 +27,17 @@ Failure failureForDio(DioException error) {
     return Failure.clockSkew(
         serverTimeUtc: api.clockSkew!.serverTimeUtc,
         driftMs: api.clockSkew!.maxDriftMs,
+        message: api.message);
+  }
+  if (status == 409 && api.code == 'device_limit_reached') {
+    final devices = data is Map ? JsonReader.asList(data['devices']) : null;
+    return Failure.deviceLimit(
+        limit: JsonReader.asInt(data is Map ? data['limit'] : null) ?? 0,
+        devices: [
+          for (final device in devices ?? const <dynamic>[])
+            if (JsonReader.asMap(device) case final Map<String, dynamic> json)
+              SignedInDevice.fromJson(json),
+        ],
         message: api.message);
   }
   return switch (status) {

@@ -210,9 +210,12 @@ class SessionViewModel extends ChangeNotifier {
         });
   }
 
-  Future<Result<AuthSession>> signIn(LoginRequest request) => _authenticate(
-      () => repository.signIn(request, guestToken: _guestToken),
-      mergeGuest: true);
+  Future<Result<AuthSession>> signIn(LoginRequest request,
+          {int? replaceDeviceId}) =>
+      _authenticate(
+          () => repository.signIn(request,
+              guestToken: _guestToken, replaceDeviceId: replaceDeviceId),
+          mergeGuest: true);
   Future<Result<AuthSession>> signUp(RegisterRequest request) => _authenticate(
       () => repository.signUp(request, guestToken: _guestToken),
       mergeGuest: true);
@@ -220,20 +223,31 @@ class SessionViewModel extends ChangeNotifier {
   Future<Result<AuthSession>> signInWithFirebaseSession(String idToken) =>
       _authenticate(() => repository.exchangeFirebaseSession(idToken),
           mergeGuest: true);
-  Future<Result<AuthSession?>> signInWithGoogle() async {
+  /// The Google sign-in a device-limit refusal answered, reused when the
+  /// person picks a device to sign out so Google does not ask again.
+  String? _deviceLimitedGoogleToken;
+
+  Future<Result<AuthSession?>> signInWithGoogle({int? replaceDeviceId}) async {
     final revision = _revision;
-    final idToken = await google.authenticate();
+    final idToken = replaceDeviceId != null && _deviceLimitedGoogleToken != null
+        ? _deviceLimitedGoogleToken
+        : await google.authenticate();
+    _deviceLimitedGoogleToken = null;
     if (revision != _revision) {
       return const Result.err(
           Failure.unknown(message: 'Session changed. Please try again.'));
     }
     if (idToken == null) return const Result.ok(null);
     final result = await _authenticate(
-        () => repository.signInWithGoogle(idToken, guestToken: _guestToken),
+        () => repository.signInWithGoogle(idToken,
+            guestToken: _guestToken, replaceDeviceId: replaceDeviceId),
         mergeGuest: true);
     return result.when(
         ok: (session) => Result.ok(session),
-        err: (failure) => Result.err(failure));
+        err: (failure) {
+          if (failure is DeviceLimitFailure) _deviceLimitedGoogleToken = idToken;
+          return Result.err(failure);
+        });
   }
 
   Future<void> enterGuest() async {

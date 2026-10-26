@@ -2077,5 +2077,12 @@
   "playlist_save_copy_hint": "النسخة لك لتغييرها؛ لن تصلها التعديلات على هذه القائمة.",
   "playlist_copy_saved": "تم حفظ «{name}» في قوائمك",
   "tv_playlist_browse": "تصفح العناوين",
-  "tv_playlist_share_scan": "امسحه بهاتفك لفتح القائمة أو إرسالها، أو شارك هذا الرابط."
+  "tv_playlist_share_scan": "امسحه بهاتفك لفتح القائمة أو إرسالها، أو شارك هذا الرابط.",
+  "device_limit_title": "أجهزة كثيرة جدًا",
+  "device_limit_body": "هذا الحساب مسجّل الدخول بالفعل على أقصى عدد من الأجهزة تسمح به خطته. اختر جهازًا لتسجيل خروجه حتى تتمكن من تسجيل الدخول هنا.",
+  "device_unknown": "جهاز غير معروف",
+  "device_platform_tv": "تلفاز",
+  "device_platform_ios": "iPhone أو iPad",
+  "device_platform_android": "جهاز Android",
+  "device_last_used": "آخر استخدام {date}"
 }

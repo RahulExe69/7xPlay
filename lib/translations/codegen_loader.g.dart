@@ -2022,7 +2022,14 @@ class CodegenLoader extends AssetLoader{
   "playlist_save_copy_hint": "The copy is yours to change; edits to this one won’t reach it.",
   "playlist_copy_saved": "Saved “{name}” to your lists",
   "tv_playlist_browse": "Browse titles",
-  "tv_playlist_share_scan": "Scan with your phone to open or send the list, or share this link."
+  "tv_playlist_share_scan": "Scan with your phone to open or send the list, or share this link.",
+  "device_limit_title": "Too many devices",
+  "device_limit_body": "This account is already signed in on as many devices as its plan allows. Choose a device to sign out so you can sign in here.",
+  "device_unknown": "Unknown device",
+  "device_platform_tv": "TV",
+  "device_platform_ios": "iPhone or iPad",
+  "device_platform_android": "Android device",
+  "device_last_used": "Last used {date}"
 };
 static const Map<String,dynamic> _hi = {
   "popularity_descending": "लोकप्रियता घटती",
@@ -4032,7 +4039,14 @@ static const Map<String,dynamic> _hi = {
   "playlist_save_copy_hint": "कॉपी आपकी है, आप उसे बदल सकते हैं; इस सूची में हुए बदलाव उस तक नहीं पहुँचेंगे।",
   "playlist_copy_saved": "“{name}” आपकी सूचियों में सहेजी गई",
   "tv_playlist_browse": "शीर्षक देखें",
-  "tv_playlist_share_scan": "सूची खोलने या भेजने के लिए फ़ोन से स्कैन करें, या यह लिंक शेयर करें।"
+  "tv_playlist_share_scan": "सूची खोलने या भेजने के लिए फ़ोन से स्कैन करें, या यह लिंक शेयर करें।",
+  "device_limit_title": "बहुत सारे डिवाइस",
+  "device_limit_body": "यह खाता पहले से ही उतने डिवाइस पर साइन इन है जितने इसका प्लान अनुमति देता है। यहाँ साइन इन करने के लिए किसी एक डिवाइस से साइन आउट करें।",
+  "device_unknown": "अज्ञात डिवाइस",
+  "device_platform_tv": "टीवी",
+  "device_platform_ios": "iPhone या iPad",
+  "device_platform_android": "Android डिवाइस",
+  "device_last_used": "आखिरी इस्तेमाल {date}"
 };
 static const Map<String,dynamic> _es = {
   "popularity_descending": "Popularidad descendiente",
@@ -6042,7 +6056,14 @@ static const Map<String,dynamic> _es = {
   "playlist_save_copy_hint": "La copia es tuya para cambiarla; los cambios en esta no le llegarán.",
   "playlist_copy_saved": "Se guardó «{name}» en tus listas",
   "tv_playlist_browse": "Ver títulos",
-  "tv_playlist_share_scan": "Escanéalo con tu teléfono para abrir o enviar la lista, o comparte este enlace."
+  "tv_playlist_share_scan": "Escanéalo con tu teléfono para abrir o enviar la lista, o comparte este enlace.",
+  "device_limit_title": "Demasiados dispositivos",
+  "device_limit_body": "Esta cuenta ya tiene la sesión iniciada en tantos dispositivos como permite su plan. Elige un dispositivo para cerrar su sesión y poder iniciar sesión aquí.",
+  "device_unknown": "Dispositivo desconocido",
+  "device_platform_tv": "Televisor",
+  "device_platform_ios": "iPhone o iPad",
+  "device_platform_android": "Dispositivo Android",
+  "device_last_used": "Último uso: {date}"
 };
 static const Map<String,dynamic> _ar = {
   "popularity_descending": "ترتيب تنازلي حسب الشعبية",
@@ -8123,7 +8144,14 @@ static const Map<String,dynamic> _ar = {
   "playlist_save_copy_hint": "النسخة لك لتغييرها؛ لن تصلها التعديلات على هذه القائمة.",
   "playlist_copy_saved": "تم حفظ «{name}» في قوائمك",
   "tv_playlist_browse": "تصفح العناوين",
-  "tv_playlist_share_scan": "امسحه بهاتفك لفتح القائمة أو إرسالها، أو شارك هذا الرابط."
+  "tv_playlist_share_scan": "امسحه بهاتفك لفتح القائمة أو إرسالها، أو شارك هذا الرابط.",
+  "device_limit_title": "أجهزة كثيرة جدًا",
+  "device_limit_body": "هذا الحساب مسجّل الدخول بالفعل على أقصى عدد من الأجهزة تسمح به خطته. اختر جهازًا لتسجيل خروجه حتى تتمكن من تسجيل الدخول هنا.",
+  "device_unknown": "جهاز غير معروف",
+  "device_platform_tv": "تلفاز",
+  "device_platform_ios": "iPhone أو iPad",
+  "device_platform_android": "جهاز Android",
+  "device_last_used": "آخر استخدام {date}"
 };
 static const Map<String, Map<String,dynamic>> mapLocales = {"en": _en, "hi": _hi, "es": _es, "ar": _ar};
 }

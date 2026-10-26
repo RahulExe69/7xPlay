@@ -11,6 +11,7 @@ import 'package:flixquest/data/repositories/auth_repository.dart';
 import 'package:flixquest/data/repositories/billing_repository.dart';
 import 'package:flixquest/presentation/billing/plus_controller.dart';
 import 'package:flixquest/data/repositories/config_repository.dart';
+import 'package:flixquest/data/sources/device_identity.dart';
 import 'package:flixquest/data/sources/laravel_api.dart';
 import 'package:flixquest/data/sources/google_identity_client.dart';
 import 'package:flixquest/presentation/session/session_view_model.dart';
@@ -123,7 +124,8 @@ Future<AppInjector> buildInjector({
   final publicClient = createPublicDio(config, dio: publicDio, httpCache: cache);
   final laravelClient = createLaravelDio(config, dio: laravelDio, httpCache: cache);
   final tokens = tokenStore ?? SecureTokenStore();
-  final auth = AuthRepository(LaravelApi(laravelClient));
+  final auth = AuthRepository(LaravelApi(laravelClient),
+      deviceFields: DeviceIdentity(preferences).fields);
   final flags = migrationFlags ?? MigrationFlags.fromRuntime();
   final clock = serverClock ?? ServerClock(preferences);
   final syncEnabled = flags.auth && flags.sync;

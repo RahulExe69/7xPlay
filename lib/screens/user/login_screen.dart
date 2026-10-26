@@ -10,7 +10,9 @@ import 'package:provider/provider.dart';
 import '../../presentation/session/firebase_session_bridge.dart';
 import '../../services/globle_method.dart';
 import '../../services/auth_navigation_service.dart';
+import '../../core/error/failure.dart';
 import '../../mobile/widgets/account_form.dart';
+import '../../mobile/widgets/device_limit_sheet.dart';
 import '../../widgets/google_sign_in_button.dart';
 
 class LaravelLoginScreen extends StatefulWidget {
@@ -47,9 +49,13 @@ class _LoginScreenState extends State<LaravelLoginScreen> {
     setState(() => isLoading = true);
     formKey.currentState!.save();
     try {
-      final credential =
-          await authService.signIn(email: emailAddress, password: password);
-      if (!mounted) return;
+      final credential = await authService.withinDeviceLimit(
+          (replaceDeviceId) => authService.signIn(
+              email: emailAddress,
+              password: password,
+              replaceDeviceId: replaceDeviceId),
+          pick: _pickDeviceToSignOut);
+      if (credential == null || !mounted) return;
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('email');
@@ -81,12 +87,18 @@ class _LoginScreenState extends State<LaravelLoginScreen> {
     }
   }
 
+  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
+      mounted ? showDeviceLimitSheet(context, limit) : null;
+
   Future<void> signInWithGoogle() async {
     if (isLoading || _googleLoading) return;
     if (!mounted) return;
     setState(() => _googleLoading = true);
     try {
-      final credential = await authService.signInWithGoogle();
+      final credential = await authService.withinDeviceLimit(
+          (replaceDeviceId) =>
+              authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
+          pick: _pickDeviceToSignOut);
       if (credential == null) return;
       if (!mounted) return;
       Provider.of<SettingsProvider>(context, listen: false)
