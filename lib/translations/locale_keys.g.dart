@@ -186,6 +186,10 @@ abstract class  LocaleKeys {
   static const choose_playback_provider = 'choose_playback_provider';
   static const choose_playback_provider_description = 'choose_playback_provider_description';
   static const seek_second = 'seek_second';
+  static const hold_right_speed = 'hold_right_speed';
+  static const hold_right_speed_description = 'hold_right_speed_description';
+  static const hold_left_speed = 'hold_left_speed';
+  static const hold_left_speed_description = 'hold_left_speed_description';
   static const buffer_amount = 'buffer_amount';
   static const video_resolution = 'video_resolution';
   static const auto = 'auto';

@@ -78,6 +78,25 @@ class SettingsPreferences {
     return sharedPrefsSingleton.getInt(SEEK_PREFERENCE) ?? 10;
   }
 
+  // 0 turns holding that edge of the player off.
+  static const FAST_HOLD_SPEED = 'fast_hold_speed';
+  setFastHoldSpeed(double speed) async {
+    sharedPrefsSingleton.setDouble(FAST_HOLD_SPEED, speed);
+  }
+
+  Future<double> getFastHoldSpeed() async {
+    return sharedPrefsSingleton.getDouble(FAST_HOLD_SPEED) ?? 2;
+  }
+
+  static const SLOW_HOLD_SPEED = 'slow_hold_speed';
+  setSlowHoldSpeed(double speed) async {
+    sharedPrefsSingleton.setDouble(SLOW_HOLD_SPEED, speed);
+  }
+
+  Future<double> getSlowHoldSpeed() async {
+    return sharedPrefsSingleton.getDouble(SLOW_HOLD_SPEED) ?? .5;
+  }
+
   // static const MIN_BUFFER_PREFERENCE = 'min_buffer';
   // setMinBufferDuration(int bufferDuration) async {
   //

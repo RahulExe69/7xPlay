@@ -337,6 +337,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           enableBrightnessSwipe: !widget.useTvControls,
           enableSeekSwipe: !widget.useTvControls,
           enableDoubleTapSeek: !widget.useTvControls,
+          fastHoldSpeed:
+              widget.useTvControls || widget.settings.fastHoldSpeed <= 0
+                  ? null
+                  : widget.settings.fastHoldSpeed,
+          slowHoldSpeed:
+              widget.useTvControls || widget.settings.slowHoldSpeed <= 0
+                  ? null
+                  : widget.settings.slowHoldSpeed,
           volumeSwipeSensitivity: 0.5,
           brightnessSwipeSensitivity: 0.5,
           seekSwipeSensitivity: 1.0,

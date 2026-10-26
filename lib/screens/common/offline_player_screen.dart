@@ -67,11 +67,15 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
     final accent = Theme.of(context).primaryColor;
     final settings = context.read<SettingsProvider>();
     final controls = BetterPlayerControlsConfiguration(
-      gestureConfiguration: const BetterPlayerGestureConfiguration(
+      gestureConfiguration: BetterPlayerGestureConfiguration(
         enableVolumeSwipe: true,
         enableBrightnessSwipe: true,
         enableSeekSwipe: true,
         enableDoubleTapSeek: true,
+        fastHoldSpeed:
+            settings.fastHoldSpeed > 0 ? settings.fastHoldSpeed : null,
+        slowHoldSpeed:
+            settings.slowHoldSpeed > 0 ? settings.slowHoldSpeed : null,
         volumeSwipeSensitivity: 0.5,
         brightnessSwipeSensitivity: 0.5,
         seekSwipeSensitivity: 1.0,

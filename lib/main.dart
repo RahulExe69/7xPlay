@@ -160,6 +160,7 @@ Future<DevicePresentation> appInitialize({
   await settingsProvider.getCurrentImageQuality();
   await settingsProvider.getCurrentWatchCountry();
   await settingsProvider.getSeekDuration();
+  await settingsProvider.getHoldSpeeds();
   await settingsProvider.getMaxBufferDuration();
   await settingsProvider.getVideoResolution();
   await settingsProvider.getSubtitleLanguage();
