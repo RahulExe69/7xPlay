@@ -1,28 +1,28 @@
+import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import '../../constants/app_constants.dart';
-import '../../functions/function.dart';
 import '/screens/user/forgot_password.dart';
 import '/provider/settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:provider/provider.dart';
+import '../../presentation/session/firebase_session_bridge.dart';
 import '../../services/globle_method.dart';
-import '../../services/flixquest_auth_service.dart';
-import '../../services/bookmark_sync_service.dart';
 import '../../services/auth_navigation_service.dart';
+import '../../core/error/failure.dart';
 import '../../mobile/widgets/account_form.dart';
+import '../../mobile/widgets/device_limit_sheet.dart';
 import '../../widgets/google_sign_in_button.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class LaravelLoginScreen extends StatefulWidget {
+  const LaravelLoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<LaravelLoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LaravelLoginScreen> {
   final FocusNode passwordFocusNode = FocusNode();
   bool obscureText = true;
   String emailAddress = '';
@@ -33,11 +33,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
   bool _googleLoading = false;
 
-  // @override
-  // void dispose() {
-  //   passwordFocusNode.dispose();
-  //   super.dispose();
-  // }
+  @override
+  void dispose() {
+    passwordFocusNode.dispose();
+    super.dispose();
+  }
 
   Future<void> submitForm() async {
     if (isLoading || _googleLoading) return;
@@ -45,39 +45,25 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     if (!isValid) return;
 
-    if (!await checkConnection()) {
-      if (mounted) {
-        GlobalMethods.showCustomScaffoldMessage(
-          SnackBar(
-            content: Text(
-              tr('check_connection'),
-              maxLines: 3,
-              style: kTextSmallBodyStyle,
-            ),
-            duration: const Duration(seconds: 3),
-          ),
-          context,
-        );
-      }
-      return;
-    }
-
     if (!mounted) return;
     setState(() => isLoading = true);
     formKey.currentState!.save();
     try {
-      final credential =
-          await authService.signIn(email: emailAddress, password: password);
-      if (!mounted) return;
-      BookmarkSyncService.instance.autoSyncIfSignedIn();
+      final credential = await authService.withinDeviceLimit(
+          (replaceDeviceId) => authService.signIn(
+              email: emailAddress,
+              password: password,
+              replaceDeviceId: replaceDeviceId),
+          pick: _pickDeviceToSignOut);
+      if (credential == null || !mounted) return;
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('email');
       await AuthNavigationService.returnToAppRoot(
         context,
-        authenticatedUserId: credential.user!.uid,
+        authenticatedUserId: credential.user.id.toString(),
       );
-    } on FirebaseAuthException catch (error) {
+    } on AuthActionException catch (error) {
       if (!mounted) return;
       if (error.code == 'wrong-password' ||
           error.code == 'invalid-credential') {
@@ -92,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
         globalMethods.authErrorHandle(tr('check_connection'), context);
       } else {
         globalMethods.authErrorHandle(
-          error.message ?? tr('error_occured'),
+          error.message,
           context,
         );
       }
@@ -101,26 +87,31 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
+      mounted ? showDeviceLimitSheet(context, limit) : null;
+
   Future<void> signInWithGoogle() async {
     if (isLoading || _googleLoading) return;
     if (!mounted) return;
     setState(() => _googleLoading = true);
     try {
-      final credential = await authService.signInWithGoogle();
+      final credential = await authService.withinDeviceLimit(
+          (replaceDeviceId) =>
+              authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
+          pick: _pickDeviceToSignOut);
       if (credential == null) return;
       if (!mounted) return;
-      BookmarkSyncService.instance.autoSyncIfSignedIn();
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('google');
       await AuthNavigationService.returnToAppRoot(
         context,
-        authenticatedUserId: credential.user!.uid,
+        authenticatedUserId: credential.user.id.toString(),
       );
-    } on FirebaseAuthException catch (error) {
+    } on AuthActionException catch (error) {
       if (!mounted) return;
       if (error.code == 'account-exists-with-different-credential') {
-        globalMethods.authErrorHandle(tr('google_email_conflict'), context);
+        globalMethods.authErrorHandle(error.message, context);
       } else if (error.code == 'invalid-credential') {
         globalMethods.authErrorHandle(tr('invalid_credential'), context);
       } else if (error.code == 'user-disabled') {
@@ -129,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
         globalMethods.authErrorHandle(tr('check_connection'), context);
       } else {
         globalMethods.authErrorHandle(
-          error.message ?? tr('error_occured'),
+          error.message,
           context,
         );
       }
@@ -159,9 +150,8 @@ class _LoginScreenState extends State<LoginScreen> {
         error.message?.toLowerCase().contains('network') == true) {
       return tr('check_connection');
     }
-    final detail = (error.message?.isNotEmpty ?? false)
-        ? error.message!
-        : error.code;
+    final detail =
+        (error.message?.isNotEmpty ?? false) ? error.message! : error.code;
     return '${tr('google_signin_failed')}\n$detail';
   }
 
@@ -177,6 +167,8 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               TextFormField(
                 key: const ValueKey('email'),
+                // Prefilled for 4.2.x accounts that need one manual sign-in.
+                initialValue: FirebaseSessionBridge.signInEmailHint,
                 validator: (value) {
                   if (value!.isEmpty || !value.contains('@')) {
                     return tr('invalid_email');
@@ -213,8 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   prefixIcon: Icon(PhosphorIcons.lock()),
                   suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => obscureText = !obscureText),
+                    onPressed: () => setState(() => obscureText = !obscureText),
                     icon: Icon(obscureText
                         ? PhosphorIcons.eye()
                         : PhosphorIcons.eyeSlash()),
@@ -250,4 +241,10 @@ class _LoginScreenState extends State<LoginScreen> {
       ],
     );
   }
+}
+
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const LaravelLoginScreen();
 }

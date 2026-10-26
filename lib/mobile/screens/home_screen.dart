@@ -14,6 +14,7 @@ import '../../catalog/media_item.dart';
 import '../../catalog/title_logos.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
+import '../../design/flix_ai_mark.dart';
 import '../../models/genres.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/recently_watched_provider.dart';
@@ -37,8 +38,10 @@ import '../widgets/hero_card.dart';
 import '../widgets/media_art.dart';
 import '../widgets/media_rows.dart';
 import '../widgets/page_kit.dart' show EmptyState;
+import '../widgets/plus_card.dart';
 import '../widgets/skeletons.dart';
 import 'collection_screen.dart';
+import 'flix_ai_screen.dart';
 
 /// Finds a colour to tint the top of Home with, from an image URL.
 typedef TintFinder = Future<Color?> Function(String imageUrl);
@@ -267,6 +270,7 @@ class _HomeScreenState extends State<HomeScreen>
         kicker: kicker.toUpperCase(),
         logoAsset: collection.logoAsset,
         adPlacement: adPlacement ?? collection.adPlacement,
+        adFree: collection.adFree,
         loadPage: collection.loadPage,
       );
 
@@ -367,7 +371,6 @@ class _HomeScreenState extends State<HomeScreen>
     final heroes =
         feed == null ? const <HomeHero>[] : _heroesFor(feed, continueWatching);
     final media = MediaQuery.of(context);
-    final gutter = AppSpace.gutter(context);
     final headerHeight = media.padding.top + _HomeHeader.barHeight;
 
     final List<Widget> content;
@@ -386,6 +389,10 @@ class _HomeScreenState extends State<HomeScreen>
         onOpenService: _openService,
         onOpenList: _openList,
       );
+      // Now and then, a Plus invitation a few rows down (never the top).
+      if (_filter == HomeFilter.all && rows.length > 3) {
+        rows.insert(3, const HomeOptionalRow(child: PlusSpotlight()));
+      }
       content = <Widget>[
         SliverFadeTransition(
           opacity: _fade,
@@ -422,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen>
           top: 0,
           left: 0,
           right: 0,
-          height: headerHeight + HeroCard.heightFor(media.size.width, gutter),
+          height: headerHeight + HeroCard.heightFor(context),
           child: IgnorePointer(
             child: ValueListenableBuilder<Color?>(
               valueListenable: _tint,
@@ -684,6 +691,15 @@ class _HomeHeader extends StatelessWidget {
                     color: palette.foreground,
                     onPressed: onDownloads,
                     icon: Icon(PhosphorIcons.downloadSimple(), size: 24),
+                  ),
+                  IconButton(
+                    tooltip: 'FlixAI',
+                    color: palette.foreground,
+                    onPressed: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                            settings: const RouteSettings(name: '/flix-ai'),
+                            builder: (_) => const FlixAiScreen())),
+                    icon: const FlixAiMark(height: 22),
                   ),
                   // Search last, at the bar's far end.
                   IconButton(

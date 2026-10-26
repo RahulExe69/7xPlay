@@ -1,28 +1,31 @@
+import 'package:flixquest/services/flixquest_auth_service.dart';
+
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/error/failure.dart';
 import '../../provider/settings_provider.dart';
-import '../../services/flixquest_auth_service.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_focusable.dart';
+import '../widgets/tv_device_limit_picker.dart';
+import '../widgets/tv_dialog.dart';
 import '../widgets/tv_poster_wall.dart';
 import 'tv_auth_screen.dart';
 import '../../widgets/app_logo.dart';
 
-class TvLandingScreen extends StatefulWidget {
-  const TvLandingScreen({super.key});
+class LaravelTvLandingScreen extends StatefulWidget {
+  const LaravelTvLandingScreen({super.key});
 
   static const screenKey = Key('tv-landing-screen');
 
   @override
-  State<TvLandingScreen> createState() => _TvLandingScreenState();
+  State<LaravelTvLandingScreen> createState() => _TvLandingScreenState();
 }
 
-class _TvLandingScreenState extends State<TvLandingScreen> {
+class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
   final _authService = FlixQuestAuthService();
   bool _isEnteringAsGuest = false;
   bool _isGoogleSigningIn = false;
@@ -32,14 +35,18 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
 
     setState(() => _isGoogleSigningIn = true);
     try {
-      await _authService.signInWithGoogle();
+      await _authService.withinDeviceLimit(
+        (replaceDeviceId) =>
+            _authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
+        pick: _pickDeviceToSignOut,
+      );
       if (!mounted) return;
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('google');
-      // UserState owns the destination. Its auth stream replaces this landing
+      // UserState owns the destination. Its session gate replaces this landing
       // screen with TvHomeShell when the Google session becomes active.
-    } on FirebaseAuthException catch (error) {
+    } on AuthActionException catch (error) {
       if (mounted) {
         _showError(_googleAuthMessage(error));
       }
@@ -56,6 +63,35 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
     }
   }
 
+  /// Guests are asked once more, with what an account adds, since a guest's
+  /// list never leaves this TV.
+  Future<void> _confirmGuest() async {
+    if (_isEnteringAsGuest || _isGoogleSigningIn) return;
+    final choice = await showTvDialog<bool>(
+      context: context,
+      title: tr('tv_guest_confirm_title'),
+      content: Text(tr('tv_guest_confirm_body')),
+      actions: <TvDialogAction>[
+        TvDialogAction(
+          label: tr('tv_create_free_account'),
+          isPrimary: true,
+          autofocus: true,
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+        TvDialogAction(
+          label: tr('tv_continue_as_guest'),
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ],
+    );
+    if (!mounted || choice == null) return;
+    if (choice) {
+      await _continueAsGuest();
+    } else {
+      _open(const TvAuthScreen.createAccount());
+    }
+  }
+
   Future<void> _continueAsGuest() async {
     if (_isEnteringAsGuest) return;
 
@@ -66,9 +102,8 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('anonymous');
-      // UserState owns the destination. Its auth stream replaces this landing
-      // screen with TvHomeShell when the anonymous session becomes active.
-    } on FirebaseAuthException catch (error) {
+      // UserState owns the destination; the local guest session opens TvHomeShell.
+    } on AuthActionException catch (error) {
       if (mounted) {
         _showError(_authMessage(error));
       }
@@ -80,6 +115,9 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
       if (mounted) setState(() => _isEnteringAsGuest = false);
     }
   }
+
+  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
+      mounted ? showTvDeviceLimitPicker(context, limit) : null;
 
   void _open(Widget screen) {
     Navigator.of(context).push<void>(
@@ -93,16 +131,15 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
     );
   }
 
-  String _googleAuthMessage(FirebaseAuthException error) {
+  String _googleAuthMessage(AuthActionException error) {
     return switch (error.code) {
-      'account-exists-with-different-credential' => tr(
-          'tv_that_email_is_already_used_by_an_email_and_password_account_sign_in_with_your_email_and_password_instead'),
+      'account-exists-with-different-credential' => error.message,
       'network-request-failed' =>
         tr('tv_check_your_internet_connection_and_retry'),
       'operation-not-allowed' =>
         tr('tv_google_sign_in_is_currently_unavailable'),
       'invalid-credential' => tr('google_signin_failed'),
-      _ => error.message ?? tr('tv_unable_to_sign_in_with_google'),
+      _ => error.message,
     };
   }
 
@@ -125,12 +162,12 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
     return tr('tv_google_unavailable_device', namedArgs: {'detail': detail});
   }
 
-  String _authMessage(FirebaseAuthException error) {
+  String _authMessage(AuthActionException error) {
     return switch (error.code) {
       'operation-not-allowed' => tr('tv_guest_access_is_currently_unavailable'),
       'network-request-failed' =>
         tr('tv_check_your_internet_connection_and_retry'),
-      _ => error.message ?? tr('tv_unable_to_continue_as_guest'),
+      _ => error.message,
     };
   }
 
@@ -139,7 +176,7 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
     Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     return Scaffold(
-      key: TvLandingScreen.screenKey,
+      key: LaravelTvLandingScreen.screenKey,
       backgroundColor: TvDesign.surfaceFor(context),
       body: Stack(
         fit: StackFit.expand,
@@ -232,7 +269,7 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
                                   ),
                                   SizedBox(height: compact ? 8 : 12),
                                   Text(
-                                    tr('tv_use_your_remote_to_choose_how_you_want_to_continue'),
+                                    tr('tv_landing_pitch'),
                                     style: TextStyle(
                                       color: palette.mutedText,
                                       fontSize: compact ? 16 : 19,
@@ -241,24 +278,24 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
                                   ),
                                   SizedBox(height: compact ? 20 : 28),
                                   _TvLandingAction(
-                                    label: tr('tv_sign_in'),
-                                    icon: PhosphorIcons.signIn(),
+                                    label: tr('tv_create_free_account'),
+                                    icon: PhosphorIcons.userPlus(),
                                     autofocus: true,
                                     primary: true,
-                                    enabled: !_isGoogleSigningIn &&
-                                        !_isEnteringAsGuest,
-                                    onActivate: () =>
-                                        _open(const TvAuthScreen.signIn()),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _TvLandingAction(
-                                    label: tr('tv_create_account'),
-                                    icon: PhosphorIcons.userPlus(),
                                     enabled: !_isGoogleSigningIn &&
                                         !_isEnteringAsGuest,
                                     onActivate: () => _open(
                                       const TvAuthScreen.createAccount(),
                                     ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _TvLandingAction(
+                                    label: tr('tv_sign_in'),
+                                    icon: PhosphorIcons.signIn(),
+                                    enabled: !_isGoogleSigningIn &&
+                                        !_isEnteringAsGuest,
+                                    onActivate: () =>
+                                        _open(const TvAuthScreen.signIn()),
                                   ),
                                   const SizedBox(height: 12),
                                   _TvLandingAction(
@@ -270,15 +307,15 @@ class _TvLandingScreenState extends State<TvLandingScreen> {
                                         !_isEnteringAsGuest,
                                     onActivate: _continueWithGoogle,
                                   ),
-                                  const SizedBox(height: 12),
-                                  _TvLandingAction(
+                                  SizedBox(height: compact ? 14 : 20),
+                                  _TvGuestLink(
                                     label: _isEnteringAsGuest
                                         ? tr('tv_starting_guest_session')
                                         : tr('tv_continue_as_guest'),
-                                    icon: PhosphorIcons.userCircle(),
+                                    caption: tr('tv_guest_caption'),
                                     enabled: !_isEnteringAsGuest &&
                                         !_isGoogleSigningIn,
-                                    onActivate: _continueAsGuest,
+                                    onActivate: _confirmGuest,
                                   ),
                                 ],
                               ),
@@ -351,7 +388,108 @@ class _TvLandingIntro extends StatelessWidget {
             ),
           ),
         ),
+        SizedBox(height: compact ? 22 : 32),
+        for (final (icon, text) in <(IconData, String)>[
+          (
+            PhosphorIcons.devices(),
+            tr('tv_your_list_and_history_stay_in_sync_across_your_signed_in_devices'),
+          ),
+          (PhosphorIcons.playCircle(), tr('tv_benefit_resume')),
+          (PhosphorIcons.sparkle(), tr('tv_benefit_plus')),
+        ])
+          Padding(
+            padding: EdgeInsets.only(bottom: compact ? 10 : 14),
+            child: Row(
+              children: <Widget>[
+                Icon(icon, color: palette.foreground, size: compact ? 22 : 26),
+                const SizedBox(width: 14),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        color: palette.foreground,
+                        fontFamily: 'FigtreeSB',
+                        fontSize: compact ? 16 : 19,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
+    );
+  }
+}
+
+/// Guest mode, kept quiet below the account options: a plain line with what
+/// it leaves out, not a button that competes with them.
+class _TvGuestLink extends StatefulWidget {
+  const _TvGuestLink({
+    required this.label,
+    required this.caption,
+    required this.enabled,
+    required this.onActivate,
+  });
+
+  final String label;
+  final String caption;
+  final bool enabled;
+  final VoidCallback onActivate;
+
+  @override
+  State<_TvGuestLink> createState() => _TvGuestLinkState();
+}
+
+class _TvGuestLinkState extends State<_TvGuestLink> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    Localizations.localeOf(context);
+    final palette = TvPalette.of(context);
+    return TvFocusable(
+      semanticLabel: '${widget.label}. ${widget.caption}',
+      enabled: widget.enabled,
+      onActivate: widget.onActivate,
+      onFocusChanged: (hasFocus) {
+        if (hasFocus != _focused) setState(() => _focused = hasFocus);
+      },
+      focusScale: 1,
+      focusColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: _focused ? palette.focusFill : Colors.transparent,
+          borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              widget.label,
+              style: TextStyle(
+                color: _focused ? palette.onFocus : palette.secondaryText,
+                fontFamily: 'FigtreeSB',
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              widget.caption,
+              style: TextStyle(
+                color: _focused ? palette.onFocusMuted : palette.mutedText,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -438,4 +576,11 @@ class _TvLandingActionState extends State<_TvLandingAction> {
       ),
     );
   }
+}
+
+class TvLandingScreen extends StatelessWidget {
+  const TvLandingScreen({super.key});
+  static const screenKey = LaravelTvLandingScreen.screenKey;
+  @override
+  Widget build(BuildContext context) => const LaravelTvLandingScreen();
 }

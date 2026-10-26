@@ -13,6 +13,7 @@ import '../../catalog/media_search.dart';
 import '../../constants/app_constants.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
+import '../../design/flix_ai_mark.dart';
 import '../../design/skeleton.dart';
 import '../../models/genres.dart';
 import '../../models/person.dart';
@@ -24,12 +25,14 @@ import '../app/mobile_tabs.dart';
 import '../collections.dart';
 import '../playback.dart';
 import 'discover_screen.dart';
+import 'flix_ai_screen.dart';
 import '../widgets/category_section.dart';
 import '../widgets/filter_chips.dart';
 import '../widgets/media_art.dart';
 import '../widgets/page_kit.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/poster_card.dart';
+import '../widgets/poster_grid.dart' show posterGridColumns;
 import '../widgets/section_header.dart';
 import '../widgets/title_sheet.dart';
 
@@ -309,6 +312,60 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+          if (!typed)
+            SliverToBoxAdapter(
+                child: Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: AppSpace.gutter(context), vertical: AppSpace.sm),
+              child: Material(
+                color: palette.surface,
+                borderRadius: BorderRadius.circular(AppRadii.hero),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                          settings: const RouteSettings(name: '/flix-ai'),
+                          builder: (_) => const FlixAiScreen())),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(children: <Widget>[
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                            color: palette.idleFill, shape: BoxShape.circle),
+                        alignment: Alignment.center,
+                        child: FlixAiMark(
+                            height: 22, color: palette.foreground),
+                      ),
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text('FlixAI',
+                                  style: AppType.cardTitle.copyWith(
+                                      fontSize: 15,
+                                      color: palette.foreground)),
+                              const SizedBox(height: 2),
+                              Text(tr('flix_ai_search_cta'),
+                                  style: AppType.metadata.copyWith(
+                                      fontSize: 13,
+                                      color: palette.mutedText)),
+                            ]),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      Icon(
+                          Directionality.of(context) == TextDirection.rtl
+                              ? PhosphorIcons.caretLeft()
+                              : PhosphorIcons.caretRight(),
+                          size: 16,
+                          color: palette.mutedText),
+                    ]),
+                  ),
+                ),
+              ),
+            )),
           ...content,
           SliverToBoxAdapter(
             child: SizedBox(height: media.padding.bottom + AppSpace.xxl),
@@ -461,8 +518,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   List<Widget> _resultSlivers(BuildContext context, SearchResults results) {
     final gutter = AppSpace.gutter(context);
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= AppBreakpoints.tablet ? 5 : 3;
+    final columns = posterGridColumns(context);
     bool shows(SearchFilter filter) =>
         _filter == SearchFilter.all || _filter == filter;
     final top = results.topResult;
@@ -778,87 +834,120 @@ class _TopSearches extends StatelessWidget {
 
   final List<MediaItem> items;
 
+  /// How many columns the list takes: one on phones, two or three across a
+  /// tablet's page so a row's play mark stays near its title.
+  static int columnsFor(BuildContext context) {
+    if (!AppBreakpoints.isTablet(context)) return 1;
+    final width = MediaQuery.sizeOf(context).width;
+    return width >= AppBreakpoints.wide
+        ? 3
+        : width >= AppBreakpoints.tablet
+            ? 2
+            : 1;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
     final gutter = AppSpace.gutter(context);
-    final canPlay = MobilePlayback.canPlay(context);
+    final columns = columnsFor(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.rowGap),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           SectionHeader(title: tr('top_searches')),
-          for (final item in items)
-            InkWell(
-              onTap: () => MobilePlayback.openDetails(context, item),
-              onLongPress: () => showTitleSheet(context, item),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: gutter, vertical: 5),
+          if (columns == 1)
+            for (final item in items) _row(context, item, gutter)
+          else
+            for (var start = 0; start < items.length; start += columns)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: gutter - 4),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppRadii.card),
-                      child: SizedBox(
-                        width: 128,
-                        height: 72,
-                        child: MediaArt(
-                          item: item,
-                          path: item.backdropPath ?? item.posterPath,
-                          width: 128,
-                          size:
-                              item.backdropPath == null ? null : ArtSize.still,
-                          placeholder: MediaArt.darkPlaceholder,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpace.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppType.cardTitle.copyWith(
-                              color: palette.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            mediaFacts(item),
-                            style: AppType.metadata.copyWith(
-                              color: palette.mutedText,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (canPlay)
-                      PlaybackAction(
-                        onStart: () => MobilePlayback.play(context, item),
-                        builder: (context, busy, start) => IconButton(
-                          tooltip: tr('play'),
-                          color: palette.foreground,
-                          onPressed: busy ? null : start,
-                          icon: busy
-                              ? SizedBox.square(
-                                  dimension: 30,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: palette.foreground,
-                                  ),
-                                )
-                              : PlaybackIcon(PhosphorIcons.playCircle(),
-                                  size: 30),
-                        ),
+                    for (var i = start; i < start + columns; i++)
+                      Expanded(
+                        child: i < items.length
+                            ? _row(context, items[i], 4)
+                            : const SizedBox(),
                       ),
                   ],
                 ),
               ),
-            ),
         ],
+      ),
+    );
+  }
+
+  /// One title: its still, what it is, and the play mark; [inset] in from
+  /// either side.
+  Widget _row(BuildContext context, MediaItem item, double inset) {
+    final palette = AppPalette.of(context);
+    final canPlay = MobilePlayback.canPlay(context);
+    return InkWell(
+      onTap: () => MobilePlayback.openDetails(context, item),
+      onLongPress: () => showTitleSheet(context, item),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: inset, vertical: 5),
+        child: Row(
+          children: <Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadii.card),
+              child: SizedBox(
+                width: 128,
+                height: 72,
+                child: MediaArt(
+                  item: item,
+                  path: item.backdropPath ?? item.posterPath,
+                  width: 128,
+                  size: item.backdropPath == null ? null : ArtSize.still,
+                  placeholder: MediaArt.darkPlaceholder,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppType.cardTitle.copyWith(
+                      color: palette.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    mediaFacts(item),
+                    style: AppType.metadata.copyWith(
+                      color: palette.mutedText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (canPlay)
+              PlaybackAction(
+                onStart: () => MobilePlayback.play(context, item),
+                builder: (context, busy, start) => IconButton(
+                  tooltip: tr('play'),
+                  color: palette.foreground,
+                  onPressed: busy ? null : start,
+                  icon: busy
+                      ? SizedBox.square(
+                          dimension: 30,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: palette.foreground,
+                          ),
+                        )
+                      : PlaybackIcon(PhosphorIcons.playCircle(), size: 30),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1026,7 +1115,7 @@ class _ResultsSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final gutter = AppSpace.gutter(context);
     final width = MediaQuery.sizeOf(context).width;
-    final columns = width >= AppBreakpoints.tablet ? 5 : 3;
+    final columns = posterGridColumns(context);
     final poster = (width - gutter * 2 - 10 * (columns - 1)) / columns;
     return SkeletonPulse(
       child: Padding(
@@ -1036,9 +1125,10 @@ class _ResultsSkeleton extends StatelessWidget {
           children: <Widget>[
             const SkeletonBlock.line(width: 110, height: 16),
             const SizedBox(height: AppSpace.md),
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: SkeletonBlock(width: width, radius: AppRadii.hero),
+            SizedBox(
+              width: double.infinity,
+              height: FeatureCard.heightFor(context),
+              child: SkeletonBlock(width: width),
             ),
             const SizedBox(height: AppSpace.rowGap),
             const SkeletonBlock.line(width: 80, height: 16),

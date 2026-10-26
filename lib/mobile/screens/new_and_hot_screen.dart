@@ -465,6 +465,14 @@ class _HotCardLayout extends StatelessWidget {
   static bool wideFor(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= AppBreakpoints.tablet;
 
+  /// The backdrop's and the details' shares of the row. A landscape tablet
+  /// gives the details more, so a still doesn't fill the screen's height.
+  static (int, int) flexFor(BuildContext context) =>
+      AppBreakpoints.isTablet(context) &&
+              MediaQuery.sizeOf(context).width >= AppBreakpoints.wide
+          ? (2, 3)
+          : (5, 4);
+
   @override
   Widget build(BuildContext context) {
     if (!wideFor(context)) {
@@ -477,12 +485,17 @@ class _HotCardLayout extends StatelessWidget {
         ],
       );
     }
+    final (art, text) = flexFor(context);
     return Row(
+      // On a tablet the details start level with the backdrop's top.
+      crossAxisAlignment: AppBreakpoints.isTablet(context)
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: <Widget>[
-        Expanded(flex: 5, child: _Backdrop(item: item)),
+        Expanded(flex: art, child: _Backdrop(item: item)),
         const SizedBox(width: AppSpace.xl),
         Expanded(
-          flex: 4,
+          flex: text,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: details,
@@ -647,6 +660,7 @@ class _HotSkeleton extends StatelessWidget {
         segment == HotSegment.topMovies || segment == HotSegment.topSeries;
     // Matches the cards: the backdrop beside its details on a tablet.
     final beside = !ranked && _HotCardLayout.wideFor(context);
+    final (art, text) = _HotCardLayout.flexFor(context);
     return SkeletonPulse(
       child: Padding(
         padding: EdgeInsetsDirectional.symmetric(horizontal: gutter),
@@ -662,7 +676,7 @@ class _HotSkeleton extends StatelessWidget {
                   ],
                   if (beside) ...<Widget>[
                     Expanded(
-                      flex: 5,
+                      flex: art,
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: block(double.infinity, double.infinity),
@@ -670,7 +684,7 @@ class _HotSkeleton extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpace.xl),
                     Expanded(
-                      flex: 4,
+                      flex: text,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[

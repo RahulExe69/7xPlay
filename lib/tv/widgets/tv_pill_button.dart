@@ -18,6 +18,7 @@ class TvPillButton extends StatefulWidget {
     required this.label,
     required this.onActivate,
     this.icon,
+    this.leading,
     this.focusNode,
     this.autofocus = false,
     this.enabled = true,
@@ -31,6 +32,9 @@ class TvPillButton extends StatefulWidget {
 
   final String label;
   final IconData? icon;
+
+  /// A picture in place of [icon], coloured through [IconTheme].
+  final Widget? leading;
   final FutureOr<void> Function() onActivate;
   final FocusNode? focusNode;
   final bool autofocus;
@@ -65,6 +69,7 @@ class _TvPillButtonState extends State<TvPillButton> {
             ? palette.onFocus
             : palette.foreground;
     final icon = widget.icon;
+    final leading = widget.leading;
     return TvFocusable(
       focusNode: widget.focusNode,
       semanticLabel: widget.semanticLabel ?? widget.label,
@@ -94,7 +99,7 @@ class _TvPillButtonState extends State<TvPillButton> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            if (busy || icon != null) ...<Widget>[
+            if (busy || icon != null || leading != null) ...<Widget>[
               if (busy)
                 SizedBox.square(
                   dimension: 20,
@@ -103,8 +108,13 @@ class _TvPillButtonState extends State<TvPillButton> {
                     color: foreground,
                   ),
                 )
+              else if (icon != null)
+                Icon(icon, color: foreground, size: 20)
               else
-                Icon(icon, color: foreground, size: 20),
+                IconTheme.merge(
+                  data: IconThemeData(color: foreground, size: 20),
+                  child: leading!,
+                ),
               const SizedBox(width: 8),
             ],
             Text(

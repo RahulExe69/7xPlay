@@ -12,6 +12,7 @@ import '../../models/credits.dart';
 import '../../models/movie.dart';
 import '../../models/videos.dart';
 import '../../screens/person/cast_detail.dart';
+import '../../services/video_launcher.dart';
 import 'media_art.dart';
 import 'pill_button.dart';
 import 'poster_card.dart';
@@ -438,10 +439,7 @@ class VideoTile extends StatelessWidget {
 }
 
 /// Opens [video] in YouTube.
-Future<void> openVideo(Results video) => launchUrl(
-      Uri.parse('$YOUTUBE_BASE_URL${video.videoLink}'),
-      mode: LaunchMode.externalApplication,
-    );
+Future<bool> openVideo(Results video) => openYouTubeVideo(video);
 
 /// A wide card over artwork, with a label: a gallery or a collection.
 class ArtworkCard extends StatelessWidget {

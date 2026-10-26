@@ -20,6 +20,7 @@ class PageAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.kicker,
     this.actions,
     this.bottom,
+    this.contentWidth,
     super.key,
   });
 
@@ -27,6 +28,11 @@ class PageAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? kicker;
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
+
+  /// The width of the page's centred column, when it has one. On a tablet
+  /// the bar keeps to it too, so the back button and title sit over the
+  /// column rather than out at the screen's edge.
+  final double? contentWidth;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -37,7 +43,7 @@ class PageAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final kicker = this.kicker;
-    return AppBar(
+    final bar = AppBar(
       backgroundColor: palette.page,
       surfaceTintColor: Colors.transparent,
       foregroundColor: palette.foreground,
@@ -66,6 +72,18 @@ class PageAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: <Widget>[...?actions, const SizedBox(width: 4)],
       bottom: bottom,
+    );
+    final column = contentWidth;
+    if (column == null || !AppBreakpoints.isTablet(context)) return bar;
+    final side = ((MediaQuery.sizeOf(context).width - column) / 2)
+        .clamp(0.0, double.infinity);
+    if (side == 0) return bar;
+    return ColoredBox(
+      color: palette.page,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: side),
+        child: bar,
+      ),
     );
   }
 }
@@ -705,6 +723,14 @@ class ListRow extends StatelessWidget {
 
 /// A bottom sheet in the app's style: the raised page colour, rounded top
 /// corners and a handle.
+/// How wide a bottom sheet grows: on a tablet Material's 640, centred, so a
+/// short list of options doesn't stretch across the screen; on a phone the
+/// whole width, as the theme leaves it.
+BoxConstraints? appSheetConstraints(BuildContext context) =>
+    AppBreakpoints.isTablet(context)
+        ? const BoxConstraints(maxWidth: 640)
+        : null;
+
 Future<T?> showAppSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -719,6 +745,7 @@ Future<T?> showAppSheet<T>(
     useSafeArea: true,
     showDragHandle: true,
     backgroundColor: palette.surface,
+    constraints: appSheetConstraints(context),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),

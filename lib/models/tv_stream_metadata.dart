@@ -10,6 +10,10 @@ class TVStreamMetadata {
   int? tvId;
   String? airDate;
   List<String> genres;
+
+  /// The series' TMDB genre ids, when the caller has them; they settle
+  /// whether it is ad-free without asking TMDB.
+  List<int>? genreIds;
   List<String> languages;
   List<String> countries;
   List<EpisodeMetadata>?
@@ -29,6 +33,7 @@ class TVStreamMetadata {
     required this.tvId,
     required this.airDate,
     this.genres = const <String>[],
+    this.genreIds,
     this.languages = const <String>[],
     this.countries = const <String>[],
     this.backdropPath,

@@ -4,8 +4,10 @@ import '../functions/network.dart';
 import '../models/movie.dart';
 import '../models/recently_watched.dart';
 import '../models/tv.dart';
+import '../models/videos.dart';
 import '../provider/app_dependency_provider.dart';
 import '../provider/settings_provider.dart';
+import 'details_play.dart';
 import 'media_item.dart';
 
 class MediaDetailsData {
@@ -206,6 +208,22 @@ class MediaDetailsController {
           .map(MediaItem.fromSeries)
           .toList(growable: false),
     );
+  }
+
+  /// [item]'s YouTube videos: trailers, teasers, featurettes and the rest.
+  Future<List<Results>> loadVideos({
+    required MediaItem item,
+    required SettingsProvider settings,
+    required AppDependencyProvider dependencies,
+  }) async {
+    final videos = await fetchVideos(
+      item.kind == MediaKind.movie
+          ? Endpoints.getVideos(item.id)
+          : Endpoints.getTVVideos(item.id),
+      settings.enableProxy,
+      dependencies.tmdbProxy,
+    );
+    return youTubeVideos(videos);
   }
 
   Future<List<EpisodeList>> loadSeason({

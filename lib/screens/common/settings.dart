@@ -1,3 +1,4 @@
+import '../../core/network/network_runtime.dart';
 import 'dart:io';
 import 'package:flixquest/models/app_colors.dart';
 import 'package:flixquest/models/app_mode.dart';
@@ -132,7 +133,7 @@ class _SettingsState extends State<Settings> {
 
     return Scaffold(
       backgroundColor: palette.page,
-      appBar: PageAppBar(title: tr('settings')),
+      appBar: PageAppBar(title: tr('settings'), contentWidth: 760),
       body: AppResponsiveContent(
         padding: EdgeInsets.zero,
         maxWidth: 760,
@@ -313,6 +314,7 @@ class _SettingsState extends State<Settings> {
                       label: tr('clear'),
                       icon: PhosphorIcons.eraser(),
                       onPressed: () async {
+                        await NetworkRuntime.httpCache.clearAll();
                         await clearCache().then((value) {
                           if (!context.mounted) {
                             return;

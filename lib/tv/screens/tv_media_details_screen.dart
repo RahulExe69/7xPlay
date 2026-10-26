@@ -11,17 +11,21 @@ import 'package:provider/provider.dart';
 import '../../catalog/episode_choice.dart';
 import '../../constants/api_constants.dart';
 import '../../constants/app_constants.dart';
+import '../../data/ads/content_ads.dart';
 import '../../design/outline_mark.dart';
 import '../../functions/function.dart';
 import '../../widgets/playback_action.dart';
 import '../../models/movie_stream_metadata.dart';
 import '../../models/tv.dart';
 import '../../models/tv_stream_metadata.dart';
+import '../../models/videos.dart';
 import '../../provider/app_dependency_provider.dart';
+import '../../provider/playlist_provider.dart';
 import '../../provider/recently_watched_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../../screens/movie/movie_video_loader.dart';
 import '../../screens/tv/tv_video_loader.dart';
+import '../../services/video_launcher.dart';
 import '../../widgets/hosted_ads_banner.dart';
 import '../app/tv_design.dart';
 import '../controllers/tv_media_details_controller.dart';
@@ -32,6 +36,7 @@ import '../models/tv_media_item.dart';
 import '../widgets/tv_content_grid.dart';
 import '../widgets/tv_content_row.dart';
 import '../widgets/tv_dialog.dart';
+import '../widgets/tv_playlist_picker.dart';
 import '../widgets/tv_media_card.dart';
 import '../widgets/tv_spotlight.dart';
 
@@ -40,11 +45,14 @@ import '../widgets/tv_spotlight.dart';
 /// a "More like this" grid wait below.
 ///
 /// The page opens straight away from what the card already knows; details,
-/// seasons and recommendations fill in as they load.
+/// seasons, videos and recommendations fill in as they load, each on its own.
 ///
-/// Down and Up step between the actions, the seasons, the episodes and the
-/// recommendations, each returning to where it was left. Back from below
-/// the actions returns to them; Back from the actions leaves the page.
+/// Down and Up step between the actions, the seasons, the episodes, the
+/// videos and the recommendations, each returning to where it was left.
+/// Back from below the actions returns to them; Back from the actions leaves
+/// the page.
+///
+/// A Kids or Family title's page, and everything it plays, shows no ads.
 class TvMediaDetailsScreen extends StatefulWidget {
   const TvMediaDetailsScreen({
     required this.item,
@@ -60,7 +68,7 @@ class TvMediaDetailsScreen extends StatefulWidget {
 }
 
 /// The rows of controls Down and Up move between.
-enum _Stop { actions, seasons, episodes, similar }
+enum _Stop { actions, seasons, episodes, videos, similar }
 
 class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
   TvMediaDetailsController get _controller => widget.controller;
@@ -95,12 +103,22 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
       <int, TvContentRowController>{};
   final TvContentGridController _similarGrid = TvContentGridController();
 
+  /// The title's YouTube videos, loaded apart from the details so a slow or
+  /// failed answer holds up nothing else. Null until the first answer.
+  List<Results>? _videos;
+  bool _videosFailed = false;
+  int _videosRequest = 0;
+  final TvContentRowController _videoRow = TvContentRowController();
+  final FocusNode _videosRetry =
+      FocusNode(debugLabel: 'TV details videos retry');
+
   /// Where each row was left, for this page only.
   final TvFocusMemory _memory = TvFocusMemory();
 
   _Stop _stop = _Stop.actions;
   final GlobalKey _columnKey = GlobalKey();
   final GlobalKey _episodesKey = GlobalKey();
+  final GlobalKey _videosKey = GlobalKey();
   final GlobalKey _similarKey = GlobalKey();
 
   /// How far the page is slid up, so the focused section sits at the top, or
@@ -122,6 +140,9 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
       _seasons.clear();
       _loadedSeasons.clear();
       _load();
+      _videos = null;
+      _videosFailed = false;
+      _loadVideos();
       _bookmarked = _controller.isBookmarked(_item);
     }
   }
@@ -143,12 +164,53 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
 
   void _retry() => setState(_load);
 
+  /// A Retry stays on screen until the answer, so it keeps focus meanwhile.
+  void _loadVideos() {
+    final request = ++_videosRequest;
+    _controller
+        .loadVideos(
+      item: _item,
+      settings: context.read<SettingsProvider>(),
+      dependencies: context.read<AppDependencyProvider>(),
+    )
+        .then((videos) {
+      if (!mounted || request != _videosRequest) return;
+      final retried = _videosRetry.hasFocus;
+      setState(() {
+        _videos = videos;
+        _videosFailed = false;
+      });
+      _settleAfterVideos(retried: retried);
+    }, onError: (Object error) {
+      debugPrint('[TvMediaDetails] videos unavailable: $error');
+      if (!mounted || request != _videosRequest) return;
+      setState(() => _videosFailed = true);
+      _settleAfterVideos();
+    });
+  }
+
+  /// The videos arriving move the rows below them, and a Retry that worked
+  /// ([retried]) goes, taking its focus: once they are laid out, focus moves
+  /// on to the videos, or what follows when there were none.
+  void _settleAfterVideos({bool retried = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (retried &&
+          !_focusStop(_Stop.videos) &&
+          !_focusStop(_Stop.similar)) {
+        _focusStop(_Stop.actions);
+      }
+      if (_stop != _Stop.actions) _scheduleShift();
+    });
+  }
+
   @override
   void dispose() {
     _seasonTimer?.cancel();
     for (final node in _actionNodes.values) {
       node.dispose();
     }
+    _videosRetry.dispose();
     super.dispose();
   }
 
@@ -232,6 +294,14 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
         final itemId = _memory.recall(_episodesScope(season)) ??
             (resume?.seasonNum == season ? '${resume?.episodeNum}' : null);
         return _episodeRows[season]?.requestFocus(itemId) ?? false;
+      case _Stop.videos:
+        // No stop at all while they load, or when there are none.
+        if (_videosKey.currentContext == null) return false;
+        if (_videosFailed) {
+          _videosRetry.requestFocus();
+          return true;
+        }
+        return _videoRow.requestFocus();
       case _Stop.similar:
         // The grid holds a request made before it mounts and acts on it
         // later; only ask once it is there.
@@ -252,6 +322,7 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
       final section = switch (stop) {
         _Stop.actions => null,
         _Stop.seasons || _Stop.episodes => _episodesKey,
+        _Stop.videos => _videosKey,
         _Stop.similar => _similarKey,
       };
       final column = _columnKey.currentContext?.findRenderObject();
@@ -413,6 +484,7 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
       releaseYear: int.tryParse(_item.year ?? '') ?? 0,
       isAdult: movie.adult,
       releaseDate: movie.releaseDate,
+      genreIds: _item.genreIds,
     );
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -487,6 +559,7 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
             seriesName: _item.title,
             tvId: _item.id,
             airDate: episode.airDate,
+            genreIds: _item.genreIds,
             seasonEpisodes: seasonEpisodes
                 .where((item) => item.episodeId != null)
                 .map(EpisodeMetadata.fromEpisodeList)
@@ -581,7 +654,12 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ContentAdGate(
+        content: AdContent.of(_item),
+        child: Builder(builder: _page),
+      );
+
+  Widget _page(BuildContext context) {
     Localizations.localeOf(context);
     final palette = TvPalette.of(context);
     final resume = _resume(listen: true);
@@ -706,7 +784,10 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
   bool get _hasRowsBelow {
     final data = _loaded;
     if (data == null) return true;
-    return data.recommendations.isNotEmpty || data.seasons.isNotEmpty;
+    return data.recommendations.isNotEmpty ||
+        data.seasons.isNotEmpty ||
+        (_videos?.isNotEmpty ?? false) ||
+        _videosFailed;
   }
 
   Widget _buildHero(
@@ -885,12 +966,23 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
           );
         },
       ),
+      if (context.watch<PlaylistProvider?>() case final playlists?)
+        _DetailButton(
+          focusNode: _actionNode('lists'),
+          label: tr('playlist_save'),
+          icon: playlists.listsContaining(_item).isNotEmpty
+              ? PhosphorIcons.listChecks()
+              : PhosphorIcons.listPlus(),
+          onFocused: () => _lastActionId = 'lists',
+          onActivate: () => showTvPlaylistPicker(context, _item),
+        ),
     ];
     _actionOrder = <String>[
       if (canWatch) 'play',
       if (canWatch && resuming) 'restart',
       if (!_isMovie && (_loaded?.seasons.isNotEmpty ?? false)) 'episodes',
       'list',
+      if (context.read<PlaylistProvider?>() != null) 'lists',
     ];
     // One line, even when the buttons run wider than the text above them: a
     // wrapped second line sent Right from the first line's end off to
@@ -969,19 +1061,95 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
                 _buildEpisodes(metrics, data, resume, inset: inset),
                 gap,
               ],
-              if (data.recommendations.isNotEmpty)
-                KeyedSubtree(
-                  key: _similarKey,
-                  child: _stopRegion(
-                    _Stop.similar,
-                    _buildSimilar(metrics, data, inset: inset),
-                  ),
-                ),
             ],
           );
         },
       ),
+      _buildVideos(metrics, inset: inset, gap: gap),
+      FutureBuilder<TvMediaDetailsData>(
+        future: _details,
+        builder: (context, snapshot) {
+          final data = snapshot.data;
+          if (data == null || data.recommendations.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return KeyedSubtree(
+            key: _similarKey,
+            child: _stopRegion(
+              _Stop.similar,
+              _buildSimilar(metrics, data, inset: inset),
+            ),
+          );
+        },
+      ),
     ];
+  }
+
+  String get _videosScope => 'details-videos:${_item.stableId}';
+
+  /// The title's trailers, teasers and featurettes, each opening in YouTube.
+  /// Nothing at all while they load or when there are none, so Down never
+  /// stops on an empty row; a Retry when they could not load.
+  Widget _buildVideos(
+    TvShellMetrics metrics, {
+    required double inset,
+    required Widget gap,
+  }) {
+    if (_videosFailed) {
+      return KeyedSubtree(
+        key: _videosKey,
+        child: _stopRegion(
+          _Stop.videos,
+          _SectionMessage(
+            message: tr('tv_videos_could_not_be_loaded'),
+            actionLabel: tr('retry'),
+            onAction: _loadVideos,
+            focusNode: _videosRetry,
+          ),
+        ),
+      );
+    }
+    final videos = _videos;
+    if (videos == null || videos.isEmpty) return const SizedBox.shrink();
+    final width = metrics.mediaCardWidth * 1.75;
+    return Column(
+      key: _videosKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _stopRegion(
+          _Stop.videos,
+          TvContentRow<Results>(
+            controller: _videoRow,
+            title: tr('videos'),
+            scopeId: _videosScope,
+            items: videos,
+            itemId: (video) => video.videoLink!,
+            semanticLabel: (video) => <String>[
+              if (video.name?.trim() case final name? when name.isNotEmpty)
+                name,
+              if (video.type?.trim() case final type? when type.isNotEmpty)
+                type,
+            ].join(', '),
+            itemBuilder: (_, video) => _VideoCard(video: video, width: width),
+            itemSpacing: 18,
+            itemFocusScale: 1.06,
+            trailingInset: inset,
+            pinFocusedItem: true,
+            onItemActivated: _openVideo,
+          ),
+        ),
+        gap,
+      ],
+    );
+  }
+
+  /// Hands [video] to YouTube. Focus stays on its card meanwhile, so the
+  /// viewer comes back to it.
+  Future<void> _openVideo(Results video) async {
+    if (await openYouTubeVideo(video) || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(tr('tv_video_could_not_open'))),
+    );
   }
 
   /// A grid rather than a row, so the recommendations fill the page below
@@ -1486,6 +1654,107 @@ class _EpisodeCard extends StatelessWidget {
   }
 }
 
+/// A video: its YouTube thumbnail with a play mark, the name and TMDB's
+/// kind of video ("Trailer", "Featurette") below.
+class _VideoCard extends StatelessWidget {
+  const _VideoCard({required this.video, required this.width});
+
+  final Results video;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = TvPalette.of(context);
+    final type = video.type?.trim() ?? '';
+    final placeholder = ColoredBox(
+      color: palette.raisedSurface,
+      child: Center(
+        child: OutlineMark(height: 34, color: palette.mutedText),
+      ),
+    );
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  CachedNetworkImage(
+                    cacheManager: cacheProp(),
+                    imageUrl:
+                        '$YOUTUBE_THUMBNAIL_URL${video.videoLink}/hqdefault.jpg',
+                    memCacheWidth:
+                        (width * MediaQuery.devicePixelRatioOf(context))
+                            .round(),
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => placeholder,
+                    errorWidget: (_, __, ___) => placeholder,
+                  ),
+                  Center(
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      decoration: const BoxDecoration(
+                        color: Color(0x8C000000),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        PhosphorIcons.play(PhosphorIconsStyle.fill),
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(
+            height: _EpisodeCard.captionHeight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 7),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    video.name ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.foreground,
+                      fontFamily: 'FigtreeSB',
+                      fontSize: 15,
+                      height: 1.1,
+                    ),
+                  ),
+                  if (type.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 3),
+                    Text(
+                      type,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.mutedText,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The episode row's shape while a season loads.
 class _EpisodePlaceholders extends StatelessWidget {
   const _EpisodePlaceholders({required this.width, required this.height});
@@ -1540,11 +1809,15 @@ class _SectionMessage extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onAction,
+    this.focusNode,
   });
 
   final String message;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// The action's, for a page that moves focus to it itself.
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -1563,6 +1836,7 @@ class _SectionMessage extends StatelessWidget {
           if (action != null) ...<Widget>[
             const SizedBox(width: 16),
             TvFocusable(
+              focusNode: focusNode,
               semanticLabel: actionLabel ?? tr('retry'),
               onActivate: action,
               focusScale: 1.04,

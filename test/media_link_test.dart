@@ -159,6 +159,23 @@ void main() {
   });
 
   group('flix.quest addresses', () {
+    test('a Plus code link opens ready to redeem that code', () {
+      final target = MediaLink.parse('https://flix.quest/c/fq-ab12cd34');
+      expect(target, isA<CouponLink>());
+      expect((target! as CouponLink).code, 'FQ-AB12CD34');
+      expect(MediaLink.parse('Free Plus for you: flix.quest/c/WELCOME14!'),
+          isA<CouponLink>().having((link) => link.code, 'code', 'WELCOME14'));
+      expect(MediaLink.couponUrl('welcome14').toString(),
+          'https://flix.quest/c/WELCOME14');
+    });
+
+    test('a malformed code is not a link', () {
+      expect(MediaLink.parse('https://flix.quest/c/-bad'), isNull);
+      expect(MediaLink.parse('https://flix.quest/c/ab'), isNull);
+      expect(MediaLink.parse('https://flix.quest/c/a b'), isNull);
+      expect(MediaLink.couponUrl('no spaces allowed'), isNull);
+    });
+
     test('a film is its id', () {
       final target = MediaLink.parse('https://flix.quest/m/123');
       expect(target, isA<TmdbMovieLink>());
@@ -355,6 +372,46 @@ void main() {
       expect(MediaLink.parse('https://www.themoviedb.org/movie'), isNull);
       expect(MediaLink.parse('https://www.imdb.com/title/notanid'), isNull);
       expect(MediaLink.parse('https://www.imdb.com/chart/top/'), isNull);
+    });
+  });
+
+  group('list addresses', () {
+    test('a TMDB list is a list to import, not a franchise', () {
+      final target = MediaLink.parse(
+          'https://www.themoviedb.org/list/8136-cosy-picks?utm_source=share');
+      expect(target, isA<TmdbListLink>());
+      expect((target as TmdbListLink).id, 8136);
+      expect(MediaLink.parse('https://www.themoviedb.org/collection/10'),
+          isA<TmdbCollectionLink>());
+    });
+
+    // IMDb import is switched off for now.
+    // test('an IMDb list keeps its ls id, on any IMDb host', () {
+    //   final target = MediaLink.parse('Watch these https://m.imdb.com/list/ls055592025/');
+    //   expect((target as ImdbListLink).listId, 'ls055592025');
+    // });
+    test('an IMDb list is not read while IMDb import is off', () {
+      expect(MediaLink.parse('https://www.imdb.com/list/ls055592025/'), isNull);
+    });
+
+    test('a look-alike host or a malformed id is not a list', () {
+      expect(MediaLink.parse('https://themoviedb.org.evil.example/list/1'),
+          isNull);
+      expect(MediaLink.parse('https://www.imdb.com/list/watchlist'), isNull);
+      expect(MediaLink.parse('https://www.imdb.com/list/ls12'), isNull);
+    });
+  });
+
+  group('shared FlixQuest lists', () {
+    test('a flix.quest list link names its code in capitals', () {
+      final target = MediaLink.parse('https://flix.quest/list/fq-tr4aYGHK');
+      expect((target as SharedListLink).code, 'fq-TR4AYGHK');
+    });
+
+    test('a code of the wrong shape is not a list', () {
+      expect(MediaLink.parse('https://flix.quest/list/TR4AYGHK'), isNull);
+      expect(MediaLink.parse('https://flix.quest/list/fq-TR4'), isNull);
+      expect(MediaLink.parse('https://flix.quest/list/fq-TR4AYGHK/more'), isNull);
     });
   });
 }

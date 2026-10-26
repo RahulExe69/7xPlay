@@ -351,6 +351,33 @@ class _PlayerSettingsState extends State<PlayerSettings>
                       () => settingValues.defaultSeekDuration = value,
                     ),
                   ),
+                  ChoiceRow<double>(
+                    icon: PhosphorIcons.personSimpleRun(),
+                    label: tr('hold_right_speed'),
+                    subtitle: tr('hold_right_speed_description'),
+                    value: settingValues.fastHoldSpeed,
+                    options: {
+                      0: tr('player_off'),
+                      1.25: '1.25x',
+                      1.5: '1.5x',
+                      1.75: '1.75x',
+                      2: '2x',
+                    },
+                    onChanged: (value) => settingValues.fastHoldSpeed = value,
+                  ),
+                  ChoiceRow<double>(
+                    icon: PhosphorIcons.personSimpleWalk(),
+                    label: tr('hold_left_speed'),
+                    subtitle: tr('hold_left_speed_description'),
+                    value: settingValues.slowHoldSpeed,
+                    options: {
+                      0: tr('player_off'),
+                      0.25: '0.25x',
+                      0.5: '0.5x',
+                      0.75: '0.75x',
+                    },
+                    onChanged: (value) => settingValues.slowHoldSpeed = value,
+                  ),
                   ChoiceRow<int>(
                     icon: PhosphorIcons.hourglassMedium(),
                     label: tr('buffer_amount'),

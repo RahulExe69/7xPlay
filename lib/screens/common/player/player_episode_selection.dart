@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flixquest/widgets/adsterra_playback_gate.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -147,6 +148,13 @@ class PlayerEpisodeSelection {
                                   builder: (context) =>
                                       AdsterraPlaybackGate.buildLoader(context,
                                           television: useTvPlayer,
+                                          content: tvMetadata.tvId == null
+                                              ? null
+                                              : AdContent(
+                                                  series: true,
+                                                  id: tvMetadata.tvId!,
+                                                  genreIds:
+                                                      tvMetadata.genreIds),
                                           builder: (context) => TVVideoLoader(
                                                 download: false,
                                                 useTvPlayer: useTvPlayer,
@@ -168,6 +176,7 @@ class PlayerEpisodeSelection {
                                                       tvMetadata.seriesName,
                                                   tvId: tvMetadata.tvId,
                                                   airDate: episode.airDate,
+                                                  genreIds: tvMetadata.genreIds,
                                                   seasonEpisodes: episodes,
                                                   allSeasons:
                                                       tvMetadata.allSeasons,

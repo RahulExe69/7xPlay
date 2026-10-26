@@ -8,12 +8,17 @@ import 'package:flixquest/catalog/media_item.dart';
 import 'package:flixquest/tv/controllers/tv_home_controller.dart';
 import 'package:flixquest/constants/api_constants.dart';
 import 'package:flixquest/constants/app_constants.dart';
+import 'package:flixquest/core/cache/http_cache.dart';
+import 'package:flixquest/core/config/app_environment.dart';
+import 'package:flixquest/core/network/dio_factory.dart';
+import 'package:flixquest/core/network/network_runtime.dart';
 import 'package:flixquest/functions/tmdb_request.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
 import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flixquest/services/tmdb_connectivity.dart';
 
 import 'support/tmdb_routing_client.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -108,6 +113,15 @@ void main() {
         TmdbConnectivity.instance = originalConnectivity;
         routingClient.close();
       });
+      final cache = HttpCache(MemCacheStore());
+      final dio = createPublicDio(AppEnvironment.resolve(isDebug: true),
+          httpCache: cache, debugLogging: false, retryDelay: (_) async {});
+      dio.httpClientAdapter = TmdbRoutingDioAdapter(routingClient.directBase);
+      NetworkRuntime.configure(publicDio: dio, httpCache: cache);
+      addTearDown(() async {
+        dio.close(force: true);
+        await cache.close();
+      });
       final settings = SettingsProvider()
         ..isAdult = true
         ..appLanguage = 'fr-FR';
@@ -136,7 +150,9 @@ void main() {
 
       expect(settings.enableProxy, isTrue);
       if (simulation == null) {
-        expect(requests, hasLength(5));
+        // TV search asks for the same movie and series URLs, which the shared
+        // HTTP cache already holds from the mobile search.
+        expect(requests, hasLength(3));
         expect(
             requests.map((uri) => uri.path),
             containsAll(<String>[

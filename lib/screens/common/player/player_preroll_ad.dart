@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 
+import '../../../data/ads/ads_policy.dart';
 import '../../../models/adsterra_playback_ads_config.dart';
 import '../../../models/vast_preroll_config.dart';
 import '../../../services/vast/vast.dart';
@@ -20,7 +21,17 @@ import '../../../widgets/vast_ad_overlay.dart';
 /// [overlay] in place of its controls while the ad plays.
 class PlayerPrerollAd {
   PlayerPrerollAd({required this.television, VastClient? client})
-      : _client = client;
+      : _client = client {
+    AdsPolicy.addListener(_onPlusChanged);
+  }
+
+  /// Plus that starts mid-ad ends the ad the way Skip does: the content
+  /// continues from its start position.
+  void _onPlusChanged() {
+    if (!AdsPolicy.adFree) return;
+    final session = _session;
+    if (session != null && !session.isEnded) session.onAbandon?.call();
+  }
 
   /// Android TV: renditions up to 1080p, the remote-driven overlay and no
   /// advertiser link.
@@ -33,19 +44,23 @@ class PlayerPrerollAd {
   /// The ad playing now, or null.
   VastAdSession? get session => _session;
 
-  /// The first ad from the networks `vast_preroll_network` lists.
+  /// The first ad from the networks `vast_preroll_network` lists. A Kids or
+  /// Family title passes [adFreeContent], and asks for none.
   Future<VastPreroll?> load(VastPrerollConfig config,
-      {bool Function()? cancelled}) async {
+      {bool Function()? cancelled, bool adFreeContent = false}) async {
+    // Plus asks no network for an ad, and drops one that arrives late.
+    if (AdsPolicy.adFree || adFreeContent) return null;
     final sources = config.sourcesFor(television: television);
     if (sources.isEmpty) return null;
     try {
       final client = _client ??= VastClient();
-      return await client.loadPreroll(
+      final preroll = await client.loadPreroll(
         sources,
         maxHeight: television ? 1080 : 720,
         maxBitrate: television ? 8000 : 2500,
-        cancelled: cancelled,
+        cancelled: () => AdsPolicy.adFree || (cancelled?.call() ?? false),
       );
+      return AdsPolicy.adFree ? null : preroll;
     } catch (error) {
       debugPrint('[VAST] pre-roll unavailable: $error');
       return null;
@@ -160,6 +175,7 @@ class PlayerPrerollAd {
   /// The player is closing: a running ad sends `closeLinear`, and the last
   /// tracking pings get time to leave before the client closes.
   void dispose() {
+    AdsPolicy.removeListener(_onPlusChanged);
     final session = _session;
     _session = null;
     _positionTimer?.cancel();

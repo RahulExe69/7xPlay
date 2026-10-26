@@ -1,10 +1,12 @@
 import 'package:flixquest/widgets/adsterra_playback_gate.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 import 'package:flixquest/widgets/playback_action.dart';
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+import '../../data/sync/library_scope.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flixquest/models/tv_stream_metadata.dart';
@@ -30,7 +32,6 @@ import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:better_player_plus/better_player_plus.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../functions/function.dart';
 import '../../provider/settings_provider.dart';
 import '../../provider/offline_download_provider.dart';
@@ -41,6 +42,7 @@ import '../../ui_components/app_ui_components.dart';
 import '../../services/stream_intro_service.dart';
 import '../../services/introdb_service.dart';
 import '../../services/offline_download_service.dart';
+import '../../services/playback_wake_lock.dart';
 import '../../services/stream_size_estimator.dart';
 import '../movie/movie_video_loader.dart';
 import '../tv/tv_video_loader.dart';
@@ -87,7 +89,6 @@ class PlayerOne extends StatefulWidget {
       this.videoHeaders = const {},
       this.videoSizeTokens = const {},
       this.initialVideoLinks = const [],
-      this.prefetchedProviderResults = const {},
       this.useTvControls = false,
       this.onTvPlayerExit,
       super.key});
@@ -110,7 +111,6 @@ class PlayerOne extends StatefulWidget {
   final Map<String, Map<String, String>> videoHeaders;
   final Map<String, String> videoSizeTokens;
   final List<RegularVideoLinks> initialVideoLinks;
-  final Map<String, Future<ProviderLoaderResult>> prefetchedProviderResults;
   final bool useTvControls;
   final VoidCallback? onTvPlayerExit;
 
@@ -224,7 +224,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late String? _currentProviderCode; // Track current provider
   final Map<String, ProviderVideoSource> _loadedProviders =
       {}; // Cache loaded providers
-  late final Map<String, Future<ProviderLoaderResult>> _providerResults;
+  final Map<String, Future<ProviderLoaderResult>> _providerResults = {};
   final Map<String, List<RegularVideoLinks>> _rawVideoLinksByProvider = {};
   late Map<String, String> _activeSources;
   late List<BetterPlayerSubtitlesSource> _activeSubtitles;
@@ -260,7 +260,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _streamingDnd =
         StreamingDndSession(settings, television: widget.useTvControls);
     _currentProviderCode = widget.currentProviderCode; // Initialize from widget
-    _providerResults = Map.of(widget.prefetchedProviderResults);
     _activeSources = Map.of(widget.sources);
     _activeSubtitles = List.of(widget.subs);
     _activeVideoFormats =
@@ -303,16 +302,17 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _wellnessTracker = WellnessPlaybackTracker(
       id: _analyticsSessionId,
       createdAt: _analyticsSessionStartedAt,
+      libraryGeneration: LibraryScope.generation,
     );
 
     // Initialize episode selection with current season
     _episodeSelection = PlayerEpisodeSelection(widget.tvMetadata?.seasonNumber);
 
     WidgetsBinding.instance.addObserver(this);
-    // Playback owns the screen for the whole session on both surfaces. Better
-    // Player only holds a wakelock inside its own fullscreen route, which TV
-    // playback never enters.
-    unawaited(WakelockPlus.enable());
+    // Playback owns the screen for the whole session on both surfaces. Held
+    // per player, so this one being disposed after a replacement (the next
+    // episode) has started cannot clear the replacement's hold.
+    PlaybackWakeLock.instance.hold(this);
     betterPlayerBufferingConfiguration = buildPlayerBufferingConfiguration(
       maximumDurationMs: widget.settings.defaultMaxBufferDuration,
       television: widget.useTvControls,
@@ -337,6 +337,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           enableBrightnessSwipe: !widget.useTvControls,
           enableSeekSwipe: !widget.useTvControls,
           enableDoubleTapSeek: !widget.useTvControls,
+          fastHoldSpeed:
+              widget.useTvControls || widget.settings.fastHoldSpeed <= 0
+                  ? null
+                  : widget.settings.fastHoldSpeed,
+          slowHoldSpeed:
+              widget.useTvControls || widget.settings.slowHoldSpeed <= 0
+                  ? null
+                  : widget.settings.slowHoldSpeed,
           volumeSwipeSensitivity: 0.5,
           brightnessSwipeSensitivity: 0.5,
           seekSwipeSensitivity: 1.0,
@@ -486,7 +494,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             autoDispose: true,
             controlsConfiguration: betterPlayerControlsConfiguration,
             showPlaceholderUntilPlay: true,
-            allowedScreenSleep: false,
+            // PlaybackWakeLock keeps the screen on for the whole session.
+            // Better Player's own hold covers only its fullscreen route and
+            // clears the flag on the way out, under whatever else needs it.
+            allowedScreenSleep: true,
             autoDetectFullscreenAspectRatio: !widget.useTvControls,
             errorBuilder: (context, _) =>
                 _buildCustomPlayerErrorWidget(context),
@@ -577,7 +588,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // The ad request runs alongside the intro lookup; neither waits on the
       // other, and a missing ad never delays the content.
       final adFuture = _prerollAd.load(_appDependencies.vastPreroll,
-          cancelled: () => !mounted || _adBlockStopped);
+          cancelled: () => !mounted || _adBlockStopped,
+          adFreeContent: ContentAdScope.adFreeAt(context));
       StreamIntroConfig intro = const StreamIntroConfig.disabled();
       try {
         intro = await _introService.fetch(_resolveScraperApiUrl());
@@ -820,15 +832,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             : source?.name ?? 'default';
         settings.analytics.trackSubtitleLanguageChanged(language: language);
         _trackPlaybackEvent('subtitle_changed', value: language);
-        break;
-      case BetterPlayerEventType.hideFullscreen:
-        // Leaving Better Player's fullscreen route unconditionally clears the
-        // screen-on flag. The route pop completes the awaiting fullscreen
-        // continuation in a microtask, so re-asserting on the next frame lands
-        // after that cleanup and restores the player-lifetime hold.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          unawaited(WakelockPlus.enable());
-        });
         break;
       case BetterPlayerEventType.pipStart:
         _inPictureInPicture = true;
@@ -1928,7 +1931,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
     // Restore original brightness before disposing
     BetterPlayerBrightnessManager.restoreOriginalBrightness();
-    unawaited(WakelockPlus.disable());
+    PlaybackWakeLock.instance.release(this);
 
     _betterPlayerController.removeEventsListener(_onAnalyticsPlayerEvent);
     _stopAnalyticsWatchClock();
@@ -2496,6 +2499,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           MaterialPageRoute<void>(
             builder: (context) => AdsterraPlaybackGate.buildLoader(context,
                 television: widget.useTvControls,
+                content: _seriesAdContent,
                 builder: (context) => TVVideoLoader(
                       download: false,
                       useTvPlayer: widget.useTvControls,
@@ -2525,11 +2529,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               : DateTime.tryParse(movie.releaseDate!)?.year,
           isAdult: false,
           elapsed: 0,
+          genreIds: movie.genreIds,
         );
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (context) => AdsterraPlaybackGate.buildLoader(context,
                 television: widget.useTvControls,
+                content: AdContent(
+                    series: false, id: movie.movieId, genreIds: movie.genreIds),
                 builder: (context) => MovieVideoLoader(
                       download: false,
                       useTvPlayer: widget.useTvControls,
@@ -2540,6 +2547,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           ),
         );
       });
+
+  /// The series this player is in, for the ad rules of its next episode.
+  AdContent? get _seriesAdContent {
+    final metadata = widget.tvMetadata;
+    final id = metadata?.tvId;
+    return id == null
+        ? null
+        : AdContent(series: true, id: id, genreIds: metadata?.genreIds);
+  }
 
   TVStreamMetadata _metadataForTvEpisode(EpisodeMetadata episode) {
     final current = widget.tvMetadata!;
@@ -2555,6 +2571,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       tvId: current.tvId,
       airDate: episode.airDate,
       genres: current.genres,
+      genreIds: current.genreIds,
       languages: current.languages,
       countries: current.countries,
       seasonEpisodes: current.seasonEpisodes,
@@ -3427,6 +3444,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         MaterialPageRoute<void>(
           builder: (context) => AdsterraPlaybackGate.buildLoader(context,
               television: widget.useTvControls,
+              content: _seriesAdContent,
               builder: (context) => TVVideoLoader(
                     download: false,
                     metadata: _metadataForTvEpisode(next),
@@ -3492,12 +3510,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           ...measurement.parameters(totalBytes: bytes),
         });
     final watched = Duration(milliseconds: _wellnessTracker.watchedMs());
+    // Leaving a Kids or Family title opens no popup, owed or not.
+    final adFree = ContentAdScope.adFreeAt(context);
     scheduleStreamFeedbackAfterExit(
       context,
       measurement: measurement,
       parameters: parameters,
       onReturned: widget.onTvPlayerExit,
-      beforePrompt: widget.useTvControls
+      beforePrompt: widget.useTvControls || adFree
           ? null
           : (context) => AdsterraPlaybackAdsService.instance
               .playerExit(context, watched: watched),

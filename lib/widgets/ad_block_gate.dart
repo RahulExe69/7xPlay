@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../data/ads/ads_policy.dart';
 import '../design/app_palette.dart';
 import '../design/app_tokens.dart';
 import '../mobile/widgets/pill_button.dart';
@@ -14,6 +15,7 @@ import '../services/ad_block_network_probe.dart';
 import '../services/ad_block_webview_probe.dart';
 import '../services/device_presentation_service.dart';
 import '../tv/widgets/tv_dialog.dart';
+import 'plus/plus_visuals.dart';
 
 /// Browsing stays open to everyone; Play and Download ask viewers whose ad
 /// blocker hides FlixQuest's ads to turn it off first. Every loader calls
@@ -29,7 +31,11 @@ class AdBlockGate {
             [
               (_) => AdBlockNetworkProbe().isBlocking(),
               AdBlockWebViewProbe.isBlocking,
-            ];
+            ] {
+    // Plus has no ads to protect: a block found before payment must not
+    // linger, and players re-read the gate when it lifts.
+    AdsPolicy.addListener(_cache.invalidate);
+  }
 
   static final instance = AdBlockGate();
 
@@ -41,6 +47,7 @@ class AdBlockGate {
   void addListener(VoidCallback listener) => _cache.addListener(listener);
   void removeListener(VoidCallback listener) => _cache.removeListener(listener);
   bool blocksPlayback(AppDependencyProvider provider) =>
+      !AdsPolicy.adFree &&
       provider.adBlockGateEnabled &&
       _cache.isBlocked(_key(provider, _hosts(provider)));
 
@@ -62,7 +69,9 @@ class AdBlockGate {
 
   Future<void> warmUp(BuildContext context) async {
     final provider = context.read<AppDependencyProvider?>();
-    if (provider == null || !provider.adBlockGateEnabled) {
+    if (provider == null ||
+        !provider.adBlockGateEnabled ||
+        AdsPolicy.adFreeAt(context)) {
       invalidate();
       return;
     }
@@ -74,9 +83,12 @@ class AdBlockGate {
   Future<bool> allowPlayback(BuildContext context,
       {bool download = false, bool television = false}) async {
     final provider = context.read<AppDependencyProvider?>();
-    if (provider == null || !provider.adBlockGateEnabled) {
+    if (provider == null ||
+        !provider.adBlockGateEnabled ||
+        AdsPolicy.adFreeAt(context)) {
       invalidate();
-      debugPrint('[AdBlockGate] skipped: gate disabled or provider missing');
+      debugPrint(
+          '[AdBlockGate] skipped: gate disabled, ad-free or no provider');
       return true;
     }
     final tv = television || DevicePresentationService.instance.isTelevision;
@@ -90,12 +102,25 @@ class AdBlockGate {
       debugPrint('[AdBlockGate] wait=${watch.elapsedMilliseconds}ms '
           'result=${blocked == null ? 'pending; allow' : blocked ? 'blocked' : 'allow'}');
       if (!context.mounted) return false;
-      if (!provider.adBlockGateEnabled || blocked != true) break;
+      if (!provider.adBlockGateEnabled || blocked != true || AdsPolicy.adFree) {
+        break;
+      }
       analytics?.trackAdBlockerGate(
           outcome: 'detected', download: download, television: tv);
-      final retry = await _ask(context, television: tv, again: asked);
+      final plus = AdsPolicy.offersPlus(context);
+      final choice =
+          await _ask(context, television: tv, again: asked, plus: plus);
       if (!context.mounted) return false;
-      if (retry != true) {
+      if (choice == _Choice.plus) {
+        analytics?.trackAdBlockerGate(
+            outcome: 'plus', download: download, television: tv);
+        await AdsPolicy.openPlus(context);
+        if (!context.mounted) return false;
+        // Paid on the way: nothing left to block. Otherwise ask again.
+        if (AdsPolicy.adFree) break;
+        continue;
+      }
+      if (choice != _Choice.retry) {
         analytics?.trackAdBlockerGate(
             outcome: 'cancelled', download: download, television: tv);
         return false;
@@ -110,14 +135,15 @@ class AdBlockGate {
     return context.mounted;
   }
 
-  /// True to check again, after the viewer turned the blocker off.
-  Future<bool?> _ask(BuildContext context,
-      {required bool television, required bool again}) {
+  /// [_Choice.retry] checks again, after the viewer turned the blocker
+  /// off; [_Choice.plus] (offered when [plus]) opens FlixQuest Plus.
+  Future<_Choice?> _ask(BuildContext context,
+      {required bool television, required bool again, bool plus = false}) {
     final message = again
         ? tr('ad_blocker_still_detected')
         : '${tr('ad_blocker_message')}\n\n${tr('ad_blocker_private_dns_hint')}';
     if (television) {
-      return showTvDialog<bool>(
+      return showTvDialog<_Choice>(
         context: context,
         title: tr('ad_blocker_title'),
         content: Text(message),
@@ -125,16 +151,21 @@ class AdBlockGate {
           TvDialogAction(
             label: tr('ad_blocker_retry'),
             isPrimary: true,
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context, _Choice.retry),
           ),
+          if (plus)
+            TvDialogAction(
+              label: tr('plus_go_ad_free'),
+              onPressed: () => Navigator.pop(context, _Choice.plus),
+            ),
           TvDialogAction(
             label: tr('cancel'),
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, _Choice.cancel),
           ),
         ],
       );
     }
-    return showDialog<bool>(
+    return showDialog<_Choice>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
@@ -187,12 +218,23 @@ class AdBlockGate {
                   PillButton(
                     label: tr('ad_blocker_retry'),
                     primary: true,
-                    onPressed: () => Navigator.pop(dialogContext, true),
+                    onPressed: () =>
+                        Navigator.pop(dialogContext, _Choice.retry),
                   ),
+                  if (plus) ...<Widget>[
+                    const SizedBox(height: AppSpace.md),
+                    PillButton(
+                      label: tr('plus_go_ad_free'),
+                      leading: const PlusMark(),
+                      onPressed: () =>
+                          Navigator.pop(dialogContext, _Choice.plus),
+                    ),
+                  ],
                   const SizedBox(height: AppSpace.md),
                   PillButton(
                     label: tr('cancel'),
-                    onPressed: () => Navigator.pop(dialogContext, false),
+                    onPressed: () =>
+                        Navigator.pop(dialogContext, _Choice.cancel),
                   ),
                 ],
               ),
@@ -203,3 +245,5 @@ class AdBlockGate {
     );
   }
 }
+
+enum _Choice { retry, plus, cancel }

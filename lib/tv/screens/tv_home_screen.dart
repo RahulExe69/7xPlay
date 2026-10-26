@@ -11,6 +11,7 @@ import '../../provider/recently_watched_provider.dart';
 import '../../provider/settings_provider.dart';
 import '../app/tv_design.dart';
 import '../app/tv_shell_layout.dart';
+import '../controllers/tv_catalog_controller.dart';
 import '../controllers/tv_home_controller.dart';
 import '../focus/tv_screen_focus_controller.dart';
 import '../models/tv_media_item.dart';
@@ -18,6 +19,7 @@ import '../widgets/tv_browse_skeleton.dart';
 import '../widgets/tv_browse_view.dart';
 import '../widgets/tv_continue_watching_menu.dart';
 import '../widgets/tv_media_card.dart' show TvMediaBadge;
+import '../widgets/tv_plus_reminder.dart';
 import '../widgets/tv_state_panel.dart';
 
 class TvHomeScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ class TvHomeScreen extends StatefulWidget {
     required this.metrics,
     required this.onOpenMedia,
     required this.onContinueWatching,
+    this.onOpenCollection,
     this.focusController,
     super.key,
   });
@@ -32,6 +35,9 @@ class TvHomeScreen extends StatefulWidget {
   final TvShellMetrics metrics;
   final ValueChanged<TvMediaItem> onOpenMedia;
   final FutureOr<void> Function(TvMediaItem item) onContinueWatching;
+
+  /// Opens a row's whole list from its See all; without it rows have none.
+  final ValueChanged<TvCollection>? onOpenCollection;
   final TvScreenFocusController? focusController;
 
   @override
@@ -83,6 +89,10 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
       Padding(
         padding: insets.copyWith(bottom: 0),
         child: const UpdateBottom(television: true),
+      ),
+      Padding(
+        padding: insets.copyWith(bottom: 0, top: 0),
+        child: const TvPlusReminder(),
       ),
       Expanded(child: _buildFeed(context, insets)),
     ]);
@@ -169,27 +179,93 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
           title: tr('top_10_movies_today'),
           scopeId: 'home-top-movies',
           items: data.topMovies,
+          seeAll: _seeAllTrendingToday(TvMediaKind.movie),
         ),
         _row(
-            tr('trending_movies'), 'home-trending-movies', data.trendingMovies),
-        _row(tr('popular_movies'), 'home-popular-movies', data.popularMovies),
+          tr('trending_movies'),
+          'home-trending-movies',
+          data.trendingMovies,
+          TvMediaKind.movie,
+          CatalogList.trendingWeek,
+        ),
+        _row(
+          tr('popular_movies'),
+          'home-popular-movies',
+          data.popularMovies,
+          TvMediaKind.movie,
+          CatalogList.popular,
+        ),
         TvTopTenRow(
           title: tr('top_10_series_today'),
           scopeId: 'home-top-series',
           items: data.topSeries,
+          seeAll: _seeAllTrendingToday(TvMediaKind.series),
         ),
-        _row(tr('trending_series_week'), 'home-trending-series',
-            data.trendingSeries),
-        _row(tr('popular_series'), 'home-popular-series', data.popularSeries),
+        _row(
+          tr('trending_series_week'),
+          'home-trending-series',
+          data.trendingSeries,
+          TvMediaKind.series,
+          CatalogList.trendingWeek,
+        ),
+        _row(
+          tr('popular_series'),
+          'home-popular-series',
+          data.popularSeries,
+          TvMediaKind.series,
+          CatalogList.popular,
+        ),
       ],
     );
   }
 
-  TvMediaRow _row(String title, String scopeId, List<TvMediaItem> items) =>
+  TvMediaRow _row(
+    String title,
+    String scopeId,
+    List<TvMediaItem> items,
+    TvMediaKind kind,
+    CatalogList list,
+  ) =>
       TvMediaRow(
         title: title,
         scopeId: scopeId,
         items: items.take(16).toList(growable: false),
+        seeAll: _seeAll(kind, list, title),
+      );
+
+  TvRowSeeAll? _seeAll(
+    TvMediaKind kind,
+    CatalogList list,
+    String title, {
+    String? label,
+    String? description,
+  }) {
+    final open = widget.onOpenCollection;
+    if (open == null) return null;
+    return TvRowSeeAll(
+      label: label,
+      description: description,
+      onActivate: () => open(
+        const TvCatalogController().catalogListCollection(
+          kind: kind,
+          list: list,
+          title: title,
+          settings: context.read<SettingsProvider>(),
+          dependencies: context.read<AppDependencyProvider>(),
+        ),
+      ),
+    );
+  }
+
+  /// A Top 10 opens the day's whole trending list, the one it is ranked from.
+  TvRowSeeAll? _seeAllTrendingToday(TvMediaKind kind) => _seeAll(
+        kind,
+        CatalogList.trendingToday,
+        tr(kind == TvMediaKind.movie
+            ? 'tv_trending_movies_today'
+            : 'tv_trending_series_today'),
+        label: tr('tv_see_all_trending_today'),
+        description: tr('tv_see_all_trending_today_description'),
       );
 
   /// Drops an entry from the recently watched store, the way the phone UI's

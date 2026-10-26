@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flixquest/video_providers/scraper_api.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
+import 'package:dio/dio.dart';
+import 'support/callback_dio.dart';
 
 void main() {
   group('ScraperApi', () {
@@ -11,9 +11,9 @@ void main() {
       late Uri requestedUri;
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((request) async {
-          requestedUri = request.url;
-          return http.Response(
+        dio: scriptedDio((request) async {
+          requestedUri = request.uri;
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'providers': [
@@ -51,9 +51,9 @@ void main() {
       late Uri requestedUri;
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((request) async {
-          requestedUri = request.url;
-          return http.Response(
+        dio: scriptedDio((request) async {
+          requestedUri = request.uri;
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'startedAt': '2026-08-14T09:00:00.000Z',
@@ -104,8 +104,8 @@ void main() {
     test('surfaces an unavailable health snapshot response', () async {
       final api = ScraperApi(
         'https://scraper.example/api/v2',
-        client: MockClient(
-          (_) async => http.Response(
+        dio: scriptedDio(
+          (_) async => jsonResponse(
             jsonEncode({'error': 'No provider health snapshot available'}),
             503,
           ),
@@ -128,9 +128,9 @@ void main() {
       late Uri requestedUri;
       final api = ScraperApi(
         'https://scraper.example/api/v2',
-        client: MockClient((request) async {
-          requestedUri = request.url;
-          return http.Response(
+        dio: scriptedDio((request) async {
+          requestedUri = request.uri;
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'provider': 'vidsrc',
@@ -202,9 +202,9 @@ void main() {
       late Uri requestedUri;
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((request) async {
-          requestedUri = request.url;
-          return http.Response(
+        dio: scriptedDio((request) async {
+          requestedUri = request.uri;
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'provider': 'vidsrc',
@@ -243,9 +243,9 @@ void main() {
       late Uri requestedUri;
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((request) async {
-          requestedUri = request.url;
-          return http.Response(
+        dio: scriptedDio((request) async {
+          requestedUri = request.uri;
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'provider': 'vidsrc',
@@ -276,9 +276,9 @@ void main() {
       late Uri requestedUri;
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((request) async {
-          requestedUri = request.url;
-          return http.Response(
+        dio: scriptedDio((request) async {
+          requestedUri = request.uri;
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'provider': 'vidsrc',
@@ -318,10 +318,10 @@ void main() {
       final requestedUris = <Uri>[];
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((request) async {
-          requestedUris.add(request.url);
-          if (request.url.queryParameters['full'] == 'true') {
-            return http.Response(
+        dio: scriptedDio((request) async {
+          requestedUris.add(request.uri);
+          if (request.uri.queryParameters['full'] == 'true') {
+            return jsonResponse(
               jsonEncode({
                 'success': false,
                 'provider': 'vidsrc',
@@ -332,7 +332,7 @@ void main() {
               200,
             );
           }
-          return http.Response(
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'provider': 'vidsrc',
@@ -365,9 +365,9 @@ void main() {
       var requests = 0;
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((request) async {
+        dio: scriptedDio((request) async {
           requests++;
-          return http.Response(
+          return jsonResponse(
             jsonEncode({
               'success': false,
               'error': 'No streams found for this movie',
@@ -386,12 +386,12 @@ void main() {
     });
 
     test('posts a signed token and maps a stream size estimate', () async {
-      late http.Request request;
+      late RequestOptions request;
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient((incoming) async {
+        dio: scriptedDio((incoming) async {
           request = incoming;
-          return http.Response(
+          return jsonResponse(
             jsonEncode({
               'success': true,
               'estimatedBytes': 1500000000,
@@ -410,17 +410,17 @@ void main() {
       final estimate = await api.estimateStreamSize('signed-size-token');
 
       expect(request.method, 'POST');
-      expect(request.url.path, '/api/v2/stream-size');
-      expect(request.headers['content-type'], contains('application/json'));
-      expect(jsonDecode(request.body), {'token': 'signed-size-token'});
+      expect(request.uri.path, '/api/v2/stream-size');
+      expect(request.contentType, contains('application/json'));
+      expect(request.data, {'token': 'signed-size-token'});
       expect(estimate?.estimatedBytes, 1500000000);
     });
 
     test('maps an unavailable stream size response', () async {
       final api = ScraperApi(
         'https://scraper.example',
-        client: MockClient(
-          (_) async => http.Response(
+        dio: scriptedDio(
+          (_) async => jsonResponse(
             jsonEncode({
               'success': true,
               'estimatedBytes': null,

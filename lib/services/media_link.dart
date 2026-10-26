@@ -12,7 +12,7 @@
 ///
 /// flix.quest is this app's own short form of a TMDB address: `/m/550` is a film, and `/t/1396`,
 /// `/t/1396.4` and `/t/1396.4.13` are a series, one of its seasons and one of its episodes, and
-/// `/l/51` is a live TV channel. Being our domain, it is the one Android verifies, so these open the
+/// `/l/51` is a live TV channel and `/c/FQ-AB12CD34` a FlixQuest Plus code to redeem. Being our domain, it is the one Android verifies, so these open the
 /// app straight from a tap.
 class MediaLink {
   const MediaLink._();
@@ -33,6 +33,8 @@ class MediaLink {
 
   static final RegExp _imdbTitleId = RegExp(r'^tt\d+$');
   static final RegExp _imdbNameId = RegExp(r'^nm\d+$');
+  // IMDb import is switched off for now.
+  // static final RegExp _imdbListId = RegExp(r'^ls\d{6,12}$');
   static final RegExp _leadingDigits = RegExp(r'^\d+');
 
   /// A flix.quest film is its id alone. A series is its id with, optionally, a season and then an
@@ -43,6 +45,13 @@ class MediaLink {
 
   /// A live channel is the live TV provider's own id for it, which is not a TMDB number.
   static final RegExp _flixquestChannel = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
+
+  /// A shared FlixQuest list: `fq-` and eight letters or digits.
+  static final RegExp _flixquestList =
+      RegExp(r'^fq-[A-Za-z0-9]{8}$', caseSensitive: false);
+
+  /// A Plus code as Filament accepts it: letters, digits and dashes.
+  static final RegExp _flixquestCoupon = RegExp(r'^[A-Za-z0-9][A-Za-z0-9-]{2,39}$');
 
   /// Shareable addresses for catalog titles and episodes on FlixQuest's verified domain.
   static Uri movieUrl(int movieId) => Uri.https(_flixquest, '/m/$movieId');
@@ -60,6 +69,11 @@ class MediaLink {
       _flixquestChannel.hasMatch(channelId)
           ? Uri.https(_flixquest, '/l/$channelId')
           : null;
+
+  /// A shareable address that opens the app ready to redeem [code].
+  static Uri? couponUrl(String code) => _flixquestCoupon.hasMatch(code.trim())
+      ? Uri.https(_flixquest, '/c/${code.trim().toUpperCase()}')
+      : null;
 
   /// Reads whatever link [value] carries.
   ///
@@ -136,6 +150,9 @@ class MediaLink {
           return TmdbMovieLink(id: id, title: name);
         case 'collection':
           return TmdbCollectionLink(id: id, name: name);
+        // Someone's own list, which is imported rather than opened.
+        case 'list':
+          return TmdbListLink(id: id, name: name);
         case 'person':
           return TmdbPersonLink(id: id, name: name);
         case 'tv':
@@ -202,6 +219,14 @@ class MediaLink {
         return _flixquestChannel.hasMatch(value)
             ? LiveChannelLink(channelId: value)
             : null;
+      case 'c':
+        return _flixquestCoupon.hasMatch(value)
+            ? CouponLink(code: value.toUpperCase())
+            : null;
+      case 'list':
+        return _flixquestList.hasMatch(value)
+            ? SharedListLink(code: 'fq-${value.substring(3).toUpperCase()}')
+            : null;
     }
     return null;
   }
@@ -223,6 +248,11 @@ class MediaLink {
       if (kind == 'name' && _imdbNameId.hasMatch(id)) {
         return ImdbNameLink(imdbId: id);
       }
+      // IMDb import is switched off for now. IMDb list links are not read, so they
+      // reach the app as unreadable rather than opening the import screen.
+      // if (kind == 'list' && _imdbListId.hasMatch(id)) {
+      //   return ImdbListLink(listId: id);
+      // }
     }
     return null;
   }
@@ -340,8 +370,39 @@ class LiveChannelLink extends MediaLinkTarget {
   final String channelId;
 }
 
+/// A FlixQuest Plus code to redeem, normalised to upper case as Laravel stores it.
+class CouponLink extends MediaLinkTarget {
+  const CouponLink({required this.code});
+
+  final String code;
+}
+
 class ImdbNameLink extends MediaLinkTarget {
   const ImdbNameLink({required this.imdbId});
 
   final String imdbId;
+}
+
+/// Someone's public TMDB list, which the app imports as one of its own.
+class TmdbListLink extends MediaLinkTarget {
+  const TmdbListLink({required this.id, this.name});
+
+  final int id;
+  final String? name;
+}
+
+/// An IMDb list. IMDb only lets these out as its CSV export, so the link
+/// leads to the import screen's IMDb steps.
+class ImdbListLink extends MediaLinkTarget {
+  const ImdbListLink({required this.listId});
+
+  final String listId;
+}
+
+/// Someone's FlixQuest list, shared with `flix.quest/list/fq-…`.
+class SharedListLink extends MediaLinkTarget {
+  const SharedListLink({required this.code});
+
+  /// `fq-` and the code in capitals, as Laravel's link spells it.
+  final String code;
 }

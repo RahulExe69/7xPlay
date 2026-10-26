@@ -62,6 +62,7 @@ class _ServerStatusScreenState extends State<ServerStatusScreen> {
       backgroundColor: palette.page,
       appBar: PageAppBar(
         title: tr('check_server'),
+        contentWidth: 760,
         actions: [
           IconButton(
             onPressed: _checking ? null : _checkServer,

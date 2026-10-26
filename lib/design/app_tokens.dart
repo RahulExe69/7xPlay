@@ -34,6 +34,20 @@ abstract final class AppRadii {
 abstract final class AppBreakpoints {
   static const tablet = 700.0;
   static const wide = 1000.0;
+
+  /// The shortest side from which the screen is a tablet's (or an unfolded
+  /// phone's). No phone reaches it, turned sideways or not.
+  static const tabletShortestSide = 600.0;
+
+  /// Whether the app's window is a tablet's, judged by its shortest side so
+  /// phones never count. Read from the view, not [MediaQuery], which pages
+  /// beside the rail see narrowed.
+  static bool isTablet(BuildContext context) {
+    final view = View.maybeOf(context);
+    if (view == null) return false;
+    final size = view.physicalSize / view.devicePixelRatio;
+    return size.shortestSide >= tabletShortestSide;
+  }
 }
 
 /// The type scale for phones; tablets use [scaled].

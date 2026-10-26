@@ -95,6 +95,7 @@ class MobileNavRail extends StatelessWidget {
     final palette = AppPalette.of(context);
     final padding = MediaQuery.paddingOf(context);
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    final tablet = AppBreakpoints.isTablet(context);
     return SizedBox(
       width: extentOf(context),
       child: ColoredBox(
@@ -112,8 +113,13 @@ class MobileNavRail extends StatelessWidget {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    // From the top on a tablet, level with the page's own
+                    // top bar, as Material's rail sits.
+                    mainAxisAlignment: tablet
+                        ? MainAxisAlignment.start
+                        : MainAxisAlignment.center,
                     children: <Widget>[
+                      if (tablet) const SizedBox(height: AppSpace.sm),
                       for (final tab in MobileTab.values)
                         SizedBox(
                           width: width,

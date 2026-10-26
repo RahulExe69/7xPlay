@@ -222,7 +222,7 @@ class TvSearchKeyboardState extends State<TvSearchKeyboard> {
                 height: unit * TvSearchKeyboard._keyAspect,
                 child: Padding(
                   padding: const EdgeInsets.all(2),
-                  child: _Key(
+                  child: TvKeyboardKey(
                     focusNode: _node(key.id),
                     label: switch (key.id) {
                       _space => tr('tv_space'),
@@ -261,27 +261,36 @@ class TvSearchKeyboardState extends State<TvSearchKeyboard> {
 }
 
 /// A key: its label in muted type, and a white tile under focus, the way
-/// the rail's destinations light up.
-class _Key extends StatefulWidget {
-  const _Key({
+/// the rail's destinations light up. The form keyboard uses it too.
+class TvKeyboardKey extends StatefulWidget {
+  const TvKeyboardKey({
     required this.focusNode,
     required this.label,
     required this.onFocused,
     required this.onActivate,
     this.icon,
+    this.trailingIcon,
+    this.prominent = false,
+    super.key,
   });
 
   final FocusNode focusNode;
   final String label;
+
+  /// Drawn instead of [label]; [trailingIcon] is drawn after it.
   final IconData? icon;
+  final IconData? trailingIcon;
+
+  /// Rests brighter, like a screen's main button.
+  final bool prominent;
   final VoidCallback onFocused;
   final VoidCallback onActivate;
 
   @override
-  State<_Key> createState() => _KeyState();
+  State<TvKeyboardKey> createState() => _TvKeyboardKeyState();
 }
 
-class _KeyState extends State<_Key> {
+class _TvKeyboardKeyState extends State<TvKeyboardKey> {
   bool _focused = false;
 
   @override
@@ -290,6 +299,18 @@ class _KeyState extends State<_Key> {
     final palette = TvPalette.of(context);
     final foreground = _focused ? palette.onFocus : palette.foreground;
     final icon = widget.icon;
+    final trailingIcon = widget.trailingIcon;
+    final label = Text(
+      widget.label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: foreground,
+        fontFamily: 'FigtreeSB',
+        fontSize: 18,
+        height: 1,
+      ),
+    );
     return TvFocusable(
       focusNode: widget.focusNode,
       semanticLabel: widget.label,
@@ -306,20 +327,25 @@ class _KeyState extends State<_Key> {
         duration: const Duration(milliseconds: 110),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _focused ? palette.focusFill : palette.idleFillFaint,
+          color: _focused
+              ? palette.focusFill
+              : widget.prominent
+                  ? palette.idleFillStrong
+                  : palette.idleFillFaint,
           borderRadius: BorderRadius.circular(TvDesign.cardRadius),
         ),
         child: icon != null
             ? Icon(icon, color: foreground, size: 20)
-            : Text(
-                widget.label,
-                style: TextStyle(
-                  color: foreground,
-                  fontFamily: 'FigtreeSB',
-                  fontSize: 18,
-                  height: 1,
-                ),
-              ),
+            : trailingIcon != null
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Flexible(child: label),
+                      const SizedBox(width: 8),
+                      Icon(trailingIcon, color: foreground, size: 20),
+                    ],
+                  )
+                : label,
       ),
     );
   }

@@ -1,21 +1,22 @@
+import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../services/globle_method.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
 import '../../mobile/widgets/account_form.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+class LaravelForgotPasswordScreen extends StatefulWidget {
+  const LaravelForgotPasswordScreen({super.key});
 
   @override
   ForgotPasswordScreenState createState() => ForgotPasswordScreenState();
 }
 
-class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class ForgotPasswordScreenState extends State<LaravelForgotPasswordScreen> {
   String _emailAddress = '';
   final _formKey = GlobalKey<FormState>();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FlixQuestAuthService _auth = FlixQuestAuthService();
   final GlobalMethods _globalMethods = GlobalMethods();
   bool _isLoading = false;
   void _submitForm() async {
@@ -27,14 +28,12 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
       _formKey.currentState!.save();
       try {
-        await _auth
-            .sendPasswordResetEmail(email: _emailAddress.trim().toLowerCase())
-            .then((value) {
+        await _auth.forgotPassword(_emailAddress).then((value) {
           if (mounted) {
             _globalMethods.checkMessage(tr('reset_sent'), context);
           }
         });
-      } on FirebaseAuthException catch (e) {
+      } on AuthActionException catch (e) {
         if (mounted) {
           if (e.code == 'user-not-found') {
             _globalMethods.authErrorHandle(tr('no_account'), context);
@@ -44,9 +43,11 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         }
         // print('error occured ${error.message}');
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -90,4 +91,10 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ],
     );
   }
+}
+
+class ForgotPasswordScreen extends StatelessWidget {
+  const ForgotPasswordScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const LaravelForgotPasswordScreen();
 }

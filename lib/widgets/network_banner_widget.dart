@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../data/ads/ads_policy.dart';
 import '../models/banner_ads_config.dart';
 
 /// One WebView per visible banner, from whichever network serves the slot.
@@ -48,7 +50,23 @@ class _NetworkBannerWidgetState extends State<NetworkBannerWidget> {
   @override
   void initState() {
     super.initState();
-    unawaited(_load());
+    AdsPolicy.addListener(_onPlusChanged);
+    // Plus never constructs the WebView, so nothing is requested.
+    if (AdsPolicy.adFree) {
+      _failed = true;
+    } else {
+      unawaited(_load());
+    }
+  }
+
+  void _onPlusChanged() {
+    if (!AdsPolicy.adFree || !mounted) return;
+    _timeout?.cancel();
+    unawaited(_stop());
+    setState(() {
+      _failed = true;
+      _controller = null;
+    });
   }
 
   Future<void> _load() async {
@@ -82,7 +100,7 @@ class _NetworkBannerWidgetState extends State<NetworkBannerWidget> {
           if (error.isForMainFrame == true) _fail();
         },
       ));
-      if (!mounted) return;
+      if (!mounted || AdsPolicy.adFree) return;
       _timeout = Timer(const Duration(seconds: 20), _fail);
       await controller.loadHtmlString(widget.unit.html,
           baseUrl: NetworkBannerWidget.documentBaseUrl);
@@ -140,6 +158,7 @@ class _NetworkBannerWidgetState extends State<NetworkBannerWidget> {
 
   @override
   void dispose() {
+    AdsPolicy.removeListener(_onPlusChanged);
     _timeout?.cancel();
     unawaited(_stop());
     super.dispose();
@@ -167,21 +186,55 @@ class _NetworkBannerWidgetState extends State<NetworkBannerWidget> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('AD',
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: .6),
-                  fontFamily: 'FigtreeSB',
-                  fontSize: 10,
-                  letterSpacing: 1.6,
-                )),
+            _AdLabel(television: widget.television),
             const SizedBox(height: 4),
             view,
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The banner's "AD" mark; on phones, when Plus is on sale, it also offers
+/// the way to remove ads.
+class _AdLabel extends StatelessWidget {
+  const _AdLabel({required this.television});
+
+  final bool television;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurface.withValues(alpha: .6);
+    final label = Text('AD',
+        style: TextStyle(
+          color: color,
+          fontFamily: 'FigtreeSB',
+          fontSize: 10,
+          letterSpacing: 1.6,
+        ));
+    if (television || !AdsPolicy.offersPlus(context)) return label;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        label,
+        Text('  ·  ', style: TextStyle(color: color, fontSize: 10)),
+        Semantics(
+          button: true,
+          child: InkWell(
+            onTap: () => unawaited(AdsPolicy.openPlus(context)),
+            child: Text(tr('plus_remove_ads'),
+                style: TextStyle(
+                  color: color,
+                  fontFamily: 'FigtreeSB',
+                  fontSize: 10,
+                  letterSpacing: .4,
+                  decoration: TextDecoration.underline,
+                  decorationColor: color,
+                )),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import '../api/endpoints.dart';
+import '../data/ads/content_ads.dart';
 import '../controllers/bookmark_database_controller.dart';
 import '../functions/network.dart';
 import '../models/genres.dart';
@@ -8,6 +9,18 @@ import '../provider/settings_provider.dart';
 import '../widgets/common_widgets.dart'
     show AppStreamingService, appStreamingServices;
 import 'media_item.dart';
+
+/// The TMDB lists behind a Movies or Series page's rows, and TV Home's.
+enum CatalogList {
+  /// Today's most watched, for the Top 10.
+  trendingToday,
+  trendingWeek,
+  popular,
+  topRated,
+
+  /// Upcoming movies, or series with new episodes on the air.
+  fresh,
+}
 
 /// A streaming service's most popular titles, for its row on a catalog page.
 class ServiceShelf {
@@ -59,6 +72,7 @@ class MediaCollection {
     required this.loadPage,
     this.logoAsset,
     this.adPlacement,
+    this.adFree = false,
   });
 
   final String id;
@@ -66,6 +80,9 @@ class MediaCollection {
 
   /// The hosted ad placement the collection's page reports, if it shows one.
   final String? adPlacement;
+
+  /// A Kids or Family genre: its page shows no ads, Plus or not.
+  final bool adFree;
 
   /// What kind of collection it is, shown above the title.
   final String kicker;
@@ -151,6 +168,32 @@ class CatalogController {
 
   static const _rowLength = 20;
 
+  /// TMDB serves no list or discover page past this one.
+  static const _lastPage = 500;
+
+  /// The TMDB list behind [list] for [kind], so a row and its See all read
+  /// the same one.
+  static String listUrl(MediaKind kind, CatalogList list, String language) {
+    final isMovie = kind == MediaKind.movie;
+    return switch (list) {
+      CatalogList.trendingToday => isMovie
+          ? Endpoints.trendingMoviesTodayUrl(language)
+          : Endpoints.trendingTVTodayUrl(language),
+      CatalogList.trendingWeek => isMovie
+          ? Endpoints.trendingMoviesUrl(language)
+          : Endpoints.trendingTVUrl(language),
+      CatalogList.popular => isMovie
+          ? Endpoints.popularMoviesUrl(language)
+          : Endpoints.popularTVUrl(language),
+      CatalogList.topRated => isMovie
+          ? Endpoints.topRatedUrl(language)
+          : Endpoints.topRatedTVUrl(language),
+      CatalogList.fresh => isMovie
+          ? Endpoints.upcomingMoviesUrl(language)
+          : Endpoints.onTheAirUrl(language),
+    };
+  }
+
   Future<CatalogData> loadCatalog({
     required MediaKind kind,
     required SettingsProvider settings,
@@ -158,8 +201,8 @@ class CatalogController {
   }) async {
     final language = settings.appLanguage;
     final isMovie = kind == MediaKind.movie;
-    Future<List<MediaItem>> row(String url) =>
-        _fetch(kind, url, settings, dependencies);
+    Future<List<MediaItem>> row(CatalogList list) =>
+        _fetch(kind, listUrl(kind, list, language), settings, dependencies);
 
     final providers = (isMovie ? _movieShelfProviders : _seriesShelfProviders)
         .map(serviceFor)
@@ -167,9 +210,12 @@ class CatalogController {
         .toList(growable: false);
     final shelves = Future.wait(<Future<ServiceShelf>>[
       for (final service in providers)
-        row(_serviceUrl(kind, service.providerId, 1, language)).then(
-          (items) => ServiceShelf(service: service, items: items),
-        ),
+        _fetch(
+          kind,
+          _serviceUrl(kind, service.providerId, 1, language),
+          settings,
+          dependencies,
+        ).then((items) => ServiceShelf(service: service, items: items)),
     ]);
     final genres = _orEmpty(fetchGenre(
       isMovie
@@ -179,21 +225,11 @@ class CatalogController {
       dependencies.tmdbProxy,
     ));
     final lists = await Future.wait(<Future<List<MediaItem>>>[
-      row(isMovie
-          ? Endpoints.trendingMoviesUrl(language)
-          : Endpoints.trendingTVUrl(language)),
-      row(isMovie
-          ? Endpoints.popularMoviesUrl(language)
-          : Endpoints.popularTVUrl(language)),
-      row(isMovie
-          ? Endpoints.topRatedUrl(language)
-          : Endpoints.topRatedTVUrl(language)),
-      row(isMovie
-          ? Endpoints.upcomingMoviesUrl(language)
-          : Endpoints.onTheAirUrl(language)),
-      row(isMovie
-          ? Endpoints.trendingMoviesTodayUrl(language)
-          : Endpoints.trendingTVTodayUrl(language)),
+      row(CatalogList.trendingWeek),
+      row(CatalogList.popular),
+      row(CatalogList.topRated),
+      row(CatalogList.fresh),
+      row(CatalogList.trendingToday),
     ]);
     return CatalogData(
       kind: kind,
@@ -222,12 +258,15 @@ class CatalogController {
           ? tr('tv_movies_on_this_service')
           : tr('tv_series_on_this_service'),
       logoAsset: service.imagePath,
-      loadPage: (page) => _fetch(
-        kind,
-        _serviceUrl(kind, service.providerId, page, settings.appLanguage),
-        settings,
-        dependencies,
-        strict: true,
+      loadPage: (page) => _fetchPage(
+        page,
+        () => _fetch(
+          kind,
+          _serviceUrl(kind, service.providerId, page, settings.appLanguage),
+          settings,
+          dependencies,
+          strict: true,
+        ),
       ),
     );
   }
@@ -242,17 +281,24 @@ class CatalogController {
     return MediaCollection(
       id: '${kind.name}-genre-${genre.genreID}',
       title: genre.genreName!,
+      adFree: FamilyGenres.includes(
+        series: !isMovie,
+        genreIds: <int>[genre.genreID!],
+      ),
       kicker: tr(isMovie ? 'tv_movie_genre' : 'tv_series_genre').toUpperCase(),
-      loadPage: (page) => _fetch(
-        kind,
-        isMovie
-            ? Endpoints.getMoviesForGenre(
-                genre.genreID!, page, settings.appLanguage)
-            : Endpoints.getTVShowsForGenre(
-                genre.genreID!, page, settings.appLanguage),
-        settings,
-        dependencies,
-        strict: true,
+      loadPage: (page) => _fetchPage(
+        page,
+        () => _fetch(
+          kind,
+          isMovie
+              ? Endpoints.getMoviesForGenre(
+                  genre.genreID!, page, settings.appLanguage)
+              : Endpoints.getTVShowsForGenre(
+                  genre.genreID!, page, settings.appLanguage),
+          settings,
+          dependencies,
+          strict: true,
+        ),
       ),
     );
   }
@@ -273,7 +319,7 @@ class CatalogController {
       title: title,
       kicker: kicker,
       adPlacement: adPlacement,
-      loadPage: (page) {
+      loadPage: (page) => _fetchPage(page, () {
         final uri = Uri.parse(url);
         return _fetch(
           kind,
@@ -287,9 +333,35 @@ class CatalogController {
           dependencies,
           strict: true,
         );
-      },
+      }),
     );
   }
+
+  /// The whole of one of a catalog page's [list]s, from its row's See all.
+  MediaCollection catalogListCollection({
+    required MediaKind kind,
+    required CatalogList list,
+    required String title,
+    required SettingsProvider settings,
+    required AppDependencyProvider dependencies,
+  }) {
+    return listCollection(
+      id: '${kind.name}-${list.name}',
+      kind: kind,
+      url: listUrl(kind, list, settings.appLanguage),
+      title: title,
+      kicker: tr(kind == MediaKind.movie ? 'movies' : 'series').toUpperCase(),
+      settings: settings,
+      dependencies: dependencies,
+    );
+  }
+
+  /// Past TMDB's last page a collection has ended, rather than failed.
+  static Future<List<MediaItem>> _fetchPage(
+    int page,
+    Future<List<MediaItem>> Function() fetch,
+  ) =>
+      page > _lastPage ? Future.value(const <MediaItem>[]) : fetch();
 
   /// One row from [url], empty if it fails.
   Future<List<MediaItem>> loadRow({

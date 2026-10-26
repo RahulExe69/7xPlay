@@ -25,6 +25,9 @@ class OccasionalEffect {
     this.speed = 1,
     this.opacity = .65,
     this.colors = const <Color>[],
+    this.tvDensity,
+    this.tvSpeed,
+    this.tvOpacity,
   });
 
   final bool enabled;
@@ -33,6 +36,21 @@ class OccasionalEffect {
   final double speed;
   final double opacity;
   final List<Color> colors;
+  final int? tvDensity;
+  final double? tvSpeed;
+  final double? tvOpacity;
+
+  /// Missing TV overrides inherit the shared effect values.
+  OccasionalEffect forDevice({required bool television}) => television
+      ? OccasionalEffect(
+          enabled: enabled,
+          type: type,
+          density: tvDensity ?? density,
+          speed: tvSpeed ?? speed,
+          opacity: tvOpacity ?? opacity,
+          colors: colors,
+        )
+      : this;
 
   factory OccasionalEffect.fromJson(
     Object? value, {
@@ -73,6 +91,9 @@ class OccasionalEffect {
       opacity: OccasionalTheme.parseDouble(value['opacity'], fallback: .65)
           .clamp(.1, 1),
       colors: colors,
+      tvDensity: int.tryParse('${value['tv_density']}')?.clamp(4, 80),
+      tvSpeed: _optionalDouble(value['tv_speed'], .2, 3),
+      tvOpacity: _optionalDouble(value['tv_opacity'], .1, 1),
     );
   }
 
@@ -82,9 +103,17 @@ class OccasionalEffect {
         'density': density,
         'speed': speed,
         'opacity': opacity,
+        if (tvDensity != null) 'tv_density': tvDensity,
+        if (tvSpeed != null) 'tv_speed': tvSpeed,
+        if (tvOpacity != null) 'tv_opacity': tvOpacity,
         if (colors.isNotEmpty)
           'colors': colors.map(OccasionalTheme.colorHex).toList(),
       };
+
+  static double? _optionalDouble(Object? value, double min, double max) {
+    final parsed = double.tryParse('$value');
+    return parsed != null && parsed.isFinite ? parsed.clamp(min, max) : null;
+  }
 
   static String jsonName(OccasionalEffectType type) => switch (type) {
         OccasionalEffectType.candyEggs => 'candy_eggs',
@@ -318,6 +347,15 @@ class OccasionalTheme {
   static String colorHex(Color color) =>
       '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
 
+  static String canonicalId(String id) => switch (id.trim().toLowerCase()) {
+        'xmas' => 'christmas',
+        'ethiopian-new-year' || 'enkutatash' => 'ethiopian_new_year',
+        'new-year' => 'new_year',
+        'valentines_day' || 'valentine' => 'valentines',
+        'eid_al_fitr' || 'eid_al_adha' => 'eid',
+        final value => value,
+      };
+
   static Color _derivedTertiary(Color primary, Color secondary) =>
       Color.alphaBlend(secondary.withValues(alpha: .45), primary);
 
@@ -447,6 +485,8 @@ class OccasionalThemeCatalog {
     required this.allowUserEffectsToggle,
     required this.themes,
     this.defaultThemeId = '',
+    this.activeThemeId = '',
+    this.resolvedAt,
     this.schemaVersion = 2,
   });
 
@@ -456,6 +496,8 @@ class OccasionalThemeCatalog {
         effectsEnabled = false,
         allowUserEffectsToggle = false,
         defaultThemeId = '',
+        activeThemeId = '',
+        resolvedAt = null,
         schemaVersion = 2,
         themes = const <OccasionalTheme>[];
 
@@ -464,6 +506,8 @@ class OccasionalThemeCatalog {
   final bool effectsEnabled;
   final bool allowUserEffectsToggle;
   final String defaultThemeId;
+  final String activeThemeId;
+  final DateTime? resolvedAt;
   final int schemaVersion;
   final List<OccasionalTheme> themes;
 
@@ -533,6 +577,9 @@ class OccasionalThemeCatalog {
           OccasionalTheme.parseBool(json['allow_user_effects_toggle']),
       defaultThemeId:
           (json['default_theme_id'] ?? '').toString().trim().toLowerCase(),
+      activeThemeId:
+          (json['active_theme_id'] ?? '').toString().trim().toLowerCase(),
+      resolvedAt: OccasionalTheme.parseDate(json['resolved_at']),
       schemaVersion: OccasionalTheme.parseInt(
         json['schema_version'],
         fallback: 2,
@@ -557,16 +604,42 @@ class OccasionalThemeCatalog {
     required String selectedThemeId,
     DateTime? now,
   }) {
-    final active = activeThemesAt(now ?? DateTime.now());
+    final instant = (now ?? DateTime.now()).toUtc();
+    final active = activeThemesAt(instant);
     if (active.isEmpty) return null;
     if (allowUserSelection && selectedThemeId != 'automatic') {
       for (final theme in active) {
-        if (theme.userSelectable && theme.id == selectedThemeId) return theme;
+        if (theme.userSelectable &&
+            OccasionalTheme.canonicalId(theme.id) ==
+                OccasionalTheme.canonicalId(selectedThemeId)) {
+          return theme;
+        }
+      }
+    }
+    // A server choice applies to its snapshot window. After any local start
+    // or end boundary, resolve again so an offline app keeps changing seasons.
+    final crossedBoundary = resolvedAt != null &&
+        themes.any((theme) =>
+            (theme.startsAt != null &&
+                theme.startsAt!.isAfter(resolvedAt!) &&
+                !instant.isBefore(theme.startsAt!)) ||
+            (theme.endsAt != null &&
+                !theme.endsAt!.isBefore(resolvedAt!) &&
+                instant.isAfter(theme.endsAt!)));
+    if (activeThemeId.isNotEmpty && !crossedBoundary) {
+      for (final theme in active) {
+        if (OccasionalTheme.canonicalId(theme.id) ==
+            OccasionalTheme.canonicalId(activeThemeId)) {
+          return theme;
+        }
       }
     }
     if (defaultThemeId.isNotEmpty) {
       for (final theme in active) {
-        if (theme.id == defaultThemeId) return theme;
+        if (OccasionalTheme.canonicalId(theme.id) ==
+            OccasionalTheme.canonicalId(defaultThemeId)) {
+          return theme;
+        }
       }
     }
     return active.first;
@@ -579,6 +652,9 @@ class OccasionalThemeCatalog {
         'effects_enabled': effectsEnabled,
         'allow_user_effects_toggle': allowUserEffectsToggle,
         'default_theme_id': defaultThemeId,
+        if (activeThemeId.isNotEmpty) 'active_theme_id': activeThemeId,
+        if (resolvedAt != null)
+          'resolved_at': resolvedAt!.toUtc().toIso8601String(),
         'themes': themes.map((theme) => theme.toJson()).toList(),
       };
 

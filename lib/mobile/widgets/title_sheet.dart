@@ -1,12 +1,16 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:provider/provider.dart';
 
 import '../../catalog/media_item.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../widgets/playback_action.dart';
+import '../../provider/playlist_provider.dart';
 import '../my_list.dart';
+import '../playlists.dart';
+import 'page_kit.dart';
 import '../playback.dart';
 import 'media_art.dart';
 import 'pill_button.dart';
@@ -29,6 +33,7 @@ Future<void> showTitleSheet(BuildContext context, MediaItem item) {
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: palette.surface,
+    constraints: appSheetConstraints(context),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),
@@ -159,10 +164,33 @@ class _TitleSheet extends StatelessWidget {
                   ),
                 ],
               ),
+              if (context.watch<PlaylistProvider?>() case final playlists?)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.sm),
+                  child: ListRow(
+                    flush: true,
+                    icon: PhosphorIcons.listPlus(),
+                    label: tr('playlist_save_to'),
+                    subtitle: _listNames(playlists, item),
+                    onTap: () {
+                      close();
+                      showSaveToListSheet(host, item);
+                    },
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+/// The lists [item] is already in, for the line under "Save to a list".
+String? _listNames(PlaylistProvider playlists, MediaItem item) {
+  final names = <String>[
+    for (final list in playlists.lists)
+      if (list.contains(item)) list.name,
+  ];
+  return names.isEmpty ? null : names.join(', ');
 }

@@ -4,6 +4,7 @@ import 'package:better_player_plus/better_player_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'player_sheet_ui.dart';
@@ -239,15 +240,18 @@ class PlayerLocalSubtitles {
   Future<void> _pickFiles(
       StateSetter setBottomSheetState, BuildContext context) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['srt', 'vtt'],
-        allowMultiple: true,
-      );
+      final result = await _pickSubtitleFiles();
 
       if (result != null && result.files.isNotEmpty) {
+        final subtitles = result.files.where((file) =>
+            _subtitleExtensions.contains(file.extension?.toLowerCase()));
+        if (subtitles.length < result.files.length && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr('supported_formats_srt_vtt'))),
+          );
+        }
         setBottomSheetState(() {
-          for (final file in result.files) {
+          for (final file in subtitles) {
             if (file.path != null) {
               final filePath = file.path!;
               // Avoid duplicates in the list
@@ -275,6 +279,25 @@ class PlayerLocalSubtitles {
           ),
         );
       }
+    }
+  }
+
+  static const _subtitleExtensions = ['srt', 'vtt'];
+
+  /// Subtitle files from the device's picker. Before Android 10 the device
+  /// knows neither type, and the plugin refuses the filter without showing
+  /// anything, so the picker opens on all files and [_pickFiles] keeps the
+  /// subtitles among them.
+  Future<FilePickerResult?> _pickSubtitleFiles() async {
+    try {
+      return await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _subtitleExtensions,
+        allowMultiple: true,
+      );
+    } on PlatformException catch (e) {
+      if (e.message?.startsWith('Unsupported filter') != true) rethrow;
+      return FilePicker.platform.pickFiles(allowMultiple: true);
     }
   }
 

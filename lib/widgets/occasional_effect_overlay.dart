@@ -12,6 +12,7 @@ class OccasionalEffectOverlay extends StatefulWidget {
   const OccasionalEffectOverlay({
     required this.theme,
     required this.enabled,
+    this.television = false,
     this.visibilityListenable,
     this.visibilityResolver,
     super.key,
@@ -19,6 +20,7 @@ class OccasionalEffectOverlay extends StatefulWidget {
 
   final OccasionalTheme? theme;
   final bool enabled;
+  final bool television;
 
   /// Optional live visibility source used by app-level overlays. This lets the
   /// painter react immediately when a route suppresses effects, even if the
@@ -130,7 +132,7 @@ class _OccasionalEffectOverlayState extends State<OccasionalEffectOverlay>
               clock: _clock,
               visibilityListenable: widget.visibilityListenable,
               visibilityResolver: widget.visibilityResolver,
-              effect: theme.effect,
+              effect: theme.effect.forDevice(television: widget.television),
               primary: theme.primaryColor,
               secondary: theme.secondaryColor,
               tertiary: theme.tertiaryColor,

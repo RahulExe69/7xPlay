@@ -67,6 +67,13 @@ class SettingsProvider with ChangeNotifier {
   int _defaultSeekDuration = 10;
   int get defaultSeekDuration => _defaultSeekDuration;
 
+  // Speeds played while the player's right and left edges are held; 0 is off.
+  double _fastHoldSpeed = 2;
+  double get fastHoldSpeed => _fastHoldSpeed;
+
+  double _slowHoldSpeed = .5;
+  double get slowHoldSpeed => _slowHoldSpeed;
+
   int _playerTimeDisplay = 1;
   int get playerTimeDisplay => _playerTimeDisplay;
 
@@ -255,6 +262,26 @@ class SettingsProvider with ChangeNotifier {
     _defaultSeekDuration = value;
     _settingsPreferences.setSeekDuration(value);
     _trackSetting('Seek Duration', value);
+    notifyListeners();
+  }
+
+  Future<void> getHoldSpeeds() async {
+    _fastHoldSpeed = await _settingsPreferences.getFastHoldSpeed();
+    _slowHoldSpeed = await _settingsPreferences.getSlowHoldSpeed();
+    notifyListeners();
+  }
+
+  set fastHoldSpeed(double value) {
+    _fastHoldSpeed = value;
+    _settingsPreferences.setFastHoldSpeed(value);
+    _trackSetting('Fast Hold Speed', value);
+    notifyListeners();
+  }
+
+  set slowHoldSpeed(double value) {
+    _slowHoldSpeed = value;
+    _settingsPreferences.setSlowHoldSpeed(value);
+    _trackSetting('Slow Hold Speed', value);
     notifyListeners();
   }
 

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../catalog/continue_watching.dart';
 import '../../catalog/details_controller.dart';
 import '../../catalog/media_item.dart';
+import '../../data/ads/content_ads.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../functions/function.dart';
@@ -17,6 +18,7 @@ import '../../screens/tv/tv_video_loader.dart';
 import '../../widgets/playback_action.dart';
 import '../playback.dart';
 import 'media_art.dart';
+import 'page_kit.dart' show appSheetConstraints;
 import 'pill_button.dart';
 
 /// "S2:E4 · 23m left", "S2:E5 · Next episode", or "1h 04m left".
@@ -64,6 +66,7 @@ Future<void> showContinueSheet(BuildContext context, MediaItem item) {
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: palette.surface,
+    constraints: appSheetConstraints(context),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),
@@ -105,7 +108,8 @@ class _ContinueSheet extends StatelessWidget {
     if (picked == null || !host.mounted) return;
     await PlaybackAction.run(host, () async {
       if (!await checkConnection() || !host.mounted) return;
-      if (!await AdsterraPlaybackAdsService.instance.beforeLoader(host) ||
+      if (!await AdsterraPlaybackAdsService.instance
+              .beforeLoader(host, content: AdContent.of(item)) ||
           !host.mounted) {
         return;
       }

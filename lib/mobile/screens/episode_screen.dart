@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../catalog/details_controller.dart';
+import '../../data/ads/content_ads.dart';
 import '../../catalog/details_play.dart';
 import '../../catalog/media_item.dart';
 import '../../catalog/season_source.dart';
@@ -238,13 +239,53 @@ class _EpisodeScreenState extends State<EpisodeScreen>
     return season == null || number == null ? null : 'S$season:E$number';
   }
 
+  /// A Kids or Family series' pages show no ads.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ContentAdGate(
+        content: AdContent.of(widget.series),
+        child: Builder(builder: _page),
+      );
+
+  Widget _page(BuildContext context) {
     final palette = AppPalette.of(context);
     final history = _history(context);
     final title = (_episode.name ?? '').trim().isEmpty
         ? (_label ?? widget.series.title)
         : _episode.name!.trim();
+    final ad = widget.adBuilder?.call(context) ??
+        HomeAdSlot(
+          placement: 'episode_detail',
+          variant: HostedBannerVariant.tall,
+        );
+    if (AppBreakpoints.isTablet(context) &&
+        MediaQuery.sizeOf(context).width >= AppBreakpoints.wide) {
+      // A wide tablet: the episode beside the rest of its season.
+      return Scaffold(
+        backgroundColor: palette.page,
+        body: DetailsSplit(
+          controller: scroll,
+          artwork: (width) => MediaArt(
+            key: ValueKey<int?>(_number),
+            item: widget.series,
+            path: _episode.stillPath,
+            width: width,
+            size: ArtSize.still,
+            alignment: Alignment.topCenter,
+          ),
+          start: <Widget>[_summary(context, title, history), ad],
+          end: <Widget>[
+            SliverToBoxAdapter(child: _seasonRow(context, history)),
+            SliverToBoxAdapter(child: _cast(context, title)),
+            SliverToBoxAdapter(child: _stills(context, title)),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: AppSpace.xxxl + MediaQuery.paddingOf(context).bottom,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: palette.page,
       body: CustomScrollView(
@@ -264,13 +305,7 @@ class _EpisodeScreenState extends State<EpisodeScreen>
           ),
           SliverToBoxAdapter(
               child: ReadableWidth(child: _summary(context, title, history))),
-          SliverToBoxAdapter(
-            child: widget.adBuilder?.call(context) ??
-                HomeAdSlot(
-                  placement: 'episode_detail',
-                  variant: HostedBannerVariant.tall,
-                ),
-          ),
+          SliverToBoxAdapter(child: ad),
           SliverToBoxAdapter(
               child: ReadableWidth(child: _seasonRow(context, history))),
           SliverToBoxAdapter(

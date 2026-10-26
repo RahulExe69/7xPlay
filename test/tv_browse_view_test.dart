@@ -9,6 +9,7 @@ import 'package:flixquest/tv/focus/tv_screen_focus_controller.dart';
 import 'package:flixquest/tv/models/tv_media_item.dart';
 import 'package:flixquest/tv/widgets/tv_browse_skeleton.dart';
 import 'package:flixquest/tv/widgets/tv_browse_view.dart';
+import 'package:flixquest/tv/widgets/tv_content_row.dart';
 import 'package:flixquest/tv/widgets/tv_media_card.dart';
 import 'package:flixquest/tv/widgets/tv_navigation_rail.dart';
 import 'package:flixquest/tv/widgets/tv_top_ten_rank.dart';
@@ -16,8 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
+import 'support/callback_dio.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -508,9 +508,9 @@ void main() {
       language: 'en',
       proxyEnabled: false,
       proxyUrl: '',
-      client: MockClient((request) async {
-        requested.add(int.parse(request.url.pathSegments[2]));
-        return http.Response('{"logos": []}', 200);
+      dio: scriptedDio((request) async {
+        requested.add(int.parse(request.uri.pathSegments[2]));
+        return jsonResponse('{"logos": []}', 200);
       }),
     );
     final controller = await _pumpBrowse(tester, logos: logos);
@@ -792,9 +792,9 @@ void main() {
       language: 'en',
       proxyEnabled: false,
       proxyUrl: '',
-      client: MockClient((request) async {
-        requested.add(int.parse(request.url.pathSegments[2]));
-        return http.Response('{"logos": []}', 200);
+      dio: scriptedDio((request) async {
+        requested.add(int.parse(request.uri.pathSegments[2]));
+        return jsonResponse('{"logos": []}', 200);
       }),
     );
     final controller = await _pumpBrowse(tester, logos: logos);
@@ -838,5 +838,118 @@ void main() {
     final firstCard = tester.getRect(find.byType(Container).last).topLeft;
     expect(firstCard.dx, greaterThanOrEqualTo(80));
     expect(tester.takeException(), isNull);
+  });
+
+  group('See all', () {
+    const seeAll = 'first:${TvContentRow.trailingActionId}';
+
+    List<TvBrowseRow> rows(VoidCallback onSeeAll) => <TvBrowseRow>[
+          TvMediaRow(
+            title: 'first',
+            scopeId: 'first',
+            items: <TvMediaItem>[for (var i = 0; i < 3; i++) _item(100 + i)],
+            seeAll: TvRowSeeAll(onActivate: onSeeAll),
+          ),
+          _row('second', 200),
+        ];
+
+    testWidgets('Right off the last card reaches it, and OK opens the list',
+        (tester) async {
+      var opened = 0;
+      final controller = await _pumpBrowse(tester, rows: rows(() => opened++));
+      controller.requestFocus();
+      await tester.pumpAndSettle();
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      for (var i = 0; i < 3; i++) {
+        await _press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      expect(_focused, seeAll);
+      expect(find.bySemanticsLabel('See all, first'), findsOneWidget);
+      // It ends the row: Right goes no further.
+      await _press(tester, LogicalKeyboardKey.arrowRight);
+      expect(_focused, seeAll);
+
+      await _press(tester, LogicalKeyboardKey.select);
+      expect(opened, 1);
+
+      await _press(tester, LogicalKeyboardKey.arrowLeft);
+      expect(_focused, 'first:movie:102');
+    });
+
+    testWidgets('the spotlight says what it opens', (tester) async {
+      final controller = await _pumpBrowse(tester, rows: rows(() {}));
+      controller.requestFocus();
+      await tester.pumpAndSettle();
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      for (var i = 0; i < 3; i++) {
+        await _press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      expect(
+        find.text('Every title in first, past the first few.'),
+        findsOneWidget,
+      );
+      expect(find.text('Overview 102'), findsNothing);
+    });
+
+    testWidgets('the row returns to it, as to any card it was left on',
+        (tester) async {
+      final controller = await _pumpBrowse(tester, rows: rows(() {}));
+      controller.requestFocus();
+      await tester.pumpAndSettle();
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      for (var i = 0; i < 3; i++) {
+        await _press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      expect(_focused, 'second:movie:200');
+      await _press(tester, LogicalKeyboardKey.arrowUp);
+      expect(_focused, seeAll);
+    });
+
+    testWidgets('a Top 10 names the list it opens and keeps ten ranks',
+        (tester) async {
+      var opened = 0;
+      final controller = await _pumpBrowse(tester, rows: <TvBrowseRow>[
+        TvTopTenRow(
+          title: 'top',
+          scopeId: 'top',
+          items: <TvMediaItem>[for (var i = 0; i < 12; i++) _item(100 + i)],
+          seeAll: TvRowSeeAll(
+            label: 'See all trending today',
+            onActivate: () => opened++,
+          ),
+        ),
+      ]);
+      expect(find.byType(TvTopTenRank), findsNWidgets(10));
+      expect(find.text('See all trending today'), findsOneWidget);
+
+      controller.requestFocus();
+      await tester.pumpAndSettle();
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      for (var i = 0; i < 10; i++) {
+        await _press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      expect(_focused, 'top:${TvContentRow.trailingActionId}');
+      await _press(tester, LogicalKeyboardKey.select);
+      expect(opened, 1);
+    });
+
+    testWidgets('rows without one end on their last card', (tester) async {
+      final controller = await _pumpBrowse(tester, rows: <TvBrowseRow>[
+        TvMediaRow(
+          title: 'first',
+          scopeId: 'first',
+          items: <TvMediaItem>[for (var i = 0; i < 3; i++) _item(100 + i)],
+        ),
+      ]);
+      expect(find.text('See all'), findsNothing);
+      controller.requestFocus();
+      await tester.pumpAndSettle();
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      for (var i = 0; i < 4; i++) {
+        await _press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      expect(_focused, 'first:movie:102');
+    });
   });
 }

@@ -1,11 +1,14 @@
 import 'package:flixquest/constants/app_constants.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/models/recently_watched.dart';
 import 'package:flixquest/models/tv.dart';
+import 'package:flixquest/models/videos.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
 import 'package:flixquest/provider/recently_watched_provider.dart';
 import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flixquest/services/hosted_ads_repository.dart';
 import 'package:flixquest/services/device_presentation_service.dart';
+import 'package:flixquest/services/video_launcher.dart';
 import 'package:flixquest/tv/controllers/tv_media_details_controller.dart';
 import 'package:flixquest/tv/models/tv_media_item.dart';
 import 'package:flixquest/tv/screens/tv_media_details_screen.dart';
@@ -23,7 +26,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // No artwork, so nothing reaches for the network.
-TvMediaItem _item(int id, {TvMediaKind kind = TvMediaKind.series}) =>
+TvMediaItem _item(int id,
+        {TvMediaKind kind = TvMediaKind.series, List<int>? genreIds}) =>
     TvMediaItem(
       kind: kind,
       id: id,
@@ -33,7 +37,13 @@ TvMediaItem _item(int id, {TvMediaKind kind = TvMediaKind.series}) =>
       backdropPath: null,
       rating: 8,
       releaseDate: '2024-01-01',
+      series: kind == TvMediaKind.series && genreIds != null
+          ? TV(id: id, name: 'Title $id', genreIds: genreIds)
+          : null,
     );
+
+Results _video(String key, {String type = 'Trailer'}) =>
+    Results(name: 'Video $key', videoLink: key, type: type, site: 'YouTube');
 
 RecentEpisode _watched({
   required int seriesId,
@@ -69,9 +79,25 @@ RecentMovie _watchedMovie(int id, {int elapsed = 600, int remaining = 3000}) =>
 
 /// Serves a series with Specials and two seasons, without the network.
 class _FakeController extends TvMediaDetailsController {
-  _FakeController();
+  _FakeController({this.videos = const <Results>[], this.videosFail = false});
 
   final List<int> seasonsLoaded = <int>[];
+  List<Results> videos;
+
+  /// Fails the videos request until a test clears it.
+  bool videosFail;
+  int videoLoads = 0;
+
+  @override
+  Future<List<Results>> loadVideos({
+    required TvMediaItem item,
+    required SettingsProvider settings,
+    required AppDependencyProvider dependencies,
+  }) async {
+    videoLoads++;
+    if (videosFail) throw Exception('offline');
+    return videos;
+  }
 
   @override
   Future<TvMediaDetailsData> load({
@@ -79,6 +105,14 @@ class _FakeController extends TvMediaDetailsController {
     required SettingsProvider settings,
     required AppDependencyProvider dependencies,
   }) async {
+    if (item.kind == TvMediaKind.movie) {
+      return TvMediaDetailsData(
+        item: item,
+        recommendations: <TvMediaItem>[
+          for (var i = 0; i < 4; i++) _item(500 + i, kind: TvMediaKind.movie),
+        ],
+      );
+    }
     return TvMediaDetailsData(
       item: item,
       seriesDetails: TVDetails(
@@ -149,11 +183,12 @@ Future<_FakeController> _pumpDetails(
   TvMediaItem? item,
   RecentProvider? recent,
   AppDependencyProvider? dependencies,
+  _FakeController? controller,
 }) async {
   tester.view.physicalSize = const Size(960, 540);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final controller = _FakeController();
+  controller ??= _FakeController();
   await tester.pumpWidget(
     MultiProvider(
       providers: [
@@ -185,7 +220,11 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     sharedPrefsSingleton = await SharedPreferences.getInstance();
+    // Titles without genre ids are asked about; these have none of note.
+    ContentAds.lookup = (_, __) async => const <int>[];
   });
+
+  tearDown(ContentAds.reset);
 
   testWidgets(
     'TV details lays out the enabled top-right banner slot',
@@ -213,6 +252,36 @@ void main() {
       expect(slot.top, isNotNull);
       expect(slot.width, 360);
       expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.android}),
+  );
+
+  testWidgets(
+    'a Kids series shows no banner on its TV page',
+    (tester) async {
+      final device = DevicePresentationService.instance;
+      WebViewPlatform.instance = FakeAdsterraWebViewPlatform();
+      device.isTelevision = true;
+      var hostedRequests = 0;
+      HostedAdsRepository.instance.useFetcherForTesting((_) async {
+        hostedRequests++;
+        return [];
+      });
+      addTearDown(() {
+        device.isTelevision = false;
+        HostedAdsRepository.instance.useFetcherForTesting((_) async => []);
+      });
+      final dependencies = AppDependencyProvider()
+        ..setBannerAdsConfig(testAdsterraConfig());
+      await _pumpDetails(
+        tester,
+        item: _item(42, genreIds: <int>[16, FamilyGenres.kids]),
+        dependencies: dependencies,
+      );
+
+      expect(find.byType(NetworkBannerWidget), findsNothing);
+      expect(hostedRequests, 0);
+      expect(find.text('Play S1:E1'), findsOneWidget);
     },
     variant: const TargetPlatformVariant({TargetPlatform.android}),
   );
@@ -406,6 +475,126 @@ void main() {
       final specials = tester.getTopLeft(find.text('Specials')).dx;
       expect(season1, lessThan(season2));
       expect(season2, lessThan(specials));
+    });
+
+    group('videos', () {
+      late List<Uri> opened;
+      var opens = true;
+
+      setUp(() {
+        opened = <Uri>[];
+        opens = true;
+        launchExternalUrl = (url) async {
+          opened.add(url);
+          return opens;
+        };
+      });
+
+      tearDown(() => launchExternalUrl =
+          (url) async => throw StateError('no launcher in tests'));
+
+      testWidgets('sit between the episodes and More like this',
+          (tester) async {
+        await _pumpDetails(
+          tester,
+          controller: _FakeController(
+            videos: <Results>[_video('aaa'), _video('bbb', type: 'Teaser')],
+          ),
+        );
+        expect(find.text('Videos'), findsOneWidget);
+        expect(find.text('Video aaa'), findsOneWidget);
+        expect(find.text('Teaser'), findsOneWidget);
+
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_focused, 'details-episodes:42:1:1');
+
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_focused, 'details-videos:series:42:aaa');
+        await _press(tester, LogicalKeyboardKey.arrowRight);
+        expect(_focused, 'details-videos:series:42:bbb');
+
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_focused, 'details-similar:series:42:series:500');
+
+        // Up comes back to the video it left.
+        await _press(tester, LogicalKeyboardKey.arrowUp);
+        expect(_focused, 'details-videos:series:42:bbb');
+        await _press(tester, LogicalKeyboardKey.arrowUp);
+        expect(_focused, 'details-episodes:42:1:1');
+
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.escape);
+        expect(_focused, 'TV details play');
+      });
+
+      testWidgets('a movie reaches them straight from its actions',
+          (tester) async {
+        await _pumpDetails(
+          tester,
+          item: _item(7, kind: TvMediaKind.movie),
+          controller: _FakeController(videos: <Results>[_video('aaa')]),
+        );
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_focused, 'details-videos:movie:7:aaa');
+      });
+
+      testWidgets('open in YouTube and keep focus on the card', (tester) async {
+        await _pumpDetails(
+          tester,
+          controller: _FakeController(videos: <Results>[_video('aaa')]),
+        );
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.select);
+
+        expect(opened, <Uri>[Uri.parse('https://youtube.com/watch?v=aaa')]);
+        expect(_focused, 'details-videos:series:42:aaa');
+        expect(find.byType(SnackBar), findsNothing);
+      });
+
+      testWidgets('say so when nothing can open the video', (tester) async {
+        opens = false;
+        await _pumpDetails(
+          tester,
+          controller: _FakeController(videos: <Results>[_video('aaa')]),
+        );
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.select);
+
+        expect(opened, hasLength(1));
+        expect(
+          find.text(
+              'This video could not be opened. Install YouTube and try again.'),
+          findsOneWidget,
+        );
+        expect(_focused, 'details-videos:series:42:aaa');
+      });
+
+      testWidgets('that fail offer a Retry Down reaches', (tester) async {
+        final controller = _FakeController(
+          videos: <Results>[_video('aaa')],
+          videosFail: true,
+        );
+        await _pumpDetails(tester, controller: controller);
+        expect(find.text('Videos could not be loaded.'), findsOneWidget);
+        expect(find.text('Play S1:E1'), findsOneWidget,
+            reason: 'the rest of the page does not wait on the videos');
+
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_focused, 'TV details videos retry');
+
+        controller.videosFail = false;
+        await _press(tester, LogicalKeyboardKey.select);
+        expect(controller.videoLoads, 2);
+        expect(find.text('Videos could not be loaded.'), findsNothing);
+        expect(_focused, 'details-videos:series:42:aaa');
+      });
     });
 
     group('action buttons', () {

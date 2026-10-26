@@ -1,19 +1,26 @@
+import 'package:flixquest/presentation/session/auth_runtime.dart';
+import 'package:flixquest/services/flixquest_auth_service.dart';
+
 import 'package:easy_localization/easy_localization.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:provider/provider.dart';
 
+import '../../presentation/billing/plus_controller.dart';
+import '../../services/plus_navigation.dart';
+import '../../widgets/plus/plus_format.dart';
+import '../../widgets/plus/plus_visuals.dart';
+
+import '../../mobile/widgets/verified_badge.dart';
 import '../../services/auth_navigation_service.dart';
-import '../../services/flixquest_auth_service.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_screen_focus_controller.dart';
 import '../widgets/tv_dialog.dart';
 import '../widgets/tv_page_header.dart';
 import '../widgets/tv_pill_button.dart';
 
-class TvProfileScreen extends StatelessWidget {
-  const TvProfileScreen({
+class LaravelTvProfileScreen extends StatelessWidget {
+  const LaravelTvProfileScreen({
     required this.metrics,
     this.focusController,
     super.key,
@@ -24,46 +31,23 @@ class TvProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Localizations.localeOf(context);
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.isAnonymous) {
-      return _ProfileLayout(
-        metrics: metrics,
-        name: tr('guest'),
-        subtitle: tr('tv_local_watchlist_and_browsing_session'),
-        profileId: 0,
-        isGuest: true,
-        focusController: focusController,
-        onSignOut: () => _confirmSignOut(context),
-      );
-    }
-
-    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future:
-          FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
-      builder: (context, snapshot) {
-        final data = snapshot.data?.data();
-        final name = data?['name']?.toString().trim();
-        final username = data?['username']?.toString().trim();
-        final profileId = data?['profileId'] is int
-            ? data!['profileId'] as int
-            : int.tryParse(data?['profileId']?.toString() ?? '') ?? 0;
-        return _ProfileLayout(
-          metrics: metrics,
-          name: name == null || name.isEmpty
-              ? user.displayName ?? tr('tv_flixquest_member')
-              : name,
-          subtitle: username == null || username.isEmpty
-              ? user.email ?? tr('signed_in')
-              : '@$username',
-          profileId: profileId,
-          photoUrl: data?['photoUrl']?.toString(),
-          loading: snapshot.connectionState != ConnectionState.done,
-          focusController: focusController,
-          onSignOut: () => _confirmSignOut(context),
-        );
-      },
-    );
+    return ListenableBuilder(
+        listenable: AuthRuntime.session,
+        builder: (context, _) {
+          final user = AuthRuntime.session.user;
+          return _ProfileLayout(
+              metrics: metrics,
+              name: user?.name ?? tr('guest'),
+              subtitle: user == null
+                  ? tr('tv_local_watchlist_and_browsing_session')
+                  : '@${user.username}',
+              profileId: user?.profileId ?? 0,
+              photoUrl: user?.photoUrl,
+              verified: user?.isAccountVerified ?? false,
+              isGuest: user == null,
+              focusController: focusController,
+              onSignOut: () => _confirmSignOut(context));
+        });
   }
 
   Future<void> _confirmSignOut(BuildContext context) async {
@@ -84,8 +68,7 @@ class TvProfileScreen extends StatelessWidget {
           isPrimary: true,
           onPressed: () async {
             Navigator.of(context).pop();
-            await FlixQuestAuthService.signOutGoogle();
-            await FirebaseAuth.instance.signOut();
+            await FlixQuestAuthService().signOut();
             if (context.mounted) {
               await AuthNavigationService.returnToSignedOutRoot(context);
             }
@@ -104,18 +87,21 @@ class _ProfileLayout extends StatelessWidget {
     required this.profileId,
     required this.onSignOut,
     this.photoUrl,
-    this.loading = false,
+    this.verified = false,
     this.isGuest = false,
     this.focusController,
   });
 
   final TvShellMetrics metrics;
   final String name;
+
+  /// The admin-granted badge, after the name as on the phone.
+  final bool verified;
   final String subtitle;
   final int profileId;
   final String? photoUrl;
   final VoidCallback onSignOut;
-  final bool loading;
+  final bool loading = false;
   final bool isGuest;
   final TvScreenFocusController? focusController;
 
@@ -201,17 +187,27 @@ class _ProfileLayout extends StatelessWidget {
                             ),
                           )
                         else ...<Widget>[
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: palette.foreground,
-                              fontFamily: 'FigtreeBold',
-                              fontSize: compact ? 34 : 46,
-                              height: 1.05,
-                              letterSpacing: -1,
-                            ),
+                          Row(
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: palette.foreground,
+                                    fontFamily: 'FigtreeBold',
+                                    fontSize: compact ? 34 : 46,
+                                    height: 1.05,
+                                    letterSpacing: -1,
+                                  ),
+                                ),
+                              ),
+                              if (verified) ...<Widget>[
+                                SizedBox(width: compact ? 8 : 12),
+                                VerifiedBadge(size: compact ? 32 : 42),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -236,12 +232,29 @@ class _ProfileLayout extends StatelessWidget {
                             height: 1.35,
                           ),
                         ),
+                        SizedBox(height: compact ? 14 : 20),
+                        _PlusLine(compact: compact),
                         SizedBox(height: compact ? 18 : 26),
-                        TvPillButton(
-                          focusNode: signOutFocusNode,
-                          label: tr('sign_out'),
-                          icon: PhosphorIcons.signOut(),
-                          onActivate: onSignOut,
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: <Widget>[
+                            TvPillButton(
+                              focusNode: signOutFocusNode,
+                              label: tr('sign_out'),
+                              icon: PhosphorIcons.signOut(),
+                              onActivate: onSignOut,
+                            ),
+                            if (!isGuest ||
+                                (context.watch<PlusController?>()?.shouldSuggest ??
+                                    false))
+                              TvPillButton(
+                                label: tr('plus_name'),
+                                leading: const PlusMark(),
+                                prominent: true,
+                                onActivate: () => openPlus(context),
+                              ),
+                          ],
                         ),
                       ],
                     ),
@@ -253,6 +266,47 @@ class _ProfileLayout extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One line on Plus under the profile: the days left for a member, or what
+/// it costs while it is on sale.
+class _PlusLine extends StatelessWidget {
+  const _PlusLine({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final plus = context.watch<PlusController?>();
+    if (plus == null) return const SizedBox.shrink();
+    final until = plus.activeUntil;
+    final String text;
+    if (until != null) {
+      text = tr('plus_ad_free_until', args: [formatDay(context, until)]);
+    } else if (plus.shouldSuggest) {
+      text = plus.signedIn ? tr('plus_cta_member') : tr('plus_cta_guest');
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        PlusWordmark(size: compact ? 15 : 18, showName: false),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: TvPalette.of(context).mutedText,
+              fontSize: compact ? 14 : 16,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -340,4 +394,14 @@ class _ProfileFocusEntryState extends State<_ProfileFocusEntry> {
 
   @override
   Widget build(BuildContext context) => widget.builder(_signOutFocusNode);
+}
+
+class TvProfileScreen extends StatelessWidget {
+  const TvProfileScreen(
+      {required this.metrics, this.focusController, super.key});
+  final TvShellMetrics metrics;
+  final TvScreenFocusController? focusController;
+  @override
+  Widget build(BuildContext context) => LaravelTvProfileScreen(
+      metrics: metrics, focusController: focusController);
 }

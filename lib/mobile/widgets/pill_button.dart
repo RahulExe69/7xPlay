@@ -12,6 +12,7 @@ class PillButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.leading,
     this.primary = false,
     this.busy = false,
     this.height = 48,
@@ -22,6 +23,10 @@ class PillButton extends StatelessWidget {
 
   final String label;
   final IconData? icon;
+
+  /// A picture in place of [icon], such as a brand mark; it takes the
+  /// button's text colour through [IconTheme].
+  final Widget? leading;
   final VoidCallback? onPressed;
   final bool primary;
 
@@ -93,8 +98,14 @@ class PillButton extends StatelessWidget {
                     else if (icon != null)
                       PlaybackIcon.keeps(icon)
                           ? PlaybackIcon(icon, size: 20, color: foreground)
-                          : Icon(icon, size: 20, color: foreground),
-                    if (busy || icon != null) const SizedBox(width: 8),
+                          : Icon(icon, size: 20, color: foreground)
+                    else if (leading != null)
+                      IconTheme.merge(
+                        data: IconThemeData(color: foreground, size: 20),
+                        child: leading!,
+                      ),
+                    if (busy || icon != null || leading != null)
+                      const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         label,

@@ -1,30 +1,31 @@
+import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/error/failure.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
-import '../../functions/function.dart';
+import '../../mobile/widgets/device_limit_sheet.dart';
 import '../../mobile/widgets/pill_button.dart';
 import '../../provider/settings_provider.dart';
 import '../../services/globle_method.dart';
-import '../../services/flixquest_auth_service.dart';
 import '../../widgets/google_sign_in_button.dart';
 import '../user/login_screen.dart';
 import '../user/signup_screen.dart';
 import '../../widgets/app_logo.dart';
 
-class LandingScreen extends StatefulWidget {
-  const LandingScreen({super.key});
+class LaravelLandingScreen extends StatefulWidget {
+  const LaravelLandingScreen({super.key});
 
   @override
-  State<LandingScreen> createState() => _LandingScreenState();
+  State<LaravelLandingScreen> createState() => _LandingScreenState();
 }
 
-class _LandingScreenState extends State<LandingScreen> {
+class _LandingScreenState extends State<LaravelLandingScreen> {
   final _authService = FlixQuestAuthService();
   bool _loadingAnonymous = false;
   bool _loadingGoogle = false;
@@ -155,13 +156,9 @@ class _LandingScreenState extends State<LandingScreen> {
     if (_loadingGoogle) return;
     setState(() => _loadingAnonymous = true);
     try {
-      if (!await checkConnection()) {
-        if (mounted) _showError(tr('check_connection'));
-        return;
-      }
       await _authService.signInAnonymously();
       settings.analytics.trackLogin('anonymous');
-      // UserState's auth stream owns the handheld/TV destination.
+      // UserState's session gate owns the handheld/TV destination.
     } catch (error) {
       if (mounted) _showError(error.toString());
     } finally {
@@ -169,15 +166,21 @@ class _LandingScreenState extends State<LandingScreen> {
     }
   }
 
+  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
+      mounted ? showDeviceLimitSheet(context, limit) : null;
+
   Future<void> _continueWithGoogle(SettingsProvider settings) async {
     if (_loadingAnonymous) return;
     setState(() => _loadingGoogle = true);
     try {
-      final credential = await _authService.signInWithGoogle();
+      final credential = await _authService.withinDeviceLimit(
+          (replaceDeviceId) =>
+              _authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
+          pick: _pickDeviceToSignOut);
       if (credential == null) return;
       settings.analytics.trackLogin('google');
-      // UserState's auth stream swaps this landing screen for the app shell.
-    } on FirebaseAuthException catch (error) {
+      // UserState's session gate swaps this landing screen for the app shell.
+    } on AuthActionException catch (error) {
       if (mounted) _showError(_googleAuthMessage(error));
     } on PlatformException catch (error) {
       if (mounted && !_isGoogleSignInCancel(error)) {
@@ -190,16 +193,13 @@ class _LandingScreenState extends State<LandingScreen> {
     }
   }
 
-  String _googleAuthMessage(FirebaseAuthException error) {
+  String _googleAuthMessage(AuthActionException error) {
     return switch (error.code) {
-      'account-exists-with-different-credential' =>
-        tr('google_email_conflict'),
+      'account-exists-with-different-credential' => error.message,
       'network-request-failed' => tr('check_connection'),
-      'invalid-credential' ||
-      'invalid-email' =>
-        tr('invalid_credential'),
+      'invalid-credential' || 'invalid-email' => tr('invalid_credential'),
       'user-disabled' => tr('banned_user'),
-      _ => error.message ?? tr('error_occured'),
+      _ => error.message,
     };
   }
 
@@ -217,9 +217,8 @@ class _LandingScreenState extends State<LandingScreen> {
         error.message?.toLowerCase().contains('network') == true) {
       return tr('check_connection');
     }
-    final detail = (error.message?.isNotEmpty ?? false)
-        ? error.message!
-        : error.code;
+    final detail =
+        (error.message?.isNotEmpty ?? false) ? error.message! : error.code;
     return '${tr('google_signin_failed')}\n$detail';
   }
 
@@ -275,4 +274,10 @@ class _Intro extends StatelessWidget {
       ],
     );
   }
+}
+
+class LandingScreen extends StatelessWidget {
+  const LandingScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const LaravelLandingScreen();
 }

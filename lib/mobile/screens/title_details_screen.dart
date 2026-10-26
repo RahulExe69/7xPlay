@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../catalog/details_controller.dart';
+import '../../data/ads/content_ads.dart';
 import '../../catalog/details_play.dart';
 import '../../catalog/episode_choice.dart';
 import '../../catalog/media_item.dart';
@@ -40,7 +41,9 @@ import '../../services/ambient_theme_service.dart';
 import '../../services/media_link.dart';
 import '../collections.dart';
 import '../episode_playback.dart';
+import '../../provider/playlist_provider.dart';
 import '../my_list.dart';
+import '../playlists.dart';
 import '../widgets/details_header.dart';
 import '../widgets/details_parts.dart';
 import '../widgets/episodes_section.dart';
@@ -327,11 +330,12 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
       isAdult: item.movie?.adult,
       releaseDate: item.releaseDate,
       genres: insights.genres,
+      genreIds: item.genreIds,
       languages: insights.languages,
       countries: insights.countries,
     );
-    if (!await AdsterraPlaybackAdsService.instance
-            .beforeLoader(context, download: download) ||
+    if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context,
+            download: download, content: AdContent.of(item)) ||
         !mounted) {
       return;
     }
@@ -558,9 +562,13 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
               ],
             ),
     );
-    return widget.showTitleLogos
-        ? TitleLogoScope(logos: _logosFor(context), child: page)
-        : page;
+    // A Kids or Family title's page, and the loader it opens, show no ads.
+    return ContentAdGate(
+      content: AdContent.of(_item),
+      child: widget.showTitleLogos
+          ? TitleLogoScope(logos: _logosFor(context), child: page)
+          : page,
+    );
   }
 
   Widget _adSlot() =>
@@ -588,83 +596,24 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
 
   /// Above 1,000 px: the artwork and what to do with the title stay at the
   /// start, and the episodes and tabs scroll beside them.
-  Widget _twoColumns(BuildContext context, WatchHistory history) {
-    final palette = AppPalette.of(context);
-    final media = MediaQuery.of(context);
-    final startWidth = (media.size.width * .4).clamp(400.0, 520.0);
-    MediaQueryData pane(double width) =>
-        media.copyWith(size: Size(width, media.size.height));
-    return Row(
-      children: <Widget>[
-        SizedBox(
-          width: startWidth,
-          child: MediaQuery(
-            data: pane(startWidth),
-            child: SingleChildScrollView(
-              primary: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  SizedBox(
-                    height: startWidth * 9 / 16,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: <Widget>[
-                        DetailsBackdrop(
-                          artwork: MediaArt(
-                            item: _item,
-                            path: _item.backdropPath ?? _item.posterPath,
-                            width: startWidth,
-                            size: ArtSize.backdrop,
-                            alignment: Alignment.topCenter,
-                          ),
-                        ),
-                        PositionedDirectional(
-                          top: media.padding.top + AppSpace.xs,
-                          start: AppSpace.sm,
-                          child: DetailsRoundButton(
-                            icon: PhosphorIcons.caretLeft(),
-                            tooltip: MaterialLocalizations.of(context)
-                                .backButtonTooltip,
-                            onArtwork: true,
-                            onPressed: () => Navigator.of(context).maybePop(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _summary(context, history),
-                  _adSlot(),
-                  SizedBox(height: AppSpace.xxxl + media.padding.bottom),
-                ],
-              ),
-            ),
-          ),
+  Widget _twoColumns(BuildContext context, WatchHistory history) =>
+      DetailsSplit(
+        controller: _scroll,
+        artwork: (width) => MediaArt(
+          item: _item,
+          path: _item.backdropPath ?? _item.posterPath,
+          width: width,
+          size: ArtSize.backdrop,
+          alignment: Alignment.topCenter,
         ),
-        Expanded(
-          child: MediaQuery(
-            data: pane(media.size.width - startWidth),
-            child: SafeArea(
-              bottom: false,
-              child: CustomScrollView(
-                controller: _scroll,
-                slivers: <Widget>[
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: AppSpace.lg),
-                  ),
-                  if (!_isMovie)
-                    SliverToBoxAdapter(child: _episodes(context, history)),
-                  _tabsHeader(palette),
-                  ..._tabSlivers(context),
-                  _bottomSpace(context),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+        start: <Widget>[_summary(context, history), _adSlot()],
+        end: <Widget>[
+          if (!_isMovie) SliverToBoxAdapter(child: _episodes(context, history)),
+          _tabsHeader(AppPalette.of(context)),
+          ..._tabSlivers(context),
+          _bottomSpace(context),
+        ],
+      );
 
   Widget _header(BuildContext context) => DetailsSliverHeader(
         title: _item.title,
@@ -965,6 +914,11 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
 
   Widget _actions(BuildContext context) {
     final saved = MyList.contains(context, _item);
+    final inList = context
+            .watch<PlaylistProvider?>()
+            ?.listsContaining(_item)
+            .isNotEmpty ??
+        false;
     return FutureBuilder<Videos>(
       future: _videos,
       builder: (context, snapshot) {
@@ -978,6 +932,15 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
                     : PhosphorIcons.plus(),
                 label: tr('my_list'),
                 onPressed: _toggleMyList,
+              ),
+            ),
+            Expanded(
+              child: DetailsAction(
+                icon: inList
+                    ? PhosphorIcons.listChecks()
+                    : PhosphorIcons.listPlus(),
+                label: tr('playlist_save'),
+                onPressed: () => showSaveToListSheet(context, _item),
               ),
             ),
             if (trailer != null)
@@ -1182,9 +1145,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
                   onRetry: _retry,
                 );
               }
-              final videos = (snapshot.data?.result ?? const <Results>[])
-                  .where((video) => (video.videoLink ?? '').isNotEmpty)
-                  .toList(growable: false);
+              final videos = youTubeVideos(snapshot.data);
               if (videos.isEmpty) {
                 return DetailsMessage(message: tr('nothing_here_yet'));
               }

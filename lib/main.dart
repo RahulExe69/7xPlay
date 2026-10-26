@@ -1,4 +1,37 @@
+import 'controllers/wellness_database_controller.dart';
+import 'presentation/session/firebase_session_bridge.dart';
+import 'data/sources/legacy_firebase_session.dart';
+import 'data/sources/onesignal_messaging_client.dart';
+import 'data/repositories/push_message_repository.dart';
+import 'presentation/notifications/push_message_controller.dart';
+import 'services/google_error_reporting.dart';
+import 'presentation/notifications/device_registration_controller.dart';
+import 'presentation/notifications/in_app_message_controller.dart';
+import 'presentation/notifications/notification_controller.dart';
+import 'data/sources/push_messaging_client.dart';
+import 'services/in_app_messaging_service.dart';
+import 'data/sync/sync_runtime.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+import 'data/ads/ad_events_controller.dart';
+import 'services/hosted_ads_repository.dart';
+import 'services/firebase_backend_config_controller.dart';
+import 'presentation/config/bootstrap_view_model.dart';
+import 'presentation/config/refresh_controller.dart';
+import 'presentation/config/config_source_controller.dart';
+import 'data/sources/firebase_config_source.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'services/local_account_data.dart';
+import 'presentation/session/auth_runtime.dart';
+import 'presentation/session/session_view_model.dart';
+import 'presentation/billing/plus_controller.dart';
+import 'services/plus_navigation.dart';
+import 'services/auth_session_controller.dart';
+import 'dart:async';
 import 'dart:io';
+import 'package:provider/provider.dart';
+import 'core/config/app_environment.dart';
+import 'core/di/injector.dart';
+import 'core/network/network_runtime.dart';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flixquest/flixquest_main.dart';
 import '../models/translation.dart';
@@ -13,6 +46,7 @@ import 'package:flutter_downloader/flutter_downloader.dart';
 import 'constants/app_constants.dart';
 import 'functions/function.dart';
 import 'provider/bookmark_provider.dart';
+import 'provider/playlist_provider.dart';
 import 'provider/recently_watched_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -42,6 +76,7 @@ bool isTablet(BuildContext context) {
 SettingsProvider settingsProvider = SettingsProvider();
 RecentProvider recentProvider = RecentProvider();
 BookmarkProvider bookmarkProvider = BookmarkProvider();
+PlaylistProvider playlistProvider = PlaylistProvider();
 AppDependencyProvider appDependencyProvider = AppDependencyProvider();
 WellnessProvider wellnessProvider = WellnessProvider.instance;
 final Future<FirebaseApp> _initialization = Firebase.initializeApp();
@@ -74,14 +109,10 @@ Future<DevicePresentation> appInitialize({
 
   // Surface uncaught Dart and platform errors to Crashlytics. Installed only
   // after Firebase initialization so the recorder is always ready.
-  FlutterError.onError = (details) {
-    if (_isRecoverableImageError(details)) return;
-    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-  };
-  PlatformDispatcher.instance.onError = (error, stackTrace) {
-    FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: true);
-    return true;
-  };
+  final reporting = GoogleErrorReporting(FirebaseCrashlytics.instance,
+      ignoreFlutterError: _isRecoverableImageError);
+  FlutterError.onError = reporting.flutterError;
+  PlatformDispatcher.instance.onError = reporting.platformError;
 
   final devicePresentation = await resolveDevicePresentation(
     detector: devicePresentationDetector,
@@ -101,10 +132,12 @@ Future<DevicePresentation> appInitialize({
     DeviceOrientation.landscapeRight,
   ]);
 
-  // ByteData data =
-  //     await PlatformAssetBundle().load('assets/ca/lets-encrypt-r3.pem');
-  // SecurityContext.defaultContext
-  //     .setTrustedCertificatesBytes(data.buffer.asUint8List());
+  // Android 7.0 predates ISRG Root X1, which anchors the API's certificate.
+  try {
+    final root = await rootBundle.load('assets/ca/isrg-root-x1.pem');
+    SecurityContext.defaultContext
+        .setTrustedCertificatesBytes(root.buffer.asUint8List());
+  } catch (_) {/* The platform already trusts it. */}
   await dotenv.load(fileName: '.env');
   await EasyLocalization.ensureInitialized();
   // Seed the shared version with the installed build so any synchronous reader
@@ -127,6 +160,7 @@ Future<DevicePresentation> appInitialize({
   await settingsProvider.getCurrentImageQuality();
   await settingsProvider.getCurrentWatchCountry();
   await settingsProvider.getSeekDuration();
+  await settingsProvider.getHoldSpeeds();
   await settingsProvider.getMaxBufferDuration();
   await settingsProvider.getVideoResolution();
   await settingsProvider.getSubtitleLanguage();
@@ -154,21 +188,158 @@ Future<DevicePresentation> appInitialize({
   await bookmarkProvider.fetchBookmarks();
   await wellnessProvider.initialize();
   await appDependencyProvider.getFlixQuestLogo();
-  await appDependencyProvider.getOccasionalTheme();
+  await appDependencyProvider.getOccasionalTheme(preserveSelection: true);
   await appDependencyProvider.getAmbientMode();
   await appDependencyProvider.getFQUrl();
   await appDependencyProvider.getTmdbProxy();
   await appDependencyProvider.getUpdateConfiguration();
-
-  await BookmarkSyncService.instance.init();
-  await RecentlyWatchedSyncService.instance.init();
 
   return devicePresentation;
 }
 
 void main() async {
   final devicePresentation = await appInitialize();
-  HttpOverrides.global = MyHttpOverrides();
+  final environment = AppEnvironment.fromRuntime();
+  final httpOverrides = MyHttpOverrides(
+      verifiedHosts: {Uri.parse(environment.laravelApiUrl).host});
+  HttpOverrides.global = httpOverrides;
+  final injector = await buildInjector(
+      environment: environment,
+      deleteLocalData: (owner) async {
+    await LocalAccountData.delete(owner);
+    await bookmarkProvider.fetchBookmarks();
+    await playlistProvider.load();
+    await recentProvider.fetchMovies();
+    await recentProvider.fetchEpisodes();
+    await wellnessProvider.reload();
+  });
+  final backendConfig = FirebaseBackendConfigController(
+    fallbackUrl: environment.laravelApiUrl,
+    onUrlChanged: (url) {
+      // Register the new host before any credential-bearing request can use it.
+      httpOverrides.verifiedHosts.add(Uri.parse(url).host.toLowerCase());
+      injector.updateLaravelApiUrl(url);
+    },
+  );
+  unawaited(backendConfig.start());
+  HostedAdsRepository.instance.configure(injector.adsRepository);
+  if (injector.migrationFlags.ads) {
+    // Observe each rendered frame so brief visibility interruptions reset dwell.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+  }
+  final adsController = injector.migrationFlags.ads
+      ? AdEventsController(injector.adsRepository)
+      : null;
+  ConfigLifecycle? configController;
+  if (!kDebugMode || injector.migrationFlags.config) {
+    final bootstrap =
+        BootstrapViewModel(injector.configRepository, appDependencyProvider);
+    final sourceController = ConfigSourceController(injector.configRepository,
+        bootstrap, injector.kvStore, SdkFirebaseConfigSource());
+    await sourceController.hydrate();
+    configController = sourceController;
+  }
+  AuthRuntime.configure(injector.session);
+  SyncRuntime.configure(injector.syncCoordinator,
+      enabled: injector.migrationFlags.auth && injector.migrationFlags.sync);
+  if (SyncRuntime.enabled) {
+    await BookmarkSyncService.instance.init();
+    await RecentlyWatchedSyncService.instance.init();
+    wellnessProvider.syncService.bind();
+    injector.session.ownerId.addListener(() {
+      bookmarkProvider.resetForOwner();
+      playlistProvider.resetForOwner();
+      recentProvider.resetForOwner();
+      unawaited(bookmarkProvider.fetchBookmarks());
+      unawaited(playlistProvider.load());
+      unawaited(recentProvider.fetchMovies());
+      unawaited(recentProvider.fetchEpisodes());
+    });
+  }
+  final firebaseSession = FirebaseSessionBridge(
+    session: injector.session,
+    legacy: SdkLegacyFirebaseSession(),
+    preferences: injector.kvStore,
+    moveLocalOwner: (from, to) async {
+      await WellnessDatabaseController.instance
+          .moveOwner(fromOwnerId: from, toOwnerId: to);
+      await wellnessProvider.reload();
+      if (SyncRuntime.enabled) {
+        unawaited(injector.syncCoordinator.syncAll());
+      }
+    },
+  );
+  {
+    await injector.session.restore();
+    // Costs one round trip on the first launch after upgrading from 4.2.x,
+    // which keeps those users out of the sign-in screen. A slow network lets
+    // the app start while the exchange finishes in the background.
+    await firebaseSession
+        .run()
+        .timeout(const Duration(seconds: 10), onTimeout: () {});
+    AuthSessionController.instance.initialize();
+    // Restores a paying member's cached access before the first frame, so
+    // no ad flashes up while Laravel confirms it.
+    await injector.plus.start();
+    installPlusOffer();
+    await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
+    if (SyncRuntime.enabled) {
+      await bookmarkProvider.fetchBookmarks();
+      await recentProvider.fetchMovies();
+      await recentProvider.fetchEpisodes();
+      unawaited(injector.syncCoordinator.syncAll());
+    }
+    // Read after the owner is known, so the first frame shows this account's.
+    await playlistProvider.load();
+  }
+  NotificationController? notifications;
+  if (injector.migrationFlags.notifications) {
+    final platform = devicePresentation == DevicePresentation.television
+        ? 'tv'
+        : Platform.isIOS
+            ? 'ios'
+            : 'android';
+    final oneSignalAppId = injector.environment.oneSignalAppId;
+    if (oneSignalAppId.isNotEmpty &&
+        !OneSignalMessagingClient.validAppId(oneSignalAppId)) {
+      throw StateError('ONESIGNAL_APP_ID must be a valid public App ID.');
+    }
+    PushMessagingClient messaging = SdkPushMessagingClient();
+    if (oneSignalAppId.isNotEmpty) {
+      final oneSignal = OneSignalMessagingClient();
+      try {
+        await oneSignal
+            .initialize(oneSignalAppId, platform: platform)
+            .timeout(const Duration(seconds: 10));
+        messaging = oneSignal;
+      } catch (_) {
+        await oneSignal.dispose();
+        debugPrint(
+            'OneSignal initialization unavailable; retry on next app launch.');
+      }
+    }
+    final messages = InAppMessageController(injector.announcementRepository,
+        injector.kvStore, InAppMessagingService.present);
+    notifications = NotificationController(
+      DeviceRegistrationController(injector.deviceRepository, injector.session,
+          injector.kvStore, messaging,
+          platform: platform,
+          provider: messaging is OneSignalMessagingClient ? 'onesignal' : 'fcm',
+          appVersion: currentAppVersion),
+      messages,
+      messaging,
+      pushMessages: PushMessageController(
+          PushMessageRepository(injector.laravelDio), messages,
+          currentOwner: () => injector.session.accountId.value,
+          currentToken: () => injector.session.token),
+    );
+  }
+  NetworkRuntime.configure(
+      publicDio: injector.publicDio,
+      httpCache: injector.httpCache,
+      tmdb: injector.tmdbRepository);
+  Timer.run(() =>
+      unawaited(injector.httpCache.pruneExpired().catchError((Object _) {})));
   HomeWidgetNavigationService.configure(
     source: () => (
       language: settingsProvider.appLanguage,
@@ -177,17 +348,30 @@ void main() async {
     ),
   );
   await MediaLinkNavigationService.initialize();
-  runApp(EasyLocalization(
-    supportedLocales: Translation.all,
-    path: 'assets/translations',
-    fallbackLocale: Translation.all[0],
-    startLocale: Locale(settingsProvider.appLanguage),
-    child: FlixQuest(
-      settingsProvider: settingsProvider,
-      recentProvider: recentProvider,
-      bookmarkProvider: bookmarkProvider,
-      appDependencyProvider: appDependencyProvider,
-      devicePresentation: devicePresentation,
-    ),
-  ));
+  runApp(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<SessionViewModel>.value(value: injector.session),
+        ChangeNotifierProvider<PlusController>.value(value: injector.plus),
+        ChangeNotifierProvider<PlaylistProvider>.value(value: playlistProvider),
+      ],
+      child: Provider<AppInjector>.value(
+          value: injector,
+          child: EasyLocalization(
+            supportedLocales: Translation.all,
+            path: 'assets/translations',
+            fallbackLocale: Translation.all[0],
+            startLocale: Locale(settingsProvider.appLanguage),
+            child: FlixQuest(
+              settingsProvider: settingsProvider,
+              recentProvider: recentProvider,
+              bookmarkProvider: bookmarkProvider,
+              appDependencyProvider: appDependencyProvider,
+              devicePresentation: devicePresentation,
+              configController: configController,
+              backendConfigController: backendConfig,
+              adsController: adsController,
+              notifications: notifications,
+              firebaseSession: firebaseSession,
+            ),
+          ))));
 }

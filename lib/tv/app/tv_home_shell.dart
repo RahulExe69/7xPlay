@@ -431,6 +431,7 @@ class _TvHomeShellState extends State<TvHomeShell> with RestorationMixin {
           metrics: metrics,
           onOpenMedia: _openMedia,
           onContinueWatching: _continueWatching,
+          onOpenCollection: _openCollection,
           focusController: focusController,
         ),
       'search' => TvSearchScreen(

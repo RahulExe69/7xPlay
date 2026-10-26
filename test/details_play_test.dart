@@ -207,6 +207,28 @@ void main() {
     expect(pickTrailer(null), isNull);
   });
 
+  test('videos are YouTube ones, each once, in TMDB order', () {
+    Results video(String? key, {String? site = 'YouTube'}) =>
+        Results(name: key, videoLink: key, type: 'Clip', site: site);
+    final videos = youTubeVideos(Videos(result: [
+      video('a'),
+      video('b', site: 'Vimeo'),
+      video('c', site: 'youtube'),
+      video('a'),
+      video(''),
+      video(null),
+      video('d&list=x'),
+      video('e', site: null),
+    ]));
+    expect(videos.map((video) => video.videoLink), ['a', 'c', 'e']);
+    expect(youTubeVideos(null), isEmpty);
+
+    expect(youTubeWatchUrl(video('abc_-1')).toString(),
+        'https://youtube.com/watch?v=abc_-1');
+    expect(youTubeWatchUrl(video('b', site: 'Vimeo')), isNull);
+    expect(youTubeWatchUrl(video('x/../y')), isNull);
+  });
+
   test('more like this alternates the two lists, once each, never itself', () {
     MediaItem movie(int id) => MediaItem.fromMovie(Movie(id: id, title: '$id'));
     final merged = moreLikeThis(

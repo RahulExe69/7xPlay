@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -28,6 +28,25 @@ sealed class TvBrowseRow {
   bool get isEmpty;
 }
 
+/// Opens the whole list behind a row that shows only its start, from a tile
+/// after the row's last card.
+class TvRowSeeAll {
+  const TvRowSeeAll({
+    required this.onActivate,
+    this.label,
+    this.description,
+  });
+
+  final VoidCallback onActivate;
+
+  /// The tile's label, See all unless the list needs naming: a Top 10 opens
+  /// the day's whole trending list, which is no longer a top ten.
+  final String? label;
+
+  /// The spotlight's synopsis while the tile has focus.
+  final String? description;
+}
+
 /// A row of titles, shown as artwork-only posters.
 class TvMediaRow extends TvBrowseRow {
   const TvMediaRow({
@@ -38,9 +57,13 @@ class TvMediaRow extends TvBrowseRow {
     this.onItemMenu,
     this.itemMenuHint,
     this.showBadges = true,
+    this.seeAll,
   });
 
   final List<TvMediaItem> items;
+
+  /// For a row cut short of its list.
+  final TvRowSeeAll? seeAll;
 
   /// Whether the cards carry [TvBrowseView.badgeFor]'s corner labels; a row
   /// that says the same thing itself, such as Continue watching, leaves them
@@ -62,9 +85,11 @@ class TvTopTenRow extends TvBrowseRow {
     required super.title,
     required super.scopeId,
     required List<TvMediaItem> items,
+    this.seeAll,
   }) : items = items.take(10).toList(growable: false);
 
   final List<TvMediaItem> items;
+  final TvRowSeeAll? seeAll;
 
   @override
   bool get isEmpty => items.isEmpty;
@@ -208,6 +233,35 @@ class _TvBrowseViewState extends State<TvBrowseView> {
         logos.resolve(item);
       }
     });
+  }
+
+  TvContentRowAction? _seeAllAction(
+    TvBrowseRow row,
+    TvRowSeeAll? seeAll, {
+    required bool dimmed,
+  }) {
+    if (seeAll == null) return null;
+    final label = seeAll.label ?? tr('see_all');
+    return TvContentRowAction(
+      semanticLabel: tr('tv_see_all_semantics', namedArgs: {
+        'label': label,
+        'title': row.title,
+      }),
+      builder: (_) => _SeeAllTile(
+        label: label,
+        width: widget.metrics.mediaCardWidth,
+        dimmed: dimmed,
+      ),
+      onActivate: seeAll.onActivate,
+      // The backdrop stays on the last title, as it does for a shortcut.
+      onFocused: () => _spotlight.value = TvSpotlightData(
+        id: 'see-all:${row.scopeId}',
+        title: row.title,
+        facts: <String>[label],
+        overview: seeAll.description ??
+            tr('tv_see_all_description', namedArgs: {'title': row.title}),
+      ),
+    );
   }
 
   void _showShortcut(TvBrowseShortcut shortcut) {
@@ -641,6 +695,7 @@ class _TvBrowseViewState extends State<TvBrowseView> {
       },
       onItemMenu: row.onItemMenu,
       itemMenuHint: row.itemMenuHint,
+      trailingAction: _seeAllAction(row, row.seeAll, dimmed: dimmed),
       pinFocusedItem: true,
     );
   }
@@ -680,6 +735,7 @@ class _TvBrowseViewState extends State<TvBrowseView> {
         _showItem(item);
         _prefetchLogos(row.items, item);
       },
+      trailingAction: _seeAllAction(row, row.seeAll, dimmed: dimmed),
       pinFocusedItem: true,
     );
   }
@@ -708,6 +764,72 @@ class _TvBrowseViewState extends State<TvBrowseView> {
       itemMenuHint: row.menuHint,
       onItemFocused: _showShortcut,
       pinFocusedItem: true,
+    );
+  }
+}
+
+/// A poster-shaped See all tile, so it sits in a row of posters as one more
+/// card rather than a button.
+class _SeeAllTile extends StatelessWidget {
+  const _SeeAllTile({
+    required this.label,
+    required this.width,
+    required this.dimmed,
+  });
+
+  final String label;
+  final double width;
+  final bool dimmed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = TvPalette.of(context);
+    return SizedBox(
+      width: width,
+      child: AspectRatio(
+        aspectRatio: TvMediaCard.artworkAspectRatio,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(TvDesign.cardRadius),
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              ColoredBox(color: palette.raisedSurface),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(
+                      Directionality.of(context) == TextDirection.rtl
+                          ? PhosphorIcons.arrowLeft()
+                          : PhosphorIcons.arrowRight(),
+                      color: palette.foreground,
+                      size: 28,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.foreground,
+                        fontFamily: 'FigtreeSB',
+                        fontSize: 16,
+                        height: 1.15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                color: dimmed ? palette.dim : Colors.transparent,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

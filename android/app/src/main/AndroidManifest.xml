@@ -102,6 +102,8 @@
                 <data android:pathPrefix="/m/" />
                 <data android:pathPrefix="/t/" />
                 <data android:pathPrefix="/l/" />
+                <data android:pathPrefix="/c/" />
+                <data android:pathPrefix="/list/" />
             </intent-filter>
 
             <!-- Addresses on TMDB. Deliberately unverified: claiming a domain means publishing a
@@ -120,6 +122,7 @@
                 <data android:pathPrefix="/tv/" />
                 <data android:pathPrefix="/person/" />
                 <data android:pathPrefix="/collection/" />
+                <data android:pathPrefix="/list/" />
             </intent-filter>
 
             <!-- Addresses on IMDb. The patterns are for its localised paths, which put a language
@@ -135,6 +138,7 @@
                 <data android:host="m.imdb.com" />
                 <data android:pathPrefix="/title/" />
                 <data android:pathPrefix="/name/" />
+                <!-- IMDb import is switched off for now. <data android:pathPrefix="/list/" /> -->
                 <data android:pathPattern="/.*/title/.*" />
                 <data android:pathPattern="/.*/name/.*" />
             </intent-filter>

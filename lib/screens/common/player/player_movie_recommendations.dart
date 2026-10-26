@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flixquest/widgets/adsterra_playback_gate.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/widgets/playback_action.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -48,6 +49,7 @@ class PlayerMovieRecommendations {
             : null,
         isAdult: false, // This info is not in recommendations
         elapsed: 0, // New movie, no elapsed time
+        genreIds: recommendedMovie.genreIds,
       );
 
       // Pop current player, then push new video loader
@@ -60,6 +62,10 @@ class PlayerMovieRecommendations {
           MaterialPageRoute(
             builder: (context) => AdsterraPlaybackGate.buildLoader(context,
                 television: useTvPlayer,
+                content: AdContent(
+                    series: false,
+                    id: recommendedMovie.movieId,
+                    genreIds: recommendedMovie.genreIds),
                 builder: (context) => MovieVideoLoader(
                       download: false,
                       useTvPlayer: useTvPlayer,

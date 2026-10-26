@@ -1,4 +1,4 @@
-import '../../api/endpoints.dart';
+import '../../catalog/catalog_controller.dart';
 import '../../functions/network.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/settings_provider.dart';
@@ -46,30 +46,33 @@ class TvHomeController {
     required AppDependencyProvider dependencies,
   }) async {
     final language = settings.appLanguage;
+    // The same lists the rows' See all opens.
+    String url(TvMediaKind kind, CatalogList list) =>
+        CatalogController.listUrl(kind, list, language);
     final popularMoviesFuture = fetchMovies(
-      Endpoints.popularMoviesUrl(language),
+      url(TvMediaKind.movie, CatalogList.popular),
       settings.enableProxy,
       dependencies.tmdbProxy,
     );
     final trendingMoviesFuture = fetchMovies(
-      Endpoints.trendingMoviesUrl(language),
+      url(TvMediaKind.movie, CatalogList.trendingWeek),
       settings.enableProxy,
       dependencies.tmdbProxy,
     );
     final popularSeriesFuture = fetchTV(
-      Endpoints.popularTVUrl(language),
+      url(TvMediaKind.series, CatalogList.popular),
       settings.enableProxy,
       dependencies.tmdbProxy,
     );
     final trendingSeriesFuture = fetchTV(
-      Endpoints.trendingTVUrl(language),
+      url(TvMediaKind.series, CatalogList.trendingWeek),
       settings.enableProxy,
       dependencies.tmdbProxy,
     );
 
     // The Top 10 rows are extras: without them the page still stands.
     final topMoviesFuture = fetchMovies(
-      Endpoints.trendingMoviesTodayUrl(language),
+      url(TvMediaKind.movie, CatalogList.trendingToday),
       settings.enableProxy,
       dependencies.tmdbProxy,
     ).then(
@@ -77,7 +80,7 @@ class TvHomeController {
       onError: (Object _) => <TvMediaItem>[],
     );
     final topSeriesFuture = fetchTV(
-      Endpoints.trendingTVTodayUrl(language),
+      url(TvMediaKind.series, CatalogList.trendingToday),
       settings.enableProxy,
       dependencies.tmdbProxy,
     ).then(

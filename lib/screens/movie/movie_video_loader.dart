@@ -1,4 +1,5 @@
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 import 'package:flixquest/widgets/ad_block_gate.dart';
 // ignore_for_file: use_build_context_synchronously
@@ -39,14 +40,48 @@ import '../../screens/common/download_selection_sheets.dart';
 import '../../screens/common/manual_source_picker.dart';
 import '../../tv/player/tv_player_screen.dart';
 
-class MovieVideoLoader extends StatefulWidget {
+/// Finds a stream for a movie. A Kids or Family movie's loader, and the
+/// player it opens, are in its [ContentAdScope]: no ad is asked for.
+class MovieVideoLoader extends StatelessWidget {
   const MovieVideoLoader(
-      {required this.download,
-      required this.metadata,
+      {required this.metadata,
+      required this.download,
       this.useTvPlayer = false,
       this.onTvPlayerExit,
       this.adStage = PlaybackAdStage.streamFound,
       super.key});
+
+  final MovieStreamMetadata metadata;
+  final bool download;
+  final bool useTvPlayer;
+  final VoidCallback? onTvPlayerExit;
+  final PlaybackAdStage adStage;
+
+  @override
+  Widget build(BuildContext context) {
+    final loader = _MovieVideoLoader(
+        metadata: metadata,
+        download: download,
+        useTvPlayer: useTvPlayer,
+        onTvPlayerExit: onTvPlayerExit,
+        adStage: adStage);
+    final id = metadata.movieId;
+    if (id == null) return loader;
+    return ContentAdGate(
+      content: AdContent(series: false, id: id, genreIds: metadata.genreIds),
+      holdChild: true,
+      child: loader,
+    );
+  }
+}
+
+class _MovieVideoLoader extends StatefulWidget {
+  const _MovieVideoLoader(
+      {required this.download,
+      required this.metadata,
+      this.useTvPlayer = false,
+      this.onTvPlayerExit,
+      this.adStage = PlaybackAdStage.streamFound});
 
   final bool download;
   final MovieStreamMetadata metadata;
@@ -58,10 +93,10 @@ class MovieVideoLoader extends StatefulWidget {
   final PlaybackAdStage adStage;
 
   @override
-  State<MovieVideoLoader> createState() => _MovieVideoLoaderState();
+  State<_MovieVideoLoader> createState() => _MovieVideoLoaderState();
 }
 
-class _MovieVideoLoaderState extends State<MovieVideoLoader> {
+class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
   RecentlyWatchedMoviesController recentlyWatchedMoviesController =
       RecentlyWatchedMoviesController();
 
@@ -191,7 +226,7 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
         });
       }
       // The player's recommendations are not needed until it opens, so fetch
-      // them alongside the source race instead of in front of it. Downloads
+      // them alongside source loading instead of in front of it. Downloads
       // never open the player.
       final recommendationsFetch =
           widget.download ? null : _fetchMovieRecommendations();
@@ -248,7 +283,7 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
           if (selection != null || !mounted) break;
         }
       } else {
-        // Race the sources in batches and use the first playable response.
+        // Try sources one at a time until one returns playable links.
         selection = await _fetchSelection(
           providers: selectedDownloadProvider == null
               ? videoProviders
@@ -356,7 +391,6 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
               videoHeaders: videoHeaders,
               videoSizeTokens: videoSizeTokens,
               initialVideoLinks: movieVideoLinks ?? const [],
-              prefetchedProviderResults: selection?.batchResults ?? const {},
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               useTvControls: widget.useTvPlayer,
@@ -389,9 +423,7 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
     return currentProviderIndex;
   }
 
-  /// Shows [provider] as the one being played, once the race has chosen it.
-  /// Sources later in its batch may still be answering, and would otherwise
-  /// keep the focus.
+  /// Shows [provider] as the one selected for playback.
   void _showSelectedProvider(VideoProvider provider) {
     if (!mounted) return;
     setState(() {
@@ -401,7 +433,7 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
     });
   }
 
-  /// Races [providers] (in configured order) until one returns playable links.
+  /// Tries [providers] in configured order until one returns playable links.
   Future<ProviderSelection?> _fetchSelection({
     required List<VideoProvider> providers,
   }) {
@@ -409,7 +441,7 @@ class _MovieVideoLoaderState extends State<MovieVideoLoader> {
       providers: providers,
       load: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
-        // Only the batch in flight shows as loading; the rest wait their turn.
+        // Only the current provider shows as loading; the rest wait their turn.
         if (mounted) {
           setState(() {
             final providerIndex = providerStates.indexWhere(

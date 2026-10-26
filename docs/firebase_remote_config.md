@@ -9,6 +9,31 @@ refreshing them over the network. A slow refresh therefore keeps the cached ad
 selection usable for the first playback attempt. A fresh install still uses
 the disabled ad defaults until its first successful fetch.
 
+## Users, billing and wallet backend
+
+| Parameter | Firebase type | Default | Purpose |
+| --- | --- | --- | --- |
+| `laravel_api_url` | String | Empty (use bundled `LARAVEL_API_URL`) | Base URL for users, auth, billing, wallet, sync, devices and other Laravel APIs. For example, `https://backend.example.com` or `https://backend.example.com/api/v1/`. |
+
+Every launch initially uses `LARAVEL_API_URL` from `.env` (or its existing
+`--dart-define` override). A separate Firebase controller starts in the
+background, applies an activated cached URL if available, then fetches fresh
+values and listens for real-time updates. Backend discovery runs in all build
+modes, independently of migration flags and Laravel's `config_source`, so an
+unreachable bundled backend does not prevent discovery of its replacement.
+Failed fetches retry and recover on connectivity changes or app resume.
+
+The URL automatically ends in `/api/v1/`. A valid update changes subsequent
+requests on the shared client without restarting the app or signing out.
+Existing requests continue with the URL they started with. Authentication is
+scoped to the current backend, and both bundled and newly selected backend
+hosts retain TLS certificate verification. Invalid URLs (including credentials,
+query strings or fragments) retain the current working URL. Publishing an empty
+value or removing the parameter restores the bundled URL after activation.
+
+This parameter is separate from `flixquest_api_url_v2` and
+`flixquest_api_instances`, which configure the scraper/streaming service.
+
 ## Feature toggles
 
 | Parameter | Firebase type | Default | Purpose |
@@ -633,15 +658,45 @@ effect type is `confetti`.
 Effects are vector shapes drawn by Flutter; no image assets or downloads are
 required. They ignore pointer input, stop while the app is backgrounded, and
 are automatically hidden when the operating system requests reduced motion.
+They run on Android TV as well as phones and tablets, using the same per-theme
+configuration in the `occasional_theme` Remote Config String. Android TV's
+Settings → Appearance → Seasonal effects switch is available when
+`allow_user_effects_toggle` is true and effects are enabled in the catalog.
 
 | Field | Type | Default | Valid values / limits |
 | --- | --- | --- | --- |
 | `enabled` | Boolean | `false` | Per-theme effect switch. |
 | `type` | String | Theme preset | `none`, `snow`, `confetti`, `fireworks`, `petals`, `candy_eggs`, `adey_flowers`, `hearts`, `stars`, `bats`, `sparkles` |
-| `density` | Integer | `28` | Clamped to `4`–`80`; use `8`–`36` for TVs and phones. |
-| `speed` | Number | `1.0` | Clamped to `0.2`–`3.0`. |
+| `density` | Integer | `28` | Number of particles; clamped to `4`–`80`; use `8`–`36` for TVs and phones. |
+| `speed` | Number | `1.0` | Animation speed multiplier; clamped to `0.2`–`3.0`. |
 | `opacity` | Number | `0.65` | Clamped to `0.1`–`1.0`. |
 | `colors` | Array of hex colors | Theme-aware colors | Optional, first eight valid colors are used. |
+| `tv_density` | Integer | Inherits `density` | Optional Android TV particle count, clamped to `4`–`80`. |
+| `tv_speed` | Number | Inherits `speed` | Optional Android TV animation speed, clamped to `0.2`–`3.0`. |
+| `tv_opacity` | Number | Inherits `opacity` | Optional Android TV opacity, clamped to `0.1`–`1.0`. |
+
+For lighter, slower confetti on Android TV, set the active theme's `effect`
+object to:
+
+```json
+"effect": {
+  "enabled": true,
+  "type": "confetti",
+  "density": 28,
+  "speed": 1.0,
+  "opacity": 0.65,
+  "tv_density": 12,
+  "tv_speed": 0.6,
+  "tv_opacity": 0.5
+}
+```
+
+`density` controls the particle count rather than a separate emission interval;
+`speed` changes how quickly they move and cycle. Phones and tablets use the
+shared fields; Android TV uses each `tv_` override when supplied. Missing,
+null, or invalid TV overrides inherit the corresponding shared value, so
+existing catalogs keep their behavior. Overrides are saved in the cached catalog
+and survive restarts. They apply to all effect types, including confetti and snow.
 
 To keep a seasonal palette/logo without animation:
 

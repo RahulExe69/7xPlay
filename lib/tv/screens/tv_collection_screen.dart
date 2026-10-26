@@ -53,9 +53,11 @@ class _TvCollectionScreenState extends State<TvCollectionScreen> {
       _loading = true;
       _error = null;
     });
+    var nothingNew = false;
     try {
       final page = await widget.collection.loadPage(_loadedPages + 1);
       if (!mounted) return;
+      final before = _items.length;
       setState(() {
         _loadedPages++;
         // TMDB's discover pages can repeat a title across a page boundary,
@@ -63,6 +65,9 @@ class _TvCollectionScreenState extends State<TvCollectionScreen> {
         _items.addAll(page.where((item) => _ids.add(item.stableId)));
         _ended = page.isEmpty;
       });
+      // Only an empty page ends the collection. A page of nothing but repeats
+      // gives focus nowhere new to go, so nothing would ask for the next one.
+      nothingNew = !_ended && _items.length == before;
     } catch (error) {
       // A later page failing leaves the loaded ones in place; the next focus
       // near the end tries it again.
@@ -70,6 +75,7 @@ class _TvCollectionScreenState extends State<TvCollectionScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+    if (nothingNew && mounted) await _loadNextPage();
   }
 
   void _handleItemFocused(TvMediaItem item) {
@@ -92,6 +98,18 @@ class _TvCollectionScreenState extends State<TvCollectionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 _Header(collection: widget.collection, metrics: metrics),
+                if (_error != null && _items.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      tr('tv_collection_load_more_failed'),
+                      style: TextStyle(
+                        color: palette.mutedText,
+                        fontFamily: 'Figtree',
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
                 SizedBox(height: metrics.compact ? 10 : 18),
                 Expanded(child: _buildBody(metrics)),
               ],
