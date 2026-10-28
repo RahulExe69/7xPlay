@@ -12,7 +12,7 @@ import 'content_ads.dart';
 /// Only the Plus controller writes it, from a backend-verified entitlement;
 /// the remote ad switches in AppDependencyProvider stay untouched.
 abstract final class AdsPolicy {
-  static final ValueNotifier<bool> _adFree = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> _adFree = ValueNotifier<bool>(true);
 
   /// Notifies when Plus starts or ends.
   static ValueListenable<bool> get listenable => _adFree;
@@ -25,7 +25,8 @@ abstract final class AdsPolicy {
   static bool adFreeAt(BuildContext context) =>
       adFree || ContentAdScope.adFreeAt(context);
 
-  static void update({required bool adFree}) => _adFree.value = adFree;
+  /// 7xCinema is permanently ad-free; remote values cannot re-enable ads.
+  static void update({required bool adFree}) => _adFree.value = true;
 
   static void addListener(VoidCallback listener) =>
       _adFree.addListener(listener);
