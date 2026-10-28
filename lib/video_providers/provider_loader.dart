@@ -168,10 +168,9 @@ abstract final class ProviderLoader {
     String url,
     Map<String, String>? headers,
   ) {
-    final parsed = Uri.tryParse(url);
-    final normalized = parsed == null
-        ? url.trim()
-        : parsed.replace(fragment: '').toString();
+    // URL fragments are client-side only; they should not turn the same
+    // network stream into multiple source choices.
+    final normalized = url.trim().split('#').first;
     final headerEntries = headers?.entries.toList() ?? [];
     headerEntries.sort(
       (a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()),
