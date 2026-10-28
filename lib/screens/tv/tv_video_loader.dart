@@ -268,7 +268,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           if (selection != null || !mounted) break;
         }
       } else {
-        // Try sources one at a time until one returns playable links.
+        // Query all playback sources and combine every usable response.
         selection = await _fetchSelection(
           providers: selectedDownloadProvider == null
               ? videoProviders
@@ -418,7 +418,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       providers: providers,
       load: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
-        // Providers can resolve concurrently, so each active request gets a loading state.
+        // Providers resolve concurrently, so each active request gets a loading state.
         if (mounted) {
           setState(() {
             final providerIndex = providerStates.indexWhere(
