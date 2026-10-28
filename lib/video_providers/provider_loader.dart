@@ -35,7 +35,7 @@ abstract final class ProviderLoader {
       final provider = providers[index];
       ProviderLoadResult result;
       try {
-        result = await load(provider).timeout(providerTimeout);
+        result = await load(provider);
       } catch (error) {
         result = ProviderLoadResult(errorMessage: error.toString());
       }
@@ -72,7 +72,7 @@ abstract final class ProviderLoader {
     ) async {
       ProviderLoadResult result;
       try {
-        result = await load(provider);
+        result = await load(provider).timeout(providerTimeout);
       } catch (error) {
         result = ProviderLoadResult(errorMessage: error.toString());
       }
