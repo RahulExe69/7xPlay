@@ -59,13 +59,16 @@ abstract final class ProviderLoader {
   /// catalogue must not hide streams returned by another source. The first
   /// successful provider remains the selection identity for existing player
   /// recovery and provider-switch controls; every returned link is retained
-  /// in the combined result with its origin labelled in [RegularVideoLinks.server].
+  /// in the combined result with their origin labelled in the link's server field.
   static Future<ProviderSelection?> loadAllSuccessful({
     required List<VideoProvider> providers,
     required Future<ProviderLoadResult> Function(VideoProvider provider) load,
     ProviderResultCallback? onResult,
   }) async {
-    Future<ProviderSelection?> attempt(int index, VideoProvider provider) async {
+    Future<ProviderSelection?> attempt(
+      int index,
+      VideoProvider provider,
+    ) async {
       ProviderLoadResult result;
       try {
         result = await load(provider);
@@ -132,7 +135,8 @@ abstract final class ProviderLoader {
         final url = subtitle.url?.trim();
         if (url == null || url.isEmpty) continue;
         final language = subtitle.language?.trim() ?? '';
-        final dedupeKey = '$language|${_sourceDedupeKey(url, subtitle.headers)}';
+        final dedupeKey =
+            '$language|${_sourceDedupeKey(url, subtitle.headers)}';
         if (!seenSubtitles.add(dedupeKey)) continue;
         subtitles.add(
           RegularSubtitleLinks(
