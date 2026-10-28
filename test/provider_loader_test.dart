@@ -139,4 +139,104 @@ void main() {
 
     expect(selection, isNull);
   });
+
+  test(
+    'loads all providers concurrently and combines distinct stream links',
+    () async {
+      final requests = List.generate(3, (_) => Completer<ProviderLoadResult>());
+      final started = <String>[];
+      final reported = <String>[];
+
+      final combinedFuture = ProviderLoader.loadAllSuccessful(
+        providers: providers.take(3).toList(),
+        load: (provider) {
+          final index = int.parse(provider.apiId!);
+          started.add(provider.apiId!);
+          return requests[index].future;
+        },
+        onResult: (_, provider, __) => reported.add(provider.apiId!),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      expect(started, ['0', '1', '2']);
+
+      requests[0].complete(
+        ProviderLoadResult(
+          success: true,
+          videoLinks: [
+            RegularVideoLinks(
+              url: 'https://example.com/primary.m3u8',
+              quality: '1080p',
+              server: 'Main',
+            ),
+          ],
+          subtitleLinks: [
+            RegularSubtitleLinks(
+              url: 'https://example.com/en.vtt',
+              language: 'English',
+            ),
+          ],
+        ),
+      );
+      requests[1].complete(
+        ProviderLoadResult(
+          success: true,
+          videoLinks: [
+            // Same stream and headers is deduplicated even when two providers
+            // discovered it.
+            RegularVideoLinks(
+              url: 'https://example.com/primary.m3u8',
+              quality: '1080p',
+              server: 'Main',
+            ),
+            RegularVideoLinks(
+              url: 'https://example.com/hindi.m3u8',
+              quality: '720p',
+            ),
+          ],
+          subtitleLinks: [
+            RegularSubtitleLinks(
+              url: 'https://example.com/hi.vtt',
+              language: 'Hindi',
+            ),
+            RegularSubtitleLinks(
+              url: 'https://example.com/en.vtt',
+              language: 'English',
+            ),
+          ],
+        ),
+      );
+      requests[2].complete(const ProviderLoadResult(errorMessage: 'Offline'));
+
+      final selection = await combinedFuture;
+      expect(selection?.provider, providers[0]);
+      expect(
+        selection!.result.videoLinks!.map((link) => link.url),
+        [
+          'https://example.com/primary.m3u8',
+          'https://example.com/hindi.m3u8',
+        ],
+      );
+      expect(
+        selection.result.videoLinks!.map((link) => link.server),
+        ['Provider 0 · Main', 'Provider 1'],
+      );
+      expect(
+        selection.result.subtitleLinks!.map((subtitle) => subtitle.language),
+        ['English', 'Hindi'],
+      );
+      expect(reported.toSet(), {'0', '1', '2'});
+    },
+  );
+
+  test('returns null when no provider yields a usable stream URL', () async {
+    final selection = await ProviderLoader.loadAllSuccessful(
+      providers: providers.take(2).toList(),
+      load: (_) async => ProviderLoadResult(
+        success: true,
+        videoLinks: [RegularVideoLinks(url: '  ')],
+      ),
+    );
+    expect(selection, isNull);
+  });
 }
