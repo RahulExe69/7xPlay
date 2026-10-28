@@ -1,4 +1,5 @@
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
+import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 // ignore_for_file: use_build_context_synchronously
 import 'dart:async';
@@ -38,8 +39,7 @@ import '../../screens/common/download_selection_sheets.dart';
 import '../../screens/common/manual_source_picker.dart';
 import '../../tv/player/tv_player_screen.dart';
 
-/// Finds a stream for a series' episode. A Kids or Family series' loader,
-/// and the player it opens, are in its [ContentAdScope]: no ad is asked for.
+/// Finds an episode stream and keeps the complete playback route ad-free.
 class TVVideoLoader extends StatelessWidget {
   const TVVideoLoader(
       {required this.metadata,
@@ -63,8 +63,10 @@ class TVVideoLoader extends StatelessWidget {
         useTvPlayer: useTvPlayer,
         onTvPlayerExit: onTvPlayerExit,
         adStage: adStage);
-    // No ad-classification gate sits in front of the stream resolver.
-    return loader;
+    // Playback is intentionally ad-free. Keep the scope attached when the
+    // loader hands off to the player, without waiting for an ad-classification
+    // request or opening an interstitial over the Watch action.
+    return ContentAdScope(adFree: true, child: loader);
   }
 }
 
