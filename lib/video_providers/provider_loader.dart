@@ -138,7 +138,7 @@ abstract final class ProviderLoader {
         if (url == null || url.isEmpty) continue;
         final language = subtitle.language?.trim() ?? '';
         final dedupeKey =
-            '$language|${_sourceDedupeKey(url, subtitle.headers)}';
+            '${language.toLowerCase()}|${_sourceDedupeKey(url, subtitle.headers)}';
         if (!seenSubtitles.add(dedupeKey)) continue;
         subtitles.add(
           RegularSubtitleLinks(
@@ -173,7 +173,9 @@ abstract final class ProviderLoader {
         ? url.trim()
         : parsed.replace(fragment: '').toString();
     final headerEntries = headers?.entries.toList() ?? [];
-    headerEntries.sort((a, b) => a.key.compareTo(b.key));
+    headerEntries.sort(
+      (a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()),
+    );
     final headerKey = headerEntries
         .map((entry) => '${entry.key.toLowerCase()}:${entry.value}')
         .join('&');
