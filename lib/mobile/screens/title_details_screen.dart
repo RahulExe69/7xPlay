@@ -1,4 +1,3 @@
-import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
@@ -334,11 +333,6 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
       languages: insights.languages,
       countries: insights.countries,
     );
-    if (!await AdsterraPlaybackAdsService.instance.beforeLoader(context,
-            download: download, content: AdContent.of(item)) ||
-        !mounted) {
-      return;
-    }
     final queued = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => MovieVideoLoader(
