@@ -218,8 +218,12 @@ void main() {
         ],
       );
       expect(
+        selection.result.videoLinks!.map((link) => link.quality),
+        ['1080p · Provider 0', '720p · Provider 1'],
+      );
+      expect(
         selection.result.videoLinks!.map((link) => link.server),
-        ['Provider 0 · Main', 'Provider 1'],
+        ['Main', null],
       );
       expect(
         selection.result.subtitleLinks!.map((subtitle) => subtitle.language),
