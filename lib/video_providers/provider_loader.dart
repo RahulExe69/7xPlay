@@ -115,8 +115,9 @@ abstract final class ProviderLoader {
         if (!seenLinks.add(dedupeKey)) continue;
 
         final rawQuality = link.quality?.trim();
-        final quality =
-            rawQuality == null || rawQuality.isEmpty ? 'unknown quality' : rawQuality;
+        final quality = rawQuality == null || rawQuality.isEmpty
+            ? 'unknown quality'
+            : rawQuality;
         final server = link.server?.trim();
         links.add(
           RegularVideoLinks(
