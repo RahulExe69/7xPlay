@@ -58,8 +58,8 @@ abstract final class ProviderLoader {
   /// This is intended for normal playback: one source's language or quality
   /// catalogue must not hide streams returned by another source. The first
   /// successful provider remains the selection identity for existing player
-  /// recovery and provider-switch controls; every returned link is retained
-  /// in the combined result with their origin labelled in the link's server field.
+  /// recovery and provider-switch controls. Each combined quality label
+  /// includes its provider name, while the upstream server remains available.
   static Future<ProviderSelection?> loadAllSuccessful({
     required List<VideoProvider> providers,
     required Future<ProviderLoadResult> Function(VideoProvider provider) load,
@@ -114,15 +114,15 @@ abstract final class ProviderLoader {
         final dedupeKey = _sourceDedupeKey(url, link.headers);
         if (!seenLinks.add(dedupeKey)) continue;
 
+        final rawQuality = link.quality?.trim();
+        final quality =
+            rawQuality == null || rawQuality.isEmpty ? 'unknown quality' : rawQuality;
         final server = link.server?.trim();
-        final labelledServer = server == null || server.isEmpty
-            ? providerLabel
-            : '$providerLabel · $server';
         links.add(
           RegularVideoLinks(
             url: url,
-            quality: link.quality,
-            server: labelledServer,
+            quality: '$quality · $providerLabel',
+            server: server == null || server.isEmpty ? null : server,
             isM3U8: link.isM3U8,
             isDash: link.isDash,
             headers: link.headers == null ? null : Map.of(link.headers!),
