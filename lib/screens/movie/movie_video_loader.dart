@@ -462,6 +462,10 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           provider: provider,
           movieId: _metadata.movieId!,
           scraperApiUrl: _scraperApiUrl,
+          // During playback, ask for every server the provider exposes. The
+          // API falls back automatically when full collection is unsupported.
+          // Downloads keep the narrower single-provider response.
+          full: !widget.download,
         );
       },
       onResult: (index, provider, result) {
