@@ -35,7 +35,7 @@ abstract final class ProviderLoader {
       final provider = providers[index];
       ProviderLoadResult result;
       try {
-        result = await load(provider);
+        result = await load(provider).timeout(providerTimeout);
       } catch (error) {
         result = ProviderLoadResult(errorMessage: error.toString());
       }
@@ -64,6 +64,7 @@ abstract final class ProviderLoader {
     required List<VideoProvider> providers,
     required Future<ProviderLoadResult> Function(VideoProvider provider) load,
     ProviderResultCallback? onResult,
+    Duration providerTimeout = const Duration(seconds: 25),
   }) async {
     Future<ProviderSelection?> attempt(
       int index,
