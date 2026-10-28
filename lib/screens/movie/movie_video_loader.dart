@@ -83,8 +83,8 @@ class _MovieVideoLoader extends StatefulWidget {
   final bool useTvPlayer;
   final VoidCallback? onTvPlayerExit;
 
-  /// The popup once a source is found: [PlaybackAdStage.episodeSwitch] or
-  /// [PlaybackAdStage.movieSwitch] when the player itself started this load.
+  /// Retained for the existing in-player reload call sites. Playback ads
+  /// are disabled, so this value no longer changes the loading experience.
   final PlaybackAdStage adStage;
 
   @override
