@@ -233,6 +233,20 @@ void main() {
     },
   );
 
+  test('does not wait forever for a stalled provider', () async {
+    final neverCompletes = Completer<ProviderLoadResult>();
+    final selection = await ProviderLoader.loadAllSuccessful(
+      providers: providers.take(2).toList(),
+      providerTimeout: const Duration(milliseconds: 10),
+      load: (provider) => provider.apiId == '0'
+          ? Future.value(playableResult())
+          : neverCompletes.future,
+    );
+
+    expect(selection?.provider, providers.first);
+    expect(selection?.result.videoLinks, isNotEmpty);
+  });
+
   test('returns null when no provider yields a usable stream URL', () async {
     final selection = await ProviderLoader.loadAllSuccessful(
       providers: providers.take(2).toList(),
