@@ -316,8 +316,6 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
       'recommendationsProvided=false (fetched by MovieVideoLoader)',
     );
     if (!await _online() || !mounted) return;
-    final insights = await _insights();
-    if (!mounted) return;
     final item = _item;
     final metadata = MovieStreamMetadata(
       backdropPath: item.backdropPath,
@@ -328,11 +326,16 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
       releaseYear: int.tryParse(item.year ?? '') ?? 0,
       isAdult: item.movie?.adult,
       releaseDate: item.releaseDate,
-      genres: insights.genres,
       genreIds: item.genreIds,
-      languages: insights.languages,
-      countries: insights.countries,
     );
+    // Insights enrich the player UI but are not required to resolve a stream.
+    // Fetch them in the background so a slow metadata endpoint cannot make
+    // the Watch button look inert.
+    unawaited(_insights().then((insights) {
+      metadata.genres = insights.genres;
+      metadata.languages = insights.languages;
+      metadata.countries = insights.countries;
+    }).catchError((Object _) {}));
     final queued = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => MovieVideoLoader(
@@ -393,19 +396,19 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     int? elapsed,
     bool download = false,
   }) async {
-    final insights = await _insights();
     TVDetails? details;
     try {
       details = await _series;
     } catch (_) {}
     if (!mounted) return;
+    // Episode metadata is optional for playback. Do not block the stream
+    // loader on the separate genre/language enrichment requests.
     await playEpisode(
       context,
       series: _item,
       episode: episode,
       seasonEpisodes: seasonEpisodes,
       allSeasons: details?.seasons,
-      insights: insights,
       elapsed: elapsed,
       download: download,
     );
