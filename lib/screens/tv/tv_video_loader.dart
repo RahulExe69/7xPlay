@@ -1,7 +1,5 @@
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
-import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
-import 'package:flixquest/widgets/ad_block_gate.dart';
 // ignore_for_file: use_build_context_synchronously
 import 'dart:async';
 import 'package:flixquest/functions/function.dart';
@@ -65,13 +63,8 @@ class TVVideoLoader extends StatelessWidget {
         useTvPlayer: useTvPlayer,
         onTvPlayerExit: onTvPlayerExit,
         adStage: adStage);
-    final id = metadata.tvId;
-    if (id == null) return loader;
-    return ContentAdGate(
-      content: AdContent(series: true, id: id, genreIds: metadata.genreIds),
-      holdChild: true,
-      child: loader,
-    );
+    // No ad-classification gate sits in front of the stream resolver.
+    return loader;
   }
 }
 
@@ -111,7 +104,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
   int currentProviderIndex = 0;
   String _scraperApiUrl = '';
   final Map<String, int?> _streamSizeCacheByToken = {};
-  PlaybackAdPreload? _adPreload;
 
   Map<String, String> videos = {};
   List<BetterPlayerSubtitlesSource> subs = [];
@@ -129,27 +121,9 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
 
   Future<void> _startPlayback() async {
     if (!mounted) return;
-    if (!await AdBlockGate.instance.allowPlayback(context,
-        download: widget.download, television: widget.useTvPlayer)) {
-      if (mounted) Navigator.pop(context, false);
-      return;
-    }
-    if (!mounted) return;
-    _adPreload = AdsterraPlaybackAdsService.instance.preloadStreamFound(context,
-        download: widget.download,
-        television: widget.useTvPlayer,
-        stage: widget.adStage);
-    try {
-      await loadVideo();
-    } finally {
-      _adPreload?.dispose();
-    }
-  }
-
-  @override
-  void dispose() {
-    _adPreload?.dispose();
-    super.dispose();
+    // Resolve playback immediately; ad and ad-blocker overlays must not
+    // intercept the Watch action before a source can be loaded.
+    await loadVideo();
   }
 
   Future<void> _loadProviders() async {
@@ -276,16 +250,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
         );
       }
 
-      if (selection != null) {
-        if (!await AdsterraPlaybackAdsService.instance.streamFound(context,
-                download: widget.download,
-                television: widget.useTvPlayer,
-                preload: _adPreload,
-                stage: widget.adStage) ||
-            !mounted) {
-          return;
-        }
-      }
       final firstWorkingProviderCode = selection?.provider.codeName;
       if (selection != null) {
         _showSelectedProvider(selection.provider);
