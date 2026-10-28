@@ -410,15 +410,15 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     });
   }
 
-  /// Tries [providers] in configured order until one returns playable links.
+  /// Loads all [providers] concurrently and combines their playable links.
   Future<ProviderSelection?> _fetchSelection({
     required List<VideoProvider> providers,
   }) {
-    return ProviderLoader.loadFirstSuccessful(
+    return ProviderLoader.loadAllSuccessful(
       providers: providers,
       load: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
-        // Only the current provider shows as loading; the rest wait their turn.
+        // Providers can resolve concurrently, so each active request gets a loading state.
         if (mounted) {
           setState(() {
             final providerIndex = providerStates.indexWhere(
