@@ -186,8 +186,6 @@ void main() {
         ProviderLoadResult(
           success: true,
           videoLinks: [
-            // Same stream and headers is deduplicated even when two providers
-            // discovered it.
             // Same URL and equivalent headers is deduplicated even when
             // header casing and map order differ.
             RegularVideoLinks(
