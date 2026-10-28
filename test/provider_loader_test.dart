@@ -168,6 +168,10 @@ void main() {
               url: 'https://example.com/primary.m3u8',
               quality: '1080p',
               server: 'Main',
+              headers: {
+                'Referer': 'https://provider0.example/',
+                'Origin': 'https://provider0.example',
+              },
             ),
           ],
           subtitleLinks: [
@@ -184,10 +188,24 @@ void main() {
           videoLinks: [
             // Same stream and headers is deduplicated even when two providers
             // discovered it.
+            // Same URL and equivalent headers is deduplicated even when
+            // header casing and map order differ.
             RegularVideoLinks(
               url: 'https://example.com/primary.m3u8',
               quality: '1080p',
               server: 'Main',
+              headers: {
+                'origin': 'https://provider0.example',
+                'referer': 'https://provider0.example/',
+              },
+            ),
+            // A duplicate URL with different access headers is a distinct,
+            // usable variant and must be retained.
+            RegularVideoLinks(
+              url: 'https://example.com/primary.m3u8',
+              quality: '1080p',
+              server: 'Alternative',
+              headers: {'Referer': 'https://provider1.example/'},
             ),
             RegularVideoLinks(
               url: 'https://example.com/hindi.m3u8',
@@ -214,16 +232,32 @@ void main() {
         selection!.result.videoLinks!.map((link) => link.url),
         [
           'https://example.com/primary.m3u8',
+          'https://example.com/primary.m3u8',
           'https://example.com/hindi.m3u8',
         ],
       );
       expect(
         selection.result.videoLinks!.map((link) => link.quality),
-        ['1080p · Provider 0', '720p · Provider 1'],
+        [
+          '1080p · Provider 0',
+          '1080p · Provider 1',
+          '720p · Provider 1',
+        ],
       );
       expect(
         selection.result.videoLinks!.map((link) => link.server),
-        ['Main', null],
+        ['Main', 'Alternative', null],
+      );
+      expect(
+        selection.result.videoLinks!.map((link) => link.headers),
+        [
+          {
+            'Referer': 'https://provider0.example/',
+            'Origin': 'https://provider0.example',
+          },
+          {'Referer': 'https://provider1.example/'},
+          null,
+        ],
       );
       expect(
         selection.result.subtitleLinks!.map((subtitle) => subtitle.language),
