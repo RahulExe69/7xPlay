@@ -238,7 +238,6 @@ void main() async {
               devicePresentation: devicePresentation,
               configController: configController,
               adsController: adsController,
-              notifications: notifications,
             ),
           ))));
 }
