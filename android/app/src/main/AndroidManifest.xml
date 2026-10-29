@@ -30,7 +30,7 @@
         android:name=".SevenXPlayApplication"
         android:label="${appLabel}"
         android:icon="@mipmap/ic_launcher"
-        android:banner="@drawable/7xplay_tv_banner"
+        android:banner="@drawable/sevenxplay_tv_banner"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">    
         <meta-data
