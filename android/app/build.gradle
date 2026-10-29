@@ -67,13 +67,13 @@ android {
     productFlavors {
         prod {
             dimension "environment"
-            manifestPlaceholders = [appLabel: "FlixQuest"]
+            manifestPlaceholders = [appLabel: "7xPlay"]
         }
         dev {
             dimension "environment"
             // Reuse the registered Firebase package; a suffix would require
             // another Firebase Android app and matching Google services file.
-            manifestPlaceholders = [appLabel: "FlixQuest Dev"]
+            manifestPlaceholders = [appLabel: "7xPlay Dev"]
         }
     }
 
@@ -88,7 +88,15 @@ android {
    
    buildTypes {
        release {
-           signingConfig signingConfigs.release
+           // Use the private release keystore when key.properties is present. CI without
+           // release secrets uses the local debug key so the optimized APK remains installable.
+           // Never distribute a debug-key-signed build as an official store release.
+           def hasReleaseKey = keystorePropertiesFile.exists() &&
+               keystoreProperties['keyAlias'] &&
+               keystoreProperties['keyPassword'] &&
+               keystoreProperties['storeFile'] &&
+               keystoreProperties['storePassword']
+           signingConfig hasReleaseKey ? signingConfigs.release : signingConfigs.debug
            shrinkResources true
            minifyEnabled true
        }
