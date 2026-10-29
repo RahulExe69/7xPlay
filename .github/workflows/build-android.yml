@@ -63,7 +63,6 @@ jobs:
 
   build-apks:
     name: Build ${{ matrix.name }} APK
-    needs: provider-tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
