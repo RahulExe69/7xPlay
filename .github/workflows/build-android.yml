@@ -49,9 +49,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
-          key: pub-test-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
+          key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
           restore-keys: |
-            pub-test-${{ runner.os }}-flutter-3.41.5-
+            pub-${{ runner.os }}-flutter-3.41.5-
 
       - name: Resolve dependencies
         working-directory: 7xPlay
@@ -121,9 +121,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
-          key: pub-${{ runner.os }}-flutter-3.41.5-${{ matrix.abi }}-${{ hashFiles('7xPlay/pubspec.lock') }}
+          key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
           restore-keys: |
-            pub-${{ runner.os }}-flutter-3.41.5-${{ matrix.abi }}-
+            pub-${{ runner.os }}-flutter-3.41.5-
 
       - name: Resolve dependencies
         working-directory: 7xPlay
