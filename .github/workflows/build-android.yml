@@ -63,6 +63,14 @@ jobs:
           echo "Built APK sizes:"
           find build/app/outputs/flutter-apk -maxdepth 1 -name 'app-prod-*-release.apk' -printf '%f %k KB\n' | sort
 
+      - name: Upload Dart symbol files
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7xPlay-dart-symbols-${{ github.event.pull_request.head.sha || github.sha }}
+          path: 7xPlay/build/symbols/
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Upload optimized APKs
         uses: actions/upload-artifact@v4
         with:
