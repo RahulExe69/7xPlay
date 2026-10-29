@@ -1,19 +1,8 @@
-import 'data/sources/onesignal_messaging_client.dart';
-import 'data/repositories/push_message_repository.dart';
-import 'presentation/notifications/push_message_controller.dart';
-import 'presentation/notifications/device_registration_controller.dart';
-import 'presentation/notifications/in_app_message_controller.dart';
-import 'presentation/notifications/notification_controller.dart';
-import 'data/sources/push_messaging_client.dart';
 import 'services/in_app_messaging_service.dart';
 import 'data/sync/sync_runtime.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'data/ads/ad_events_controller.dart';
 import 'services/hosted_ads_repository.dart';
-import 'presentation/config/bootstrap_view_model.dart';
-import 'presentation/config/refresh_controller.dart';
-import 'presentation/config/config_source_controller.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'services/local_account_data.dart';
 import 'presentation/session/auth_runtime.dart';
 import 'presentation/session/session_view_model.dart';
@@ -64,18 +53,6 @@ BookmarkProvider bookmarkProvider = BookmarkProvider();
 PlaylistProvider playlistProvider = PlaylistProvider();
 AppDependencyProvider appDependencyProvider = AppDependencyProvider();
 WellnessProvider wellnessProvider = WellnessProvider.instance;
-
-bool _isRecoverableImageError(FlutterErrorDetails details) {
-  final context = details.context?.toString() ?? '';
-  final stack = details.stack?.toString() ?? '';
-
-  // cached_network_image reports failed downloads and evicted cache files
-  // through Flutter's image error channel. These are expected per-image
-  // failures and widgets already provide their own fallback content.
-  return context.contains('resolving an image codec') ||
-      context.contains('loading an image') ||
-      stack.contains('MultiImageStreamCompleter');
-}
 
 Future<DevicePresentation> appInitialize({
   DevicePresentationDetector? devicePresentationDetector,
@@ -224,48 +201,8 @@ void main() async {
     unawaited(injector.syncCoordinator.syncAll());
   }
   await playlistProvider.load();
-    NotificationController? notifications;
-  if (injector.migrationFlags.notifications) {
-    final platform = devicePresentation == DevicePresentation.television
-        ? 'tv'
-        : Platform.isIOS
-            ? 'ios'
-            : 'android';
-    final oneSignalAppId = injector.environment.oneSignalAppId;
-    if (oneSignalAppId.isNotEmpty &&
-        !OneSignalMessagingClient.validAppId(oneSignalAppId)) {
-      throw StateError('ONESIGNAL_APP_ID must be a valid public App ID.');
-    }
-    PushMessagingClient messaging = SdkPushMessagingClient();
-    if (oneSignalAppId.isNotEmpty) {
-      final oneSignal = OneSignalMessagingClient();
-      try {
-        await oneSignal
-            .initialize(oneSignalAppId, platform: platform)
-            .timeout(const Duration(seconds: 10));
-        messaging = oneSignal;
-      } catch (_) {
-        await oneSignal.dispose();
-        debugPrint(
-            'OneSignal initialization unavailable; retry on next app launch.');
-      }
-    }
-    final messages = InAppMessageController(injector.announcementRepository,
-        injector.kvStore, InAppMessagingService.present);
-    notifications = NotificationController(
-      DeviceRegistrationController(injector.deviceRepository, injector.session,
-          injector.kvStore, messaging,
-          platform: platform,
-          provider: messaging is OneSignalMessagingClient ? 'onesignal' : 'fcm',
-          appVersion: currentAppVersion),
-      messages,
-      messaging,
-      pushMessages: PushMessageController(
-          PushMessageRepository(injector.laravelDio), messages,
-          currentOwner: () => injector.session.accountId.value,
-          currentToken: () => injector.session.token),
-    );
-  }
+    // Push notifications (FCM/OneSignal) are intentionally disabled for now.
+  NotificationController? notifications;
   NetworkRuntime.configure(
       publicDio: injector.publicDio,
       httpCache: injector.httpCache,
