@@ -1,4 +1,3 @@
-import 'presentation/session/firebase_session_bridge.dart';
 import 'presentation/session/session_view_model.dart';
 import 'presentation/billing/plus_controller.dart';
 import 'widgets/plus/plus_celebration.dart';
@@ -34,8 +33,6 @@ import 'services/deep_link_dispatcher.dart';
 import 'services/home_widget_service.dart';
 import 'services/recently_watched_sync_service.dart';
 import 'services/tmdb_connectivity.dart';
-import 'services/firebase_config_controller.dart';
-import 'services/firebase_backend_config_controller.dart';
 import 'presentation/config/refresh_controller.dart';
 import 'mobile/app/mobile_shell.dart';
 import 'mobile/app/mobile_update_gate.dart';
@@ -51,10 +48,8 @@ class FlixQuest extends StatefulWidget {
       required this.appDependencyProvider,
       required this.devicePresentation,
       this.configController,
-      this.backendConfigController,
       this.adsController,
       this.notifications,
-      this.firebaseSession,
       super.key});
 
   final SettingsProvider settingsProvider;
@@ -63,10 +58,8 @@ class FlixQuest extends StatefulWidget {
   final AppDependencyProvider appDependencyProvider;
   final DevicePresentation devicePresentation;
   final ConfigLifecycle? configController;
-  final FirebaseBackendConfigController? backendConfigController;
   final AdEventsController? adsController;
   final NotificationController? notifications;
-  final FirebaseSessionBridge? firebaseSession;
 
   @override
   State<FlixQuest> createState() => _FlixQuestState();
@@ -74,29 +67,19 @@ class FlixQuest extends StatefulWidget {
 
 class _FlixQuestState extends State<FlixQuest>
     with ChangeNotifier, WidgetsBindingObserver {
-  FirebaseConfigController? _firebaseConfig;
   Timer? _widgetRefreshDebounce;
   StreamSubscription<List<ConnectivityResult>>? _tmdbNetworkSubscription;
   final Connectivity _connectivity = Connectivity();
 
   Future<void> _initConfig() async {
+    // Firebase Remote Config is intentionally dormant for this release.
     final controller = widget.configController;
-    if (controller != null) {
-      await controller.boot();
-    } else {
-      final firebase = FirebaseConfigController(widget.appDependencyProvider);
-      _firebaseConfig = firebase;
-      if (WidgetsBinding.instance.lifecycleState != null &&
-          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-        firebase.pause();
-      }
-      await firebase.start();
-    }
-    if (mounted) {
-      // The first check can run before config supplies the proxy URL.
-      unawaited(_checkTmdb());
+    if (controller != null) await controller.boot();
+    if (!mounted) return;
+    unawaited(_checkTmdb());
+    if (widget.notifications != null) {
       await requestNotificationPermissions();
-      if (mounted) await widget.notifications?.devices.onResume();
+      if (mounted) await widget.notifications!.devices.onResume();
     }
   }
 
@@ -108,13 +91,7 @@ class _FlixQuestState extends State<FlixQuest>
 
   Future<void> _refreshConfigAfterReload() async {
     try {
-      await widget.backendConfigController?.refresh();
-      final controller = widget.configController;
-      if (controller != null) {
-        await controller.onResume();
-      } else {
-        await _firebaseConfig?.refresh();
-      }
+      await widget.configController?.onResume();
     } catch (error) {
       if (kDebugMode) {
         debugPrint('[PlaybackAdConfig] reload refresh failed: $error');
@@ -126,10 +103,6 @@ class _FlixQuestState extends State<FlixQuest>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (WidgetsBinding.instance.lifecycleState != null &&
-        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-      widget.backendConfigController?.pause();
-    }
     WellnessProvider.instance.addListener(_scheduleLocalWidgetRefresh);
     widget.bookmarkProvider.addListener(_scheduleLocalWidgetRefresh);
     TmdbConnectivity.instance.proxyUrlSource =
@@ -186,8 +159,6 @@ class _FlixQuestState extends State<FlixQuest>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      widget.backendConfigController?.pause();
-      _firebaseConfig?.pause();
       if (state == AppLifecycleState.paused) {
         context.read<PlusController?>()?.onPause();
       }
@@ -201,12 +172,9 @@ class _FlixQuestState extends State<FlixQuest>
     }
     DeepLinkDispatcher.onAppReady();
     unawaited(_checkTmdb());
-    unawaited(widget.backendConfigController?.resume());
     unawaited(widget.configController?.onResume());
-    unawaited(_firebaseConfig?.resume());
     unawaited(widget.adsController?.onResume());
     unawaited(widget.notifications?.onResume());
-    unawaited(widget.firebaseSession?.run());
     // An offline guest gets its tracked account once the network is back.
     unawaited(context.read<SessionViewModel?>()?.ensureGuestAccount());
     // Back from a payment page or another device: Plus may have changed.
