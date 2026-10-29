@@ -8,7 +8,7 @@ import 'package:flixquest/data/sources/remote_config_source.dart';
 import 'bootstrap_view_model.dart';
 import 'refresh_controller.dart';
 
-/// Firebase Remote Config is the primary source; Laravel's `config_source`
+/// Supabase runtime configuration is the primary source; Laravel's `config_source`
 /// only overrides it with an explicit `laravel`. The override is revalidated
 /// independently of a slow Firebase fetch, so switching to Laravel never waits
 /// for the old provider to finish, and a slow Laravel never holds Firebase back.
@@ -25,7 +25,7 @@ class ConfigSourceController implements ConfigLifecycle {
   /// late answer is still persisted and applies on the next refresh.
   final Duration selectorTimeout;
 
-  static const _remoteConfigCacheKey = 'config.firebase.snapshot';
+  static const _remoteConfigCacheKey = 'config.supabase.snapshot';
   BootstrapConfig? _remoteConfigSnapshot;
   StreamSubscription<void>? _subscription;
   Future<(BootstrapConfig, int)>? _validation;
@@ -115,7 +115,7 @@ class ConfigSourceController implements ConfigLifecycle {
       } while (_hintPending && !_disposed);
       return (config, generation);
     } finally {
-      // Only the HTTP decision is coalesced; a slow previous Firebase fetch
+      // Only the HTTP decision is coalesced; a slow previous remote config fetch
       // must not block a subsequent resume or operator-directed source switch.
       _validation = null;
     }
@@ -128,7 +128,7 @@ class ConfigSourceController implements ConfigLifecycle {
       _apply(config);
       return;
     }
-    // Firebase also serves before Laravel has ever answered.
+    // Supabase also serves before Laravel has ever answered.
     // Apply only the selected provider's cache while fetching fresh settings.
     _apply(_cachedRemoteConfig() ?? const BootstrapConfig());
     BootstrapConfig? fresh;
