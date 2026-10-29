@@ -40,7 +40,7 @@ class AboutPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpace.lg),
               Text(
-                'FlixQuest',
+                '7xPlay',
                 textAlign: TextAlign.center,
                 style: AppType.scaled(context, AppType.pageTitle)
                     .copyWith(color: palette.foreground),
@@ -97,34 +97,29 @@ class AboutPage extends StatelessWidget {
                       color: palette.mutedText,
                     ),
                     onTap: () => _open(
-                      'https://github.com/beamlakaschalew/cinemax/issues/new/choose',
+                      'https://github.com/RahulExe69/7xPlay/issues/new/choose',
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: AppSpace.xxl),
               SettingsGroup(
-                title: tr('follow_cinemax'),
+                title: '7xPlay',
                 children: [
                   _LinkRow(
-                    icon: PhosphorIcons.instagramLogo(),
-                    label: 'Instagram',
-                    uri: 'https://instagram.com/flixquestapp',
-                  ),
-                  _LinkRow(
-                    icon: PhosphorIcons.telegramLogo(),
-                    label: 'Telegram',
-                    uri: 'https://t.me/flixquestapp',
-                  ),
-                  _LinkRow(
                     icon: PhosphorIcons.githubLogo(),
-                    label: 'GitHub',
-                    uri: 'https://github.com/beamlakaschalew/cinemax',
+                    label: '7xPlay source code',
+                    uri: 'https://github.com/RahulExe69/7xPlay',
                   ),
                   _LinkRow(
-                    icon: PhosphorIcons.envelopeSimple(),
-                    label: 'flixquestapp@gmail.com',
-                    uri: 'mailto:flixquestapp@gmail.com',
+                    icon: PhosphorIcons.arrowSquareOut(),
+                    label: 'Builds and releases',
+                    uri: 'https://github.com/RahulExe69/7xPlay/actions',
+                  ),
+                  _LinkRow(
+                    icon: PhosphorIcons.bug(),
+                    label: 'Report a problem',
+                    uri: 'https://github.com/RahulExe69/7xPlay/issues/new/choose',
                   ),
                 ],
               ),
@@ -138,7 +133,7 @@ class AboutPage extends StatelessWidget {
               Text(
                 tr(
                   'year_range',
-                  namedArgs: {'startYear': '2018', 'endYear': '2026'},
+                  namedArgs: {'startYear': '2026', 'endYear': '2026'},
                 ),
                 textAlign: TextAlign.center,
                 style: AppType.metadata.copyWith(color: palette.mutedText),
@@ -154,7 +149,7 @@ class AboutPage extends StatelessWidget {
 Future<void> _open(String uri) =>
     launchUrl(Uri.parse(uri), mode: LaunchMode.externalApplication);
 
-/// A place to follow FlixQuest, which opens outside the app.
+/// A place to open 7xPlay resources outside the app.
 class _LinkRow extends StatelessWidget {
   const _LinkRow({required this.icon, required this.label, required this.uri});
 
