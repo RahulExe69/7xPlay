@@ -18,7 +18,7 @@ import 'services/firebase_backend_config_controller.dart';
 import 'presentation/config/bootstrap_view_model.dart';
 import 'presentation/config/refresh_controller.dart';
 import 'presentation/config/config_source_controller.dart';
-import 'data/sources/firebase_config_source.dart';
+import 'data/sources/remote_config_source.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'services/local_account_data.dart';
 import 'presentation/session/auth_runtime.dart';
@@ -235,7 +235,7 @@ void main() async {
     final bootstrap =
         BootstrapViewModel(injector.configRepository, appDependencyProvider);
     final sourceController = ConfigSourceController(injector.configRepository,
-        bootstrap, injector.kvStore, SdkFirebaseConfigSource());
+        bootstrap, injector.kvStore, SupabaseRemoteConfigSource());
     await sourceController.hydrate();
     configController = sourceController;
   }
