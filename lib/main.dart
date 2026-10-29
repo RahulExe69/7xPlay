@@ -213,7 +213,7 @@ void main() async {
     await recentProvider.fetchEpisodes();
     await wellnessProvider.reload();
   });
-  final backendConfig = FirebaseBackendConfigController(
+  final backendConfig = SupabaseBackendConfigController(
     fallbackUrl: environment.laravelApiUrl,
     onUrlChanged: (url) {
       // Register the new host before any credential-bearing request can use it.
