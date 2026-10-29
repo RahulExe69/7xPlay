@@ -43,7 +43,16 @@ jobs:
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
-        run: cp .env.example .env
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          cp .env.example .env
+          if [ -z "${TMDB_API_KEY//[[:space:]]/}" ]; then
+            echo "::error::TMDB_API_KEY GitHub Actions secret is missing. Add it in Settings > Secrets and variables > Actions, then rerun the build."
+            exit 1
+          fi
+          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" .env
+          grep -q '^TMDB_API_KEY=.' .env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
 
       - name: Cache Pub packages
         uses: actions/cache@v5
@@ -100,7 +109,16 @@ jobs:
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
-        run: cp .env.example .env
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          cp .env.example .env
+          if [ -z "${TMDB_API_KEY//[[:space:]]/}" ]; then
+            echo "::error::TMDB_API_KEY GitHub Actions secret is missing. Add it in Settings > Secrets and variables > Actions, then rerun the build."
+            exit 1
+          fi
+          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" .env
+          grep -q '^TMDB_API_KEY=.' .env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
 
       - name: Cache Pub packages
         uses: actions/cache@v5
