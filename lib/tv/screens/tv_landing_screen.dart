@@ -1,3 +1,4 @@
+import 'package:flixquest/presentation/session/session_view_model.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -94,22 +95,16 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
 
   Future<void> _continueAsGuest() async {
     if (_isEnteringAsGuest) return;
-
     setState(() => _isEnteringAsGuest = true);
     try {
-      await _authService.signInAnonymously();
+      await context.read<SessionViewModel>().enterGuest();
       if (!mounted) return;
       Provider.of<SettingsProvider>(context, listen: false)
           .analytics
           .trackLogin('anonymous');
-      // UserState owns the destination; the local guest session opens TvHomeShell.
-    } on AuthActionException catch (error) {
-      if (mounted) {
-        _showError(_authMessage(error));
-      }
     } catch (_) {
       if (mounted) {
-        _showError(tr('tv_unable_to_continue_as_guest_check_your_connection'));
+        _showError('Could not start guest mode. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _isEnteringAsGuest = false);
@@ -278,44 +273,15 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                   ),
                                   SizedBox(height: compact ? 20 : 28),
                                   _TvLandingAction(
-                                    label: tr('tv_create_free_account'),
-                                    icon: PhosphorIcons.userPlus(),
+                                    label: _isEnteringAsGuest
+                                        ? 'Starting guest session…'
+                                        : 'Continue anonymously',
+                                    icon: PhosphorIcons.userCircleDashed(),
                                     autofocus: true,
                                     primary: true,
                                     enabled: !_isGoogleSigningIn &&
                                         !_isEnteringAsGuest,
-                                    onActivate: () => _open(
-                                      const TvAuthScreen.createAccount(),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _TvLandingAction(
-                                    label: tr('tv_sign_in'),
-                                    icon: PhosphorIcons.signIn(),
-                                    enabled: !_isGoogleSigningIn &&
-                                        !_isEnteringAsGuest,
-                                    onActivate: () =>
-                                        _open(const TvAuthScreen.signIn()),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _TvLandingAction(
-                                    label: _isGoogleSigningIn
-                                        ? tr('tv_signing_in_with_google')
-                                        : tr('continue_with_google'),
-                                    icon: PhosphorIcons.googleLogo(),
-                                    enabled: !_isGoogleSigningIn &&
-                                        !_isEnteringAsGuest,
-                                    onActivate: _continueWithGoogle,
-                                  ),
-                                  SizedBox(height: compact ? 14 : 20),
-                                  _TvGuestLink(
-                                    label: _isEnteringAsGuest
-                                        ? tr('tv_starting_guest_session')
-                                        : tr('tv_continue_as_guest'),
-                                    caption: tr('tv_guest_caption'),
-                                    enabled: !_isEnteringAsGuest &&
-                                        !_isGoogleSigningIn,
-                                    onActivate: _confirmGuest,
+                                    onActivate: _continueAsGuest,
                                   ),
                                 ],
                               ),

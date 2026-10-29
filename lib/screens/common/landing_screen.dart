@@ -1,3 +1,4 @@
+import 'package:flixquest/presentation/session/session_view_model.dart';
 import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -86,8 +87,6 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
 
   Widget _actionsCard(SettingsProvider settings) {
     final palette = AppPalette.of(context);
-    final busy = _loadingGoogle || _loadingAnonymous;
-    Widget wide(Widget child) => SizedBox(width: double.infinity, child: child);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: palette.surface,
@@ -99,7 +98,7 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              tr('login_signup'),
+              'Welcome to 7xPlay',
               style: AppType.sectionHeader.copyWith(
                 fontFamily: AppType.bold,
                 fontSize: 22,
@@ -108,42 +107,19 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              tr('unlimited_on_cinemax'),
+              'Browse and watch without creating an account.',
               style: AppType.body.copyWith(color: palette.mutedText),
             ),
             const SizedBox(height: 24),
-            wide(
-              PillButton(
+            SizedBox(
+              width: double.infinity,
+              child: PillButton(
                 primary: true,
-                height: 50,
-                label: tr('log_in'),
-                onPressed: busy ? null : () => _push(const LoginScreen()),
-              ),
-            ),
-            const SizedBox(height: 12),
-            wide(
-              PillButton(
-                height: 50,
-                label: tr('sign_up'),
-                onPressed: busy ? null : () => _push(const SignupScreen()),
-              ),
-            ),
-            const SizedBox(height: 12),
-            GoogleSignInButton(
-              loading: _loadingGoogle,
-              enabled: !_loadingAnonymous,
-              onPressed: () => _continueWithGoogle(settings),
-            ),
-            const SizedBox(height: 12),
-            wide(
-              PillButton(
                 height: 50,
                 busy: _loadingAnonymous,
                 icon: PhosphorIcons.userCircleDashed(),
-                label: tr('continue_anonymously'),
-                onPressed: _loadingGoogle
-                    ? null
-                    : () => _continueAnonymously(settings),
+                label: 'Continue anonymously',
+                onPressed: _loadingAnonymous ? null : () => _continueAnonymously(settings),
               ),
             ),
           ],
@@ -153,14 +129,14 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
   }
 
   Future<void> _continueAnonymously(SettingsProvider settings) async {
-    if (_loadingGoogle) return;
+    if (_loadingAnonymous) return;
     setState(() => _loadingAnonymous = true);
     try {
-      await _authService.signInAnonymously();
+      await context.read<SessionViewModel>().enterGuest();
       settings.analytics.trackLogin('anonymous');
-      // UserState's session gate owns the handheld/TV destination.
-    } catch (error) {
-      if (mounted) _showError(error.toString());
+      // SessionGate switches directly to the app shell.
+    } catch (_) {
+      if (mounted) _showError('Could not start guest mode. Please try again.');
     } finally {
       if (mounted) setState(() => _loadingAnonymous = false);
     }
