@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flixquest/core/storage/kv_store.dart';
 import 'package:flixquest/data/models/bootstrap_config.dart';
 import 'package:flixquest/data/repositories/config_repository.dart';
-import 'package:flixquest/data/sources/firebase_config_source.dart';
+import 'package:flixquest/data/sources/remote_config_source.dart';
 
 import 'bootstrap_view_model.dart';
 import 'refresh_controller.dart';
@@ -14,19 +14,19 @@ import 'refresh_controller.dart';
 /// for the old provider to finish, and a slow Laravel never holds Firebase back.
 class ConfigSourceController implements ConfigLifecycle {
   ConfigSourceController(
-      this.repository, this.viewModel, this.store, this.firebase,
+      this.repository, this.viewModel, this.store, this.remoteConfig,
       {this.selectorTimeout = const Duration(seconds: 6)});
   final ConfigRepository repository;
   final BootstrapViewModel viewModel;
   final KvStore store;
-  final FirebaseConfigSource firebase;
+  final RemoteConfigSource remoteConfig;
 
   /// How long a refresh waits on Laravel before keeping the cached choice. A
   /// late answer is still persisted and applies on the next refresh.
   final Duration selectorTimeout;
 
-  static const _firebaseCacheKey = 'config.firebase.snapshot';
-  BootstrapConfig? _firebaseSnapshot;
+  static const _remoteConfigCacheKey = 'config.firebase.snapshot';
+  BootstrapConfig? _remoteConfigSnapshot;
   StreamSubscription<void>? _subscription;
   Future<(BootstrapConfig, int)>? _validation;
   Future<void>? _sourceWork;
@@ -38,7 +38,7 @@ class ConfigSourceController implements ConfigLifecycle {
   void _listen() {
     if (_disposed || _subscription != null) return;
     try {
-      _subscription = firebase.updates.listen((_) {
+      _subscription = remoteConfig.updates.listen((_) {
         unawaited(onPushData({'type': 'config_updated'}));
       }, onError: (_) {});
     } catch (_) {
@@ -46,14 +46,14 @@ class ConfigSourceController implements ConfigLifecycle {
     }
   }
 
-  BootstrapConfig? _cachedFirebase() {
-    if (_firebaseSnapshot != null) return _firebaseSnapshot;
-    final raw = store.getJson(_firebaseCacheKey);
-    if (raw is! Map<String, dynamic> || raw['config_source'] != 'firebase') {
+  BootstrapConfig? _cachedRemoteConfig() {
+    if (_remoteConfigSnapshot != null) return _remoteConfigSnapshot;
+    final raw = store.getJson(_remoteConfigCacheKey);
+    if (raw is! Map<String, dynamic> || raw['config_source'] != 'supabase') {
       return null;
     }
     try {
-      return _firebaseSnapshot = BootstrapConfig.fromJson(raw);
+      return _remoteConfigSnapshot = BootstrapConfig.fromJson(raw);
     } catch (_) {
       return null;
     }
@@ -67,7 +67,7 @@ class ConfigSourceController implements ConfigLifecycle {
     if (_disposed) return;
     _apply(config.configSource == 'laravel'
         ? config
-        : _cachedFirebase() ?? const BootstrapConfig());
+        : _cachedRemoteConfig() ?? const BootstrapConfig());
     _listen();
   }
 
@@ -130,18 +130,18 @@ class ConfigSourceController implements ConfigLifecycle {
     }
     // Firebase also serves before Laravel has ever answered.
     // Apply only the selected provider's cache while fetching fresh settings.
-    _apply(_cachedFirebase() ?? const BootstrapConfig());
+    _apply(_cachedRemoteConfig() ?? const BootstrapConfig());
     BootstrapConfig? fresh;
     try {
-      fresh = await firebase.refresh();
+      fresh = await remoteConfig.refresh();
     } catch (_) {
       return;
     }
     if (!current() || fresh == null) return;
-    fresh = fresh.copyWith(configSource: 'firebase');
-    _firebaseSnapshot = fresh;
+    fresh = fresh.copyWith(configSource: 'supabase');
+    _remoteConfigSnapshot = fresh;
     try {
-      await store.setJson(_firebaseCacheKey, fresh.toJson());
+      await store.setJson(_remoteConfigCacheKey, fresh.toJson());
     } catch (_) {
       // The live snapshot can still be used if preference persistence fails.
     }
