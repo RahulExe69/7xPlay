@@ -1,16 +1,43 @@
 # Android APK build
 
-The GitHub Actions workflow at `.github/workflows/build-android.yml` builds an installable **debug APK** for pushes to `main`, pull requests targeting `main`, and manual workflow runs.
+The GitHub Actions workflow at `.github/workflows/build-android.yml` builds optimized **release APKs split by CPU architecture** for pull requests targeting `main`, pushes to `main`, and manual workflow runs.
 
-## Download the APK
+## Download the right APK
 
 1. Open the repository's **Actions** tab.
-2. Open the successful **Build Android APK** run for the desired commit or pull request.
-3. In **Artifacts**, download `7xPlay-debug-apk-<commit-sha>`.
-4. Extract the ZIP to get `app-prod-debug.apk`, then install it on an Android device.
+2. Open the successful **Build optimized Android APKs** run for the commit or pull request.
+3. Download the artifact matching the device:
+   - `7xPlay-arm64-v8a-release-<commit-sha>` — recommended for most modern Android phones and Android TV devices.
+   - `7xPlay-armeabi-v7a-release-<commit-sha>` — older 32-bit ARM devices.
+   - `7xPlay-x86_64-release-<commit-sha>` — x86_64 emulators and compatible Intel devices.
+4. Extract the ZIP, then install the APK inside it. Do not install one of the other ABI variants just because its filename looks shorter.
 
-The workflow checks out the required `flixquest-betterplayer` path dependency at the `claude/relaxed-dirac-tw37rj` ref, which includes the configured hold-speed gesture options. It sets up Java 17 and Flutter 3.41.5: Flutter 3.44 made `IconData` final, which is incompatible with the app's current `phosphor_flutter` 2.1.0. The workflow resolves packages and builds the `prod` flavor. It uses Flutter's `--android-skip-build-dependency-validation` option because the current Android project uses Gradle 8.7 while newer stable Flutter releases demand Gradle 8.14; the Android Gradle Plugin remains pinned to the project's existing version.
+## Size optimizations
 
-This is a debug-signed testing APK, not a production release. A release build should only be published after the app's environment configuration, signing key, and playback/authentication flows have been validated.
+- A **release** build, not a debug build.
+- `--split-per-abi` packages only the native Flutter engine for each CPU architecture instead of combining all supported ABIs into one file.
+- Android R8 minification and resource shrinking are enabled in the release build.
+- `--tree-shake-icons` excludes unused icon glyphs.
+- `--obfuscate --split-debug-info=build/symbols` obfuscates Dart symbols and stores symbol maps separately from the APK.
+- CI prints the exact size of each generated APK in the build log. Use those measurements before making further dependency cuts.
 
-The workflow runs `flutter test test/provider_loader_test.dart` before building the APK and copies `.env.example` to `.env` so non-secret default configuration is bundled. Blank API-key entries remain blank unless configured separately.
+The output is intentionally **not a universal APK**. The per-device files should be substantially smaller than the previous universal debug build. The app still includes Flutter, Firebase, video-player/Media3, download, and other functionality; reducing the APK further would require measured, feature-by-feature dependency analysis and tests.
+
+## Signing
+
+CI reads these optional repository secrets to sign with a stable distribution key:
+
+- `ANDROID_KEYSTORE_BASE64`: base64-encoded Android keystore.
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+- `ANDROID_STORE_PASSWORD`
+
+Without all the signing values, CI falls back to the runner's debug signing key so the artifacts remain installable for testing. **Do not publish that fallback build as an official update**, because the runner key is not a stable production signing identity. Existing installs can upgrade only when signatures and versioning are compatible.
+
+## Build environment
+
+The workflow checks out the required external `flixquest-betterplayer` path dependency at `claude/relaxed-dirac-tw37rj`, which includes the configured hold-speed gesture options. It uses Java 17 and Flutter 3.41.5; newer Flutter versions currently hit an `IconData` compatibility issue with `phosphor_flutter` 2.1.0. CI copies `.env.example` to `.env`, rasterizes the SVG splash source, generates native splash assets, runs `flutter test test/provider_loader_test.dart`, and then builds the APKs.
+
+## Publishing for the in-app updater
+
+GitHub Actions artifacts are temporary downloads for build/test use, not permanent direct-download URLs. For public updates, publish the correct per-ABI APKs to a stable GitHub Release or another controlled HTTPS host, then set Remote Config's `app_download_url_arm64_v8a`, `app_download_url_armeabi_v7a`, and `app_download_url_x86_64` keys to the matching APK URLs. Keep `app_download_url` as the universal fallback URL only if a universal APK is deliberately built and hosted. Do not point those fields at an artifact ZIP; the updater expects an APK.
