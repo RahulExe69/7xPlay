@@ -203,7 +203,6 @@ void main() async {
   }
   await playlistProvider.load();
     // Push notifications (FCM/OneSignal) are intentionally disabled for now.
-  NotificationController? notifications;
   NetworkRuntime.configure(
       publicDio: injector.publicDio,
       httpCache: injector.httpCache,
