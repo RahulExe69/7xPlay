@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">7xPlay</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#10182f"/><stop offset="1" stop-color="#070a14"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#42e8d5"/><stop offset="1" stop-color="#4a8dff"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="186" fill="none" stroke="#243754" stroke-width="10"/>
+  <path d="M127 151h258L259 366h-60l86-151H127z" fill="#f5f8ff"/>
+  <path d="M270 245h43l28 35 28-35h43l-50 59 50 59h-43l-28-35-28 35h-43l50-59z" fill="url(#accent)"/>
+  <path d="M344 120l12 28 28 12-28 12-12 28-12-28-28-12 28-12z" fill="#42e8d5" opacity=".9"/>
+</svg>
