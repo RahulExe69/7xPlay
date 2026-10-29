@@ -1,118 +1,108 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:flixquest/core/config/app_environment.dart';
-import 'package:flixquest/services/app_remote_config.dart';
-import 'package:flixquest/services/remote_config_refresh_controller.dart';
 
-/// Backend discovery must work even when Laravel serves feature configuration
-/// or its bundled address is unreachable. Startup always uses the bundled URL;
-/// Firebase can replace it asynchronously for subsequent requests.
+const _supabaseConfigUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://xrupzibcjajgdemseeij.supabase.co',
+);
+const _supabaseConfigKey = String.fromEnvironment(
+  'SUPABASE_PUBLISHABLE_KEY',
+  defaultValue: 'sb_publishable_h2BES4tDT2c4XNxaWVuhKA_gj41DN9_',
+);
+
+/// Discovers the Laravel API endpoint from the public Supabase app_config
+/// table. The bundled URL remains the safe fallback when Supabase is offline.
 class FirebaseBackendConfigController {
   FirebaseBackendConfigController({
     required String fallbackUrl,
     required this.onUrlChanged,
-    FirebaseRemoteConfig? remote,
     Stream<bool>? connectivityChanges,
     Future<bool> Function()? checkConnectivity,
+    http.Client? client,
+    this.refreshInterval = const Duration(minutes: 15),
   })  : _fallbackUrl = AppEnvironment.normalizeLaravelApiUrl(fallbackUrl),
-        _remote = remote ?? FirebaseRemoteConfig.instance,
         _connectivityChanges = connectivityChanges,
-        _checkConnectivity = checkConnectivity {
+        _checkConnectivity = checkConnectivity,
+        _client = client ?? http.Client() {
     _lastAppliedUrl = _fallbackUrl;
   }
 
   final String _fallbackUrl;
   final void Function(String) onUrlChanged;
-  final FirebaseRemoteConfig _remote;
   final Stream<bool>? _connectivityChanges;
   final Future<bool> Function()? _checkConnectivity;
+  final http.Client _client;
+  final Duration refreshInterval;
   late String _lastAppliedUrl;
+  StreamSubscription<bool>? _connectivitySubscription;
+  Timer? _timer;
   Future<void>? _starting;
-  RemoteConfigRefreshController? _refresh;
-  StreamSubscription<RemoteConfigUpdate>? _subscription;
   bool _disposed = false;
-  bool _active = true;
 
   Future<void> start() => _starting ??= _start();
 
   Future<void> _start() async {
     if (_disposed) return;
     final connectivity = Connectivity();
-    _refresh = RemoteConfigRefreshController(
-      fetch: _fetch,
-      lastFetchTime: () => _remote.lastFetchTime,
-      connectivityChanges: _connectivityChanges ??
-          connectivity.onConnectivityChanged.map(
-              (results) => results.any((r) => r != ConnectivityResult.none)),
-      checkConnectivity: _checkConnectivity ??
-          () async => (await connectivity.checkConnectivity())
-              .any((r) => r != ConnectivityResult.none),
-    );
-    if (!_active) _refresh!.pause();
-    try {
-      _subscription = _remote.onConfigUpdated.listen((_) async {
-        try {
-          await _remote.activate();
-          _apply();
-        } catch (_) {/* Keep the current endpoint if activation fails. */}
-      }, onError: (_) {});
-    } catch (_) {/* Fetch/resume still work without realtime support. */}
-    await _refresh!.refresh();
+    _connectivitySubscription = (_connectivityChanges ??
+            connectivity.onConnectivityChanged.map(
+              (results) => results.any((r) => r != ConnectivityResult.none),
+            ))
+        .listen((online) {
+      if (online) unawaited(refresh());
+    }, onError: (_) {});
+    _timer = Timer.periodic(refreshInterval, (_) => unawaited(refresh()));
+    await refresh();
   }
 
-  Future<bool> _fetch() async {
-    try {
-      await AppRemoteConfig.configure(_remote);
-      await _remote.ensureInitialized();
-      if (_disposed) return false;
-      await _remote.activate();
-      _apply();
-      await _remote.fetchAndActivate();
-      _apply();
-      return _remote.lastFetchStatus == RemoteConfigFetchStatus.success;
-    } catch (_) {
-      // An offline fetch retains either the bundled URL or the activated cache.
-      return false;
-    }
-  }
-
-  void _apply() {
+  Future<void> refresh() async {
     if (_disposed) return;
-    final value = _remote.getValue(AppRemoteConfig.laravelApiUrlKey);
-    final raw =
-        value.source == ValueSource.valueRemote ? value.asString().trim() : '';
-    String url;
     try {
-      url = raw.isEmpty
-          ? _fallbackUrl
-          : AppEnvironment.normalizeLaravelApiUrl(raw);
-    } on ArgumentError {
-      return; // A malformed publish must not break a working backend.
-    } on FormatException {
-      return;
+      final uri = Uri.parse('$_supabaseConfigUrl/rest/v1/app_config').replace(
+        queryParameters: {
+          'select': 'key,value',
+          'key': 'eq.laravel_api_url',
+          'limit': '1',
+        },
+      );
+      final response = await _client.get(uri, headers: {
+        'apikey': _supabaseConfigKey,
+        'Authorization': 'Bearer $_supabaseConfigKey',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List || decoded.isEmpty || decoded.first is! Map) return;
+      final rawValue = (decoded.first as Map)['value'];
+      final raw = rawValue is String
+          ? rawValue.trim()
+          : rawValue == null
+              ? ''
+              : rawValue.toString().trim();
+      if (raw.isEmpty) return;
+      final url = AppEnvironment.normalizeLaravelApiUrl(raw);
+      if (_disposed || url == _lastAppliedUrl) return;
+      onUrlChanged(url);
+      _lastAppliedUrl = url;
+    } catch (error) {
+      if (kDebugMode) debugPrint('Supabase backend config unavailable: $error');
+      // Keep the last known-good endpoint when the network/config is unavailable.
     }
-    if (url == _lastAppliedUrl) return;
-    onUrlChanged(url);
-    _lastAppliedUrl = url;
   }
 
-  Future<void> refresh() async => _refresh?.refresh();
+  Future<void> resume() => refresh();
 
-  Future<void> resume() async {
-    _active = true;
-    await _refresh?.resume();
-  }
-
-  void pause() {
-    _active = false;
-    _refresh?.pause();
-  }
+  void pause() {}
 
   void dispose() {
     _disposed = true;
-    _refresh?.dispose();
-    unawaited(_subscription?.cancel());
+    _timer?.cancel();
+    unawaited(_connectivitySubscription?.cancel());
+    _client.close();
   }
 }
