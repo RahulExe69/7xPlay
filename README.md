@@ -1,8 +1,8 @@
 <p align="center">
-  <img alt="FlixQuest" src="assets/images/FlixQuest.png" width="180">
+  <img alt="7xPlay" src="assets/images/7xplay_logo.svg" width="180">
 </p>
 
-<h1 align="center">FlixQuest</h1>
+<h1 align="center">7xPlay</h1>
 
 <p align="center">
   <strong>A modern, open-source streaming application for Movies, TV Shows, and Live TV built with Flutter.</strong><br>
@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter">
   <img src="https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart&logoColor=white" alt="Dart">
   <img src="https://img.shields.io/badge/Platform-Android%20%7C%20Android%20TV-3DDC84?logo=android&logoColor=white" alt="Platform">
-  <img src="https://img.shields.io/badge/Version-4.0.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/Version-4.3.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/License-GPL--3.0-green" alt="License">
 </p>
 
@@ -44,7 +44,7 @@
 
 ### 🚀 Multi-Source Video Providers & Scraper API v2
 
-- **Dynamic Provider System**: Integrated with **FlixQuest Scraper API v2** for scraping high-quality streams.
+- **Dynamic Provider System**: Integrated with **7xPlay Scraper API v2** for scraping high-quality streams.
 - **Live Provider Health Status**: Real-time provider uptime monitoring (`/providers/status`) with in-app status indicators.
 - **Direct Fallback Provider**: Built-in direct VixSrc provider fallback.
 - **Custom Provider Prioritization**: Reorder and prioritize your preferred streaming providers in Settings.
@@ -92,35 +92,21 @@
 
 ## 📱 Screenshots
 
-<table style="border: none;">
-  <tr>
-    <td align="center"><b>Home & Discovery</b><br><img src="docs/screenshots/movies-home.jpg" alt="Home Screen" width="220"/></td>
-    <td align="center"><b>Movie Details</b><br><img src="docs/screenshots/movie-detail.jpg" alt="Movie Details" width="220"/></td>
-    <td align="center"><b>Series Details</b><br><img src="docs/screenshots/series-detail.jpg" alt="Series Details" width="220"/></td>
-    <td align="center"><b>Seasons & Episodes</b><br><img src="docs/screenshots/season-detail.jpg" alt="Seasons & Episodes" width="220"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Episode Browser</b><br><img src="docs/screenshots/episodes.jpg" alt="Episode Browser" width="220"/></td>
-    <td align="center"><b>Watch & Download</b><br><img src="docs/screenshots/episode-detail.jpg" alt="Episode Detail" width="220"/></td>
-    <td align="center"><b>Offline Downloads</b><br><img src="docs/screenshots/downloads.jpg" alt="Offline Downloads" width="220"/></td>
-    <td align="center"><b>Live TV & Sports</b><br><img src="docs/screenshots/live-tv.jpg" alt="Live TV" width="220"/></td>
-  </tr>
-  <tr>
-    <td colspan="4" align="center"><b>Immersive Video Player</b><br><img src="docs/screenshots/player.jpg" alt="Video Player" width="800"/></td>
-  </tr>
-</table>
+Fresh mobile, tablet, player, and Android TV screenshots will be added after the 7xPlay-branded build has been visually checked on-device. The previous upstream screenshots are intentionally not shown here so the repository does not advertise the old app identity.
+
+---
 
 ---
 
 ## ⚙️ Environment Variables & API Keys
 
-FlixQuest uses `flutter_dotenv` to load environment variables. Create a `.env` file in the root directory of the project:
+7xPlay uses `flutter_dotenv` to load environment variables. Create a `.env` file in the root directory of the project:
 
 ```env
 # Required: TMDB API Key for movie and TV show metadata
 TMDB_API_KEY="your_tmdb_api_key"
 
-# Required: FlixQuest Scraper API v2 instance URL
+# Required: 7xPlay Scraper API v2 instance URL
 FLIXQUEST_API_URL="https://your-flixquest-api-instance.com"
 
 # Optional: Mixpanel project token for general analytics
@@ -130,33 +116,35 @@ MIXPANEL_API_KEY="your_mixpanel_api_key"
 ### Obtaining API Keys
 
 - **TMDB API Key**: Register at [The Movie Database (TMDB)](https://developer.themoviedb.org/v3/reference/intro/authentication#api-key-quick-start) to get your free API key.
-- **FlixQuest Scraper API**: The scraper service is closed-source. For API access, self-hosting inquiries, or support, please reach out to [flixquestapp@gmail.com](mailto:flixquestapp@gmail.com).
+- **7xPlay Scraper API**: The provider scraper is a separately hosted upstream service. Its base URL remains configurable through the legacy `FLIXQUEST_API_URL` environment variable for backward compatibility; the 7xPlay client does not include that backend.
 - **Mixpanel Token** _(Optional)_: Create a free account at [Mixpanel](https://mixpanel.com).
 
 ---
 
-## 🕷️ FlixQuest Scraper API v2
+## 🕷️ External scraper API integration
 
-FlixQuest communicates with **FlixQuest Scraper API v2** for resolving streaming sources. The backend service is closed-source; please contact [flixquestapp@gmail.com](mailto:flixquestapp@gmail.com) for support or API instance access.
+The app can use a separately hosted scraper/provider API to resolve streams. The backend is not included in this repository and is not represented as a 7xPlay-owned service. Configure its URL using the existing `FLIXQUEST_API_URL` environment variable; that legacy key is retained for compatibility until the backend and any deployed configuration are migrated together.
 
 The client-side API contract and payload schemas are documented in [`openapi.json`](openapi.json).
 
 Key endpoints consumed by the app:
 
-- `GET /providers`: Discovers available and enabled video providers.
-- `GET /providers/status`: Fetches live provider health status, latency, and uptime.
-- `GET /stream-movie`: Scrapes streaming links for movies using TMDB ID.
-- `GET /stream-tv`: Scrapes streaming links for TV episodes using TMDB ID, season, and episode number.
-- `GET /subtitles/search`: Searches every subtitle provider for a movie or episode and returns one combined catalog.
-- `GET /subtitles/{provider}/{id}`: Downloads a subtitle file. The API converts and re-encodes it, so the app never contacts a subtitle host directly.
-- `POST /stream-size`: Estimates the byte size behind a stream token so the quality picker can show sizes.
-- `GET /api/v2/intro`: Retrieves branded intro video configuration.
+- `GET /providers`: discovers available and enabled video providers.
+- `GET /providers/status`: fetches provider health, latency, and uptime.
+- `GET /stream-movie`: resolves movie streams using a TMDB ID.
+- `GET /stream-tv`: resolves TV episode streams using a TMDB ID, season, and episode number.
+- `GET /subtitles/search`: searches subtitle providers and combines results.
+- `GET /subtitles/{provider}/{id}`: retrieves a subtitle file through the configured API.
+- `POST /stream-size`: estimates the byte size behind a stream token.
+- `GET /api/v2/intro`: retrieves the configured intro-video settings.
+
+---
 
 ---
 
 ## 🔥 Firebase Configuration
 
-FlixQuest uses Firebase for several services:
+7xPlay uses Firebase for several services:
 
 | Service                       | Purpose                                                                                                                                                                                                                             |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -205,16 +193,16 @@ better_player_plus:
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/BeamlakAschalew/flixquest.git
-   cd flixquest
+   git clone https://github.com/RahulExe69/7xPlay.git
+   cd 7xPlay
    ```
 
 2. **Clone the custom better_player repository** (if using local path):
 
    ```bash
    cd ..
-   git clone https://github.com/BeamlakAschalew/flixquest-betterplayer.git
-   cd flixquest
+   git clone https://github.com/RahulExe69/7xPlay-betterplayer.git
+   cd 7xPlay
    ```
 
 3. **Configure Environment Variables**:
@@ -259,7 +247,7 @@ better_player_plus:
    The test selector works in dev debug/profile/release builds. Prod ignores it
    in every build mode. See [banner testing setup](docs/firebase_remote_config.md#test-real-banners-in-development).
    Both flavors reuse the existing Android package and Firebase registration;
-   they share an install slot. The dev launcher label is **FlixQuest Dev**.
+   they share an install slot. The dev launcher label is **7xPlay Dev**.
 
 6. **Build Release APK**:
 
@@ -304,17 +292,8 @@ Contributions, feature suggestions, design ideas, and translations are always we
 ## ⚠️ Disclaimer
 
 - The developers of this application have no affiliation with content providers like TMDB, DaddyLive, or any third-party streaming websites.
-- FlixQuest **does not host or upload any video content**. All media is retrieved via public scrapers and third-party APIs.
+- 7xPlay **does not host or upload any video content**. All media is retrieved via public scrapers and third-party APIs.
 - In case of copyright infringement, please contact the responsible hosting services or source providers directly.
-
----
-
-<div align="center">
-  <h3>Support the Project</h3>
-  <a href="https://www.buymeacoffee.com/cinemaxapp">
-    <img src="https://i.ibb.co/Tr4sC5X/bmc-button.png" height="60" alt="Buy Me A Coffee">
-  </a>
-</div>
 
 ---
 
@@ -328,5 +307,5 @@ Contributions, feature suggestions, design ideas, and translations are always we
 
 <p align="center">
   <i>GNU, but for Entertainment</i><br><br>
-  <strong>© 2022–2026 FlixQuest</strong>
+  <strong>7xPlay is a rebranded open-source client; retain the original licence and upstream notices in LICENSE.</strong>
 </p>
