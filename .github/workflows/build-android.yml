@@ -134,12 +134,13 @@ jobs:
           ABI_TARGET: ${{ matrix.target }}
         run: |
           flutter build apk --release --flavor prod --target-platform "$ABI_TARGET" --obfuscate --tree-shake-icons --split-debug-info="build/symbols/${ABI_TARGET}" --android-skip-build-dependency-validation
-          APK="build/app/outputs/flutter-apk/app-prod-release.apk"
+          APK="$(find build/app/outputs/flutter-apk -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
           test -s "$APK"
           mkdir -p "build/artifacts/${ABI_TARGET}"
-          cp "$APK" "build/artifacts/7xPlay-${{ matrix.abi }}-release.apk"
+          cp "$APK" "build/artifacts/${ABI_TARGET}/7xPlay-${{ matrix.abi }}-release.apk"
           echo "Built APK size:"
-          du -h "build/artifacts/7xPlay-${{ matrix.abi }}-release.apk"
+          du -h "build/artifacts/${ABI_TARGET}/7xPlay-${{ matrix.abi }}-release.apk"
 
       - name: Upload optimized APK
         uses: actions/upload-artifact@v4
