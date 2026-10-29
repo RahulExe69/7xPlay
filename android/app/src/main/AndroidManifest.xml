@@ -29,8 +29,9 @@
     <application
         android:name=".FlixQuestApplication"
         android:label="${appLabel}"
-        android:icon="@mipmap/ic_launcher"
-        android:banner="@drawable/tv_banner"
+        android:icon="@drawable/ic_7xplay_app_icon"
+        android:roundIcon="@drawable/ic_7xplay_app_icon"
+        android:banner="@drawable/ic_7xplay_tv_banner"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">    
         <meta-data

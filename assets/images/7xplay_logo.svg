@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 128" role="img" aria-labelledby="title">
+  <title id="title">7xPlay</title>
+  <g transform="translate(8 10)">
+    <rect x="0" y="0" width="108" height="108" rx="24" fill="#0B1020"/>
+    <path d="M19 23h35L39 58H26l12-25H19z" fill="#55D6FF"/>
+    <path d="M41 41h13l9 11 9-11h13L71 57l15 17H73L63 63 54 74H41l14-17z" fill="#B9A2FF"/>
+    <path d="M73 23 91 34 73 45z" fill="#63F2C2"/>
+  </g>
+  <text x="136" y="81" font-family="Inter,Arial,sans-serif" font-size="62" font-weight="800" letter-spacing="-2" fill="#F8FAFC">7x</text>
+  <text x="221" y="81" font-family="Inter,Arial,sans-serif" font-size="62" font-weight="800" letter-spacing="-2" fill="#55D6FF">Play</text>
+</svg>

@@ -29,8 +29,15 @@ def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+def releaseSigningReady = keystorePropertiesFile.exists() &&
+    ['keyAlias', 'keyPassword', 'storeFile', 'storePassword'].every {
+        keystoreProperties.getProperty(it)?.trim()
+    }
 
 android {
+    // Keep this namespace and applicationId while the visual rebrand is in progress:
+    // Firebase and verified flix.quest App Links are registered to this identity.
+    // Migrate only with a new Firebase Android registration, signing, and assetlinks updates.
     namespace 'dev.beamlak.flixquest_v2'
     compileSdk 36
     ndkVersion "28.2.13676358"
@@ -67,13 +74,13 @@ android {
     productFlavors {
         prod {
             dimension "environment"
-            manifestPlaceholders = [appLabel: "FlixQuest"]
+            manifestPlaceholders = [appLabel: "7xPlay"]
         }
         dev {
             dimension "environment"
             // Reuse the registered Firebase package; a suffix would require
             // another Firebase Android app and matching Google services file.
-            manifestPlaceholders = [appLabel: "FlixQuest Dev"]
+            manifestPlaceholders = [appLabel: "7xPlay Dev"]
         }
     }
 
@@ -88,7 +95,9 @@ android {
    
    buildTypes {
        release {
-           signingConfig signingConfigs.release
+           // Optimized CI builds remain installable without exposing a release keystore.
+           // Set repository secrets to sign distributable builds with the production key.
+           signingConfig releaseSigningReady ? signingConfigs.release : signingConfigs.debug
            shrinkResources true
            minifyEnabled true
        }

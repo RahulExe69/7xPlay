@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build optimized Android APKs
 
 on:
   push:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out 7xPlay
         uses: actions/checkout@v4
@@ -44,26 +44,85 @@ jobs:
           flutter-version: '3.41.5'
           cache: true
 
-      - name: Prepare ignored environment asset
+      - name: Install SVG rasterizer for native splash assets
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes librsvg2-bin
+
+      - name: Prepare environment asset and branded splash source
         working-directory: 7xPlay
-        run: cp .env.example .env
+        run: |
+          cp .env.example .env
+          rsvg-convert --width 512 --height 512 assets/images/7xplay_splash.svg > assets/images/7xplay_splash.png
 
       - name: Resolve dependencies
         working-directory: 7xPlay
         run: flutter pub get
 
+      - name: Generate native splash resources from 7xPlay artwork
+        working-directory: 7xPlay
+        run: dart run flutter_native_splash:create
+
+      - name: Configure release signing when a keystore is supplied
+        working-directory: 7xPlay/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/upload-keystore.jks
+            cat > key.properties <<EOF
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=app/upload-keystore.jks
+          EOF
+            echo "Release signing configured from repository secrets."
+          else
+            echo "No release keystore supplied; optimized artifacts will use the runner's debug signing key."
+          fi
+
       - name: Test provider aggregation and fallback behavior
         working-directory: 7xPlay
         run: flutter test test/provider_loader_test.dart
 
-      - name: Build installable Android APK
+      - name: Build size-optimized release APKs for each CPU architecture
         working-directory: 7xPlay
-        run: flutter build apk --debug --flavor prod --android-skip-build-dependency-validation
+        run: |
+          flutter build apk --release --flavor prod --split-per-abi --tree-shake-icons --obfuscate --split-debug-info=build/symbols --android-skip-build-dependency-validation
+          echo "APK sizes:"
+          ls -lh build/app/outputs/flutter-apk/*-release.apk
 
-      - name: Upload APK
+      - name: Upload ARM64 APK (most current Android phones and TVs)
         uses: actions/upload-artifact@v4
         with:
-          name: 7xPlay-debug-apk-${{ github.event.pull_request.head.sha || github.sha }}
-          path: 7xPlay/build/app/outputs/flutter-apk/app-prod-debug.apk
+          name: 7xPlay-arm64-v8a-release-${{ github.event.pull_request.head.sha || github.sha }}
+          path: 7xPlay/build/app/outputs/flutter-apk/app-prod-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload ARMv7 APK (older 32-bit Android devices)
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7xPlay-armeabi-v7a-release-${{ github.event.pull_request.head.sha || github.sha }}
+          path: 7xPlay/build/app/outputs/flutter-apk/app-prod-armeabi-v7a-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload x86_64 APK (emulators and compatible Intel devices)
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7xPlay-x86_64-release-${{ github.event.pull_request.head.sha || github.sha }}
+          path: 7xPlay/build/app/outputs/flutter-apk/app-prod-x86_64-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Dart obfuscation symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7xPlay-obfuscation-symbols-${{ github.event.pull_request.head.sha || github.sha }}
+          path: 7xPlay/build/symbols/
+          if-no-files-found: ignore
+          retention-days: 30

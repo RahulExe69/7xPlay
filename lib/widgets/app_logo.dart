@@ -23,15 +23,15 @@ bool isValidRemoteLogoSvg(String source) {
   }
 }
 
-/// Displays the Remote Config logo when available and a bundled asset when it
-/// is not. Seasonal theme logos take precedence over the general app logo.
+/// Displays a 7xPlay-branded Remote Config logo only when the URL itself is branded
+/// for 7xPlay; otherwise the original upstream logo cannot override the app identity.
 class AppLogo extends StatelessWidget {
   const AppLogo({
     super.key,
     this.width,
     this.height,
     this.fit = BoxFit.contain,
-    this.fallbackAsset = 'assets/images/logo.png',
+    this.fallbackAsset = 'assets/images/7xplay_mark.svg',
     this.fallbackColor,
   });
 
@@ -51,7 +51,7 @@ class AppLogo extends StatelessWidget {
         (uri.scheme == 'https' || uri.scheme == 'http') &&
         uri.host.isNotEmpty;
 
-    if (!canLoadRemote) return _fallback();
+    if (!canLoadRemote || !logoUrl.toLowerCase().contains('7xplay')) return _fallback();
 
     final path = uri.path.toLowerCase();
     if (path.endsWith('.svg')) {
