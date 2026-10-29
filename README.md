@@ -1,8 +1,8 @@
 <p align="center">
-  <img alt="FlixQuest" src="assets/images/FlixQuest.png" width="180">
+  <img alt="7xPlay" src="assets/images/7xplay_logo.svg" width="180">
 </p>
 
-<h1 align="center">FlixQuest</h1>
+<h1 align="center">7xPlay</h1>
 
 <p align="center">
   <strong>A modern, open-source streaming application for Movies, TV Shows, and Live TV built with Flutter.</strong><br>
@@ -44,7 +44,7 @@
 
 ### 🚀 Multi-Source Video Providers & Scraper API v2
 
-- **Dynamic Provider System**: Integrated with **FlixQuest Scraper API v2** for scraping high-quality streams.
+- **Dynamic Provider System**: Integrated with **7xPlay Scraper API v2** for scraping high-quality streams.
 - **Live Provider Health Status**: Real-time provider uptime monitoring (`/providers/status`) with in-app status indicators.
 - **Direct Fallback Provider**: Built-in direct VixSrc provider fallback.
 - **Custom Provider Prioritization**: Reorder and prioritize your preferred streaming providers in Settings.
@@ -114,14 +114,14 @@
 
 ## ⚙️ Environment Variables & API Keys
 
-FlixQuest uses `flutter_dotenv` to load environment variables. Create a `.env` file in the root directory of the project:
+7xPlay uses `flutter_dotenv` to load environment variables. Create a `.env` file in the root directory of the project:
 
 ```env
 # Required: TMDB API Key for movie and TV show metadata
 TMDB_API_KEY="your_tmdb_api_key"
 
-# Required: FlixQuest Scraper API v2 instance URL
-FLIXQUEST_API_URL="https://your-flixquest-api-instance.com"
+# Required: 7xPlay Scraper API v2 instance URL
+FLIXQUEST_API_URL="https://your-7xplay-api-instance.com"
 
 # Optional: Mixpanel project token for general analytics
 MIXPANEL_API_KEY="your_mixpanel_api_key"
@@ -130,14 +130,14 @@ MIXPANEL_API_KEY="your_mixpanel_api_key"
 ### Obtaining API Keys
 
 - **TMDB API Key**: Register at [The Movie Database (TMDB)](https://developer.themoviedb.org/v3/reference/intro/authentication#api-key-quick-start) to get your free API key.
-- **FlixQuest Scraper API**: The scraper service is closed-source. For API access, self-hosting inquiries, or support, please reach out to [flixquestapp@gmail.com](mailto:flixquestapp@gmail.com).
+- **7xPlay Scraper API**: The scraper service is closed-source. For API access, self-hosting inquiries, or support, please reach out to [7xplayapp@gmail.com](mailto:7xplayapp@gmail.com).
 - **Mixpanel Token** _(Optional)_: Create a free account at [Mixpanel](https://mixpanel.com).
 
 ---
 
-## 🕷️ FlixQuest Scraper API v2
+## 🕷️ 7xPlay Scraper API v2
 
-FlixQuest communicates with **FlixQuest Scraper API v2** for resolving streaming sources. The backend service is closed-source; please contact [flixquestapp@gmail.com](mailto:flixquestapp@gmail.com) for support or API instance access.
+7xPlay communicates with **7xPlay Scraper API v2** for resolving streaming sources. The backend service is closed-source; please contact [7xplayapp@gmail.com](mailto:7xplayapp@gmail.com) for support or API instance access.
 
 The client-side API contract and payload schemas are documented in [`openapi.json`](openapi.json).
 
@@ -156,7 +156,7 @@ Key endpoints consumed by the app:
 
 ## 🔥 Firebase Configuration
 
-FlixQuest uses Firebase for several services:
+7xPlay uses Firebase for several services:
 
 | Service                       | Purpose                                                                                                                                                                                                                             |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -173,21 +173,21 @@ FlixQuest uses Firebase for several services:
 
 ## ▶️ Custom `better_player` Package
 
-This repository uses a customized version of `better_player` (`better_player_plus`) located at [github.com/BeamlakAschalew/flixquest-betterplayer](https://github.com/BeamlakAschalew/flixquest-betterplayer).
+This repository uses a customized version of `better_player` (`better_player_plus`) located at [github.com/BeamlakAschalew/7xplay-betterplayer](https://github.com/BeamlakAschalew/7xplay-betterplayer).
 
 You can configure it in `pubspec.yaml` using a local path or git URL:
 
 ```yaml
 better_player_plus:
   git:
-    url: https://github.com/BeamlakAschalew/flixquest-betterplayer.git
+    url: https://github.com/BeamlakAschalew/7xplay-betterplayer.git
 ```
 
 Or reference a local sibling directory:
 
 ```yaml
 better_player_plus:
-  path: ../flixquest-betterplayer
+  path: ../7xplay-betterplayer
 ```
 
 ---
@@ -205,16 +205,16 @@ better_player_plus:
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/BeamlakAschalew/flixquest.git
-   cd flixquest
+   git clone https://github.com/BeamlakAschalew/7xplay.git
+   cd 7xplay
    ```
 
 2. **Clone the custom better_player repository** (if using local path):
 
    ```bash
    cd ..
-   git clone https://github.com/BeamlakAschalew/flixquest-betterplayer.git
-   cd flixquest
+   git clone https://github.com/BeamlakAschalew/7xplay-betterplayer.git
+   cd 7xplay
    ```
 
 3. **Configure Environment Variables**:
@@ -259,7 +259,7 @@ better_player_plus:
    The test selector works in dev debug/profile/release builds. Prod ignores it
    in every build mode. See [banner testing setup](docs/firebase_remote_config.md#test-real-banners-in-development).
    Both flavors reuse the existing Android package and Firebase registration;
-   they share an install slot. The dev launcher label is **FlixQuest Dev**.
+   they share an install slot. The dev launcher label is **7xPlay Dev**.
 
 6. **Build Release APK**:
 
@@ -304,7 +304,7 @@ Contributions, feature suggestions, design ideas, and translations are always we
 ## ⚠️ Disclaimer
 
 - The developers of this application have no affiliation with content providers like TMDB, DaddyLive, or any third-party streaming websites.
-- FlixQuest **does not host or upload any video content**. All media is retrieved via public scrapers and third-party APIs.
+- 7xPlay **does not host or upload any video content**. All media is retrieved via public scrapers and third-party APIs.
 - In case of copyright infringement, please contact the responsible hosting services or source providers directly.
 
 ---
@@ -328,5 +328,5 @@ Contributions, feature suggestions, design ideas, and translations are always we
 
 <p align="center">
   <i>GNU, but for Entertainment</i><br><br>
-  <strong>© 2022–2026 FlixQuest</strong>
+  <strong>© 2022–2026 7xPlay</strong>
 </p>
