@@ -1,0 +1,67 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out 7xPlay
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: 7xPlay
+
+      - name: Check out local BetterPlayer dependency
+        uses: actions/checkout@v4
+        with:
+          repository: BeamlakAschalew/flixquest-betterplayer
+          ref: main
+          path: flixquest-betterplayer
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          cache-dependency-path: 7xPlay/pubspec.lock
+
+      - name: Prepare ignored environment asset
+        working-directory: 7xPlay
+        run: |
+          if [ ! -f .env ]; then touch .env; fi
+
+      - name: Resolve dependencies
+        working-directory: 7xPlay
+        run: flutter pub get
+
+      - name: Build installable Android APK
+        working-directory: 7xPlay
+        run: flutter build apk --debug --flavor prod
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: 7xPlay-debug-apk-${{ github.event.pull_request.head.sha || github.sha }}
+          path: 7xPlay/build/app/outputs/flutter-apk/app-prod-debug.apk
+          if-no-files-found: error
+          retention-days: 14
