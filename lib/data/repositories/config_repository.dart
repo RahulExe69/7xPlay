@@ -29,7 +29,7 @@ class ConfigRepository {
       final config =
           BootstrapConfig.fromJson(value['data'] as Map<String, dynamic>);
       if (requireSource &&
-          !{'firebase', 'laravel'}.contains(config.configSource)) {
+          !{'supabase', 'firebase', 'laravel'}.contains(config.configSource)) {
         return null;
       }
       return value;
@@ -108,7 +108,7 @@ class ConfigRepository {
       final data =
           Map<String, dynamic>.from(envelope['data'] as Map<String, dynamic>);
       if (requireSource &&
-          !{'firebase', 'laravel'}.contains(data['config_source'])) {
+          !{'supabase', 'firebase', 'laravel'}.contains(data['config_source'])) {
         throw const FormatException('Invalid config source');
       }
       if (data.containsKey('occasional_theme')) {
