@@ -46,12 +46,15 @@ jobs:
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
-        run: |
-          if [ ! -f .env ]; then touch .env; fi
+        run: cp .env.example .env
 
       - name: Resolve dependencies
         working-directory: 7xPlay
         run: flutter pub get
+
+      - name: Test provider aggregation and fallback behavior
+        working-directory: 7xPlay
+        run: flutter test test/provider_loader_test.dart
 
       - name: Build installable Android APK
         working-directory: 7xPlay
