@@ -96,7 +96,7 @@ android {
                keystoreProperties['keyPassword'] &&
                keystoreProperties['storeFile'] &&
                keystoreProperties['storePassword']
-           signingConfig hasReleaseKey ? signingConfigs.release : signingConfigs.debug
+           signingConfig(hasReleaseKey ? signingConfigs.release : signingConfigs.debug)
            shrinkResources true
            minifyEnabled true
        }
