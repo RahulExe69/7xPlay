@@ -22,12 +22,10 @@ class SupabaseBackendConfigController {
     required String fallbackUrl,
     required this.onUrlChanged,
     Stream<bool>? connectivityChanges,
-    Future<bool> Function()? checkConnectivity,
     http.Client? client,
     this.refreshInterval = const Duration(minutes: 15),
   })  : _fallbackUrl = AppEnvironment.normalizeLaravelApiUrl(fallbackUrl),
         _connectivityChanges = connectivityChanges,
-        _checkConnectivity = checkConnectivity,
         _client = client ?? http.Client() {
     _lastAppliedUrl = _fallbackUrl;
   }
@@ -35,7 +33,6 @@ class SupabaseBackendConfigController {
   final String _fallbackUrl;
   final void Function(String) onUrlChanged;
   final Stream<bool>? _connectivityChanges;
-  final Future<bool> Function()? _checkConnectivity;
   final http.Client _client;
   final Duration refreshInterval;
   late String _lastAppliedUrl;
