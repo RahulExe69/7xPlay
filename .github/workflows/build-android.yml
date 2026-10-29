@@ -108,7 +108,7 @@ jobs:
           cache: true
 
       - name: Cache Gradle dependencies and build outputs
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
