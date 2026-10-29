@@ -137,7 +137,8 @@ jobs:
           echo "APK sizes:"
           du -h build/artifacts/*/*.apk
           echo "APK package IDs:"
-          AAPT="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -maxdepth 2 -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
           if [ -n "$AAPT" ]; then
             for APK in build/artifacts/*/*.apk; do
               "$AAPT" dump badging "$APK" | grep -m1 "^package:"
