@@ -38,6 +38,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Cache Gradle dependencies and build outputs
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-cleanup: on-success
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -47,6 +52,14 @@ jobs:
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
         run: cp .env.example .env
+
+      - name: Cache Pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-flutter-3.41.5-
 
       - name: Resolve dependencies
         working-directory: 7xPlay
@@ -76,8 +89,8 @@ jobs:
         with:
           name: 7xPlay-release-split-apks-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
-            7xPlay/build/app/outputs/flutter-apk/app-prod-armeabi-v7a-release.apk
-            7xPlay/build/app/outputs/flutter-apk/app-prod-arm64-v8a-release.apk
-            7xPlay/build/app/outputs/flutter-apk/app-prod-x86_64-release.apk
+            7xPlay/build/app/outputs/flutter-apk/app-armeabi-v7a-prod-release.apk
+            7xPlay/build/app/outputs/flutter-apk/app-arm64-v8a-prod-release.apk
+            7xPlay/build/app/outputs/flutter-apk/app-x86_64-prod-release.apk
           if-no-files-found: error
           retention-days: 30
