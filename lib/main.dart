@@ -1,10 +1,6 @@
-import 'controllers/wellness_database_controller.dart';
-import 'presentation/session/firebase_session_bridge.dart';
-import 'data/sources/legacy_firebase_session.dart';
 import 'data/sources/onesignal_messaging_client.dart';
 import 'data/repositories/push_message_repository.dart';
 import 'presentation/notifications/push_message_controller.dart';
-import 'services/google_error_reporting.dart';
 import 'presentation/notifications/device_registration_controller.dart';
 import 'presentation/notifications/in_app_message_controller.dart';
 import 'presentation/notifications/notification_controller.dart';
@@ -14,11 +10,9 @@ import 'data/sync/sync_runtime.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'data/ads/ad_events_controller.dart';
 import 'services/hosted_ads_repository.dart';
-import 'services/firebase_backend_config_controller.dart';
 import 'presentation/config/bootstrap_view_model.dart';
 import 'presentation/config/refresh_controller.dart';
 import 'presentation/config/config_source_controller.dart';
-import 'data/sources/firebase_config_source.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'services/local_account_data.dart';
 import 'presentation/session/auth_runtime.dart';
@@ -32,14 +26,10 @@ import 'package:provider/provider.dart';
 import 'core/config/app_environment.dart';
 import 'core/di/injector.dart';
 import 'core/network/network_runtime.dart';
-import 'dart:ui' show PlatformDispatcher;
 import 'package:flixquest/flixquest_main.dart';
 import '../models/translation.dart';
 import '../provider/app_dependency_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 // import 'package:media_kit/media_kit.dart';
@@ -62,11 +52,6 @@ import 'singleton/sharedpreferences_singleton.dart';
 import 'tv/platform/device_presentation.dart';
 import 'tv/platform/device_presentation_detector.dart';
 
-@pragma('vm:entry-point')
-Future<void> _messageHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-}
-
 bool isTablet(BuildContext context) {
   double screenWidth = MediaQuery.of(context).size.width;
   double threshold = 1000.0;
@@ -79,7 +64,6 @@ BookmarkProvider bookmarkProvider = BookmarkProvider();
 PlaylistProvider playlistProvider = PlaylistProvider();
 AppDependencyProvider appDependencyProvider = AppDependencyProvider();
 WellnessProvider wellnessProvider = WellnessProvider.instance;
-final Future<FirebaseApp> _initialization = Firebase.initializeApp();
 
 bool _isRecoverableImageError(FlutterErrorDetails details) {
   final context = details.context?.toString() ?? '';
@@ -102,17 +86,6 @@ Future<DevicePresentation> appInitialize({
   // Individual surfaces remain responsible for applying SafeArea padding to
   // interactive content.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
-  // Firebase-dependent services and providers must not be accessed until the
-  // default app has finished initializing.
-  await _initialization;
-
-  // Surface uncaught Dart and platform errors to Crashlytics. Installed only
-  // after Firebase initialization so the recorder is always ready.
-  final reporting = GoogleErrorReporting(FirebaseCrashlytics.instance,
-      ignoreFlutterError: _isRecoverableImageError);
-  FlutterError.onError = reporting.flutterError;
-  PlatformDispatcher.instance.onError = reporting.platformError;
 
   final devicePresentation = await resolveDevicePresentation(
     detector: devicePresentationDetector,
@@ -149,7 +122,6 @@ Future<DevicePresentation> appInitialize({
       settingsProvider.appMode.resolve(devicePresentation) ==
           DevicePresentation.television;
   await clearVideoPlaybackCache();
-  FirebaseMessaging.onBackgroundMessage(_messageHandler);
   await FlutterDownloader.initialize(debug: true, ignoreSsl: true);
 
   await settingsProvider.getCurrentThemeMode();
@@ -213,15 +185,6 @@ void main() async {
     await recentProvider.fetchEpisodes();
     await wellnessProvider.reload();
   });
-  final backendConfig = FirebaseBackendConfigController(
-    fallbackUrl: environment.laravelApiUrl,
-    onUrlChanged: (url) {
-      // Register the new host before any credential-bearing request can use it.
-      httpOverrides.verifiedHosts.add(Uri.parse(url).host.toLowerCase());
-      injector.updateLaravelApiUrl(url);
-    },
-  );
-  unawaited(backendConfig.start());
   HostedAdsRepository.instance.configure(injector.adsRepository);
   if (injector.migrationFlags.ads) {
     // Observe each rendered frame so brief visibility interruptions reset dwell.
@@ -230,15 +193,8 @@ void main() async {
   final adsController = injector.migrationFlags.ads
       ? AdEventsController(injector.adsRepository)
       : null;
+  // Remote configuration integrations are intentionally dormant for this build.
   ConfigLifecycle? configController;
-  if (!kDebugMode || injector.migrationFlags.config) {
-    final bootstrap =
-        BootstrapViewModel(injector.configRepository, appDependencyProvider);
-    final sourceController = ConfigSourceController(injector.configRepository,
-        bootstrap, injector.kvStore, SdkFirebaseConfigSource());
-    await sourceController.hydrate();
-    configController = sourceController;
-  }
   AuthRuntime.configure(injector.session);
   SyncRuntime.configure(injector.syncCoordinator,
       enabled: injector.migrationFlags.auth && injector.migrationFlags.sync);
@@ -256,43 +212,19 @@ void main() async {
       unawaited(recentProvider.fetchEpisodes());
     });
   }
-  final firebaseSession = FirebaseSessionBridge(
-    session: injector.session,
-    legacy: SdkLegacyFirebaseSession(),
-    preferences: injector.kvStore,
-    moveLocalOwner: (from, to) async {
-      await WellnessDatabaseController.instance
-          .moveOwner(fromOwnerId: from, toOwnerId: to);
-      await wellnessProvider.reload();
-      if (SyncRuntime.enabled) {
-        unawaited(injector.syncCoordinator.syncAll());
-      }
-    },
-  );
-  {
-    await injector.session.restore();
-    // Costs one round trip on the first launch after upgrading from 4.2.x,
-    // which keeps those users out of the sign-in screen. A slow network lets
-    // the app start while the exchange finishes in the background.
-    await firebaseSession
-        .run()
-        .timeout(const Duration(seconds: 10), onTimeout: () {});
-    AuthSessionController.instance.initialize();
-    // Restores a paying member's cached access before the first frame, so
-    // no ad flashes up while Laravel confirms it.
-    await injector.plus.start();
-    installPlusOffer();
-    await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
-    if (SyncRuntime.enabled) {
-      await bookmarkProvider.fetchBookmarks();
-      await recentProvider.fetchMovies();
-      await recentProvider.fetchEpisodes();
-      unawaited(injector.syncCoordinator.syncAll());
-    }
-    // Read after the owner is known, so the first frame shows this account's.
-    await playlistProvider.load();
+  await injector.session.restore();
+  AuthSessionController.instance.initialize();
+  await injector.plus.start();
+  installPlusOffer();
+  await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
+  if (SyncRuntime.enabled) {
+    await bookmarkProvider.fetchBookmarks();
+    await recentProvider.fetchMovies();
+    await recentProvider.fetchEpisodes();
+    unawaited(injector.syncCoordinator.syncAll());
   }
-  NotificationController? notifications;
+  await playlistProvider.load();
+    NotificationController? notifications;
   if (injector.migrationFlags.notifications) {
     final platform = devicePresentation == DevicePresentation.television
         ? 'tv'
@@ -368,10 +300,8 @@ void main() async {
               appDependencyProvider: appDependencyProvider,
               devicePresentation: devicePresentation,
               configController: configController,
-              backendConfigController: backendConfig,
               adsController: adsController,
               notifications: notifications,
-              firebaseSession: firebaseSession,
             ),
           ))));
 }
