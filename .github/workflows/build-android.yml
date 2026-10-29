@@ -61,30 +61,18 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/provider_loader_test.dart
 
+  # PRs run the quick provider tests above. Avoid rebuilding all APKs on
+  # every PR update; full APKs are built once after merge or on manual dispatch.
   build-apks:
-    name: Build ${{ matrix.name }} APK
+    if: github.event_name != 'pull_request'
+    name: Build optimized split APKs
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      max-parallel: 3
-      matrix:
-        include:
-          - name: ARM64
-            abi: arm64-v8a
-            target: android-arm64
-          - name: ARMv7
-            abi: armeabi-v7a
-            target: android-arm
-          - name: x86_64
-            abi: x86_64
-            target: android-x64
+    timeout-minutes: 30
 
     steps:
       - name: Check out 7xPlay
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: 7xPlay
 
       - name: Check out local BetterPlayer dependency
@@ -126,32 +114,66 @@ jobs:
         working-directory: 7xPlay
         run: flutter pub get
 
-      - name: Build optimized single-ABI release APK
+      - name: Build all optimized ABI APKs in one invocation
         working-directory: 7xPlay
-        env:
-          ABI_TARGET: ${{ matrix.target }}
         run: |
-          flutter build apk --release --flavor prod --target-platform "$ABI_TARGET" --obfuscate --tree-shake-icons --split-debug-info="build/symbols/${ABI_TARGET}" --android-skip-build-dependency-validation
-          APK="$(find build/app/outputs/flutter-apk -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          test -n "$APK"
-          test -s "$APK"
-          mkdir -p "build/artifacts/${ABI_TARGET}"
-          cp "$APK" "build/artifacts/${ABI_TARGET}/7xPlay-${{ matrix.abi }}-release.apk"
-          echo "Built APK size:"
-          du -h "build/artifacts/${ABI_TARGET}/7xPlay-${{ matrix.abi }}-release.apk"
+          flutter build apk --release --flavor prod --split-per-abi --obfuscate --tree-shake-icons --split-debug-info="build/symbols" --android-skip-build-dependency-validation
 
-      - name: Upload optimized APK
+          APK_DIR="build/app/outputs/flutter-apk"
+          mkdir -p build/artifacts/arm64-v8a build/artifacts/armeabi-v7a build/artifacts/x86_64
+
+          ARM64_APK="$APK_DIR/app-arm64-v8a-prod-release.apk"
+          ARMV7_APK="$APK_DIR/app-armeabi-v7a-prod-release.apk"
+          X86_APK="$APK_DIR/app-x86_64-prod-release.apk"
+
+          for APK in "$ARM64_APK" "$ARMV7_APK" "$X86_APK"; do
+            test -s "$APK" || { echo "::error::Expected APK missing or empty: $APK"; ls -lah "$APK_DIR"; exit 1; }
+          done
+
+          cp "$ARM64_APK" build/artifacts/arm64-v8a/7xPlay-arm64-v8a-release.apk
+          cp "$ARMV7_APK" build/artifacts/armeabi-v7a/7xPlay-armeabi-v7a-release.apk
+          cp "$X86_APK" build/artifacts/x86_64/7xPlay-x86_64-release.apk
+
+          echo "APK sizes:"
+          du -h build/artifacts/*/*.apk
+          echo "APK package IDs:"
+          AAPT="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -maxdepth 2 -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
+          if [ -n "$AAPT" ]; then
+            for APK in build/artifacts/*/*.apk; do
+              "$AAPT" dump badging "$APK" | grep -m1 "^package:"
+            done
+          else
+            echo "aapt not found; APK existence and non-empty checks passed."
+          fi
+
+      - name: Upload ARM64 APK
         uses: actions/upload-artifact@v5
         with:
-          name: 7xPlay-${{ matrix.abi }}-release-${{ github.event.pull_request.head.sha || github.sha }}
-          path: 7xPlay/build/artifacts/${{ matrix.target }}/7xPlay-${{ matrix.abi }}-release.apk
+          name: 7xPlay-arm64-v8a-release-${{ github.sha }}
+          path: 7xPlay/build/artifacts/arm64-v8a/7xPlay-arm64-v8a-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ARMv7 APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: 7xPlay-armeabi-v7a-release-${{ github.sha }}
+          path: 7xPlay/build/artifacts/armeabi-v7a/7xPlay-armeabi-v7a-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload x86_64 APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: 7xPlay-x86_64-release-${{ github.sha }}
+          path: 7xPlay/build/artifacts/x86_64/7xPlay-x86_64-release.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload Dart symbol files
         uses: actions/upload-artifact@v5
         with:
-          name: 7xPlay-symbols-${{ matrix.abi }}-${{ github.event.pull_request.head.sha || github.sha }}
-          path: 7xPlay/build/symbols/${{ matrix.target }}/
+          name: 7xPlay-symbols-${{ github.sha }}
+          path: 7xPlay/build/symbols/
           if-no-files-found: warn
           retention-days: 30
