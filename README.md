@@ -71,12 +71,9 @@
 - **Occasional & Seasonal Themes**: Dynamic holiday themes (Christmas, New Year, Halloween, Valentine's Day, Easter, Eid, Diwali, Ethiopian New Year, etc.) with animated vector particle overlays (snow, fireworks, bats, hearts, adey flowers, confetti, stars, sparkles). Configurable via Firebase Remote Config.
 - **Themes**: Light, Dark, AMOLED Pure Black, and Material 3 Dynamic Color palettes.
 
-### Advertising
+### Ad-free playback
 
-- Centrally configured Adsterra WebView banners replace Start.io across existing phone, tablet, and Android TV slots.
-- Firebase Remote Config controls network/TV switches, banner codes, six supported sizes, and per-placement overrides with width fallbacks.
-- Hosted `/ads` announcements can stack above network banners or take priority. TV ads remain display-only.
-- Setup: [Remote Config advertising guide](docs/firebase_remote_config.md#activate-adsterra-banners) and [configured banner catalog](docs/adsterra_banners.json), with a [blank template](docs/adsterra_banners.example.json) for other accounts.
+The current 7xPlay client disables banner selection and intrusive playback-ad selection. Legacy ad-related classes and Remote Config keys may still exist for compatibility while the upstream-derived code is being cleaned up; they should not be treated as enabled product features. The CI build runs provider tests and builds release APKs with resource shrinking and R8 enabled.
 
 ### 🔐 User Profiles & Cloud Synchronization
 
