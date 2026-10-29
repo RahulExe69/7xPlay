@@ -74,7 +74,7 @@ jobs:
         run: |
           flutter build apk --release --flavor prod --split-per-abi --obfuscate --tree-shake-icons --split-debug-info=build/symbols --android-skip-build-dependency-validation
           echo "Built APK sizes:"
-          find build/app/outputs/flutter-apk -maxdepth 1 -name 'app-prod-*-release.apk' -printf '%f %k KB\n' | sort
+          find build/app/outputs/flutter-apk -maxdepth 1 -name 'app-*-prod-release.apk' -printf '%f %k KB\n' | sort
 
       - name: Upload Dart symbol files
         uses: actions/upload-artifact@v4
