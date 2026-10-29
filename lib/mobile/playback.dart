@@ -1,4 +1,3 @@
-import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../catalog/details_controller.dart';
 import '../catalog/episode_choice.dart';
 import '../catalog/media_item.dart';
-import '../data/ads/content_ads.dart';
 import '../catalog/up_next.dart';
 import '../functions/function.dart';
 import '../models/movie.dart';
@@ -120,13 +118,7 @@ abstract final class MobilePlayback {
     int? elapsed,
     bool Function()? onReady,
   }) async {
-    // The host must be current before presenting a before-loader ad.
     if (onReady?.call() == false) return;
-    if (!await AdsterraPlaybackAdsService.instance
-            .beforeLoader(context, content: AdContent.of(item)) ||
-        !context.mounted) {
-      return;
-    }
     final movie = item.movie;
     debugPrint(
       '[MovieRecommendationsDebug][MOBILE_PLAYBACK_PLAY] '
@@ -184,11 +176,6 @@ abstract final class MobilePlayback {
       );
       if (choice == null || !context.mounted) return;
       if (onReady?.call() == false) return;
-      if (!await AdsterraPlaybackAdsService.instance
-              .beforeLoader(context, content: AdContent.of(item)) ||
-          !context.mounted) {
-        return;
-      }
       final episode = choice.episode;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(

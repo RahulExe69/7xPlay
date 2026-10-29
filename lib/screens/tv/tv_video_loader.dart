@@ -1,7 +1,6 @@
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
 import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
-import 'package:flixquest/widgets/ad_block_gate.dart';
 // ignore_for_file: use_build_context_synchronously
 import 'dart:async';
 import 'package:flixquest/functions/function.dart';
@@ -40,8 +39,7 @@ import '../../screens/common/download_selection_sheets.dart';
 import '../../screens/common/manual_source_picker.dart';
 import '../../tv/player/tv_player_screen.dart';
 
-/// Finds a stream for a series' episode. A Kids or Family series' loader,
-/// and the player it opens, are in its [ContentAdScope]: no ad is asked for.
+/// Finds an episode stream and keeps the complete playback route ad-free.
 class TVVideoLoader extends StatelessWidget {
   const TVVideoLoader(
       {required this.metadata,
@@ -65,13 +63,10 @@ class TVVideoLoader extends StatelessWidget {
         useTvPlayer: useTvPlayer,
         onTvPlayerExit: onTvPlayerExit,
         adStage: adStage);
-    final id = metadata.tvId;
-    if (id == null) return loader;
-    return ContentAdGate(
-      content: AdContent(series: true, id: id, genreIds: metadata.genreIds),
-      holdChild: true,
-      child: loader,
-    );
+    // Playback is intentionally ad-free. Keep the scope attached when the
+    // loader hands off to the player, without waiting for an ad-classification
+    // request or opening an interstitial over the Watch action.
+    return ContentAdScope(adFree: true, child: loader);
   }
 }
 
@@ -88,8 +83,8 @@ class _TVVideoLoader extends StatefulWidget {
   final bool useTvPlayer;
   final VoidCallback? onTvPlayerExit;
 
-  /// The popup once a source is found: [PlaybackAdStage.episodeSwitch] or
-  /// [PlaybackAdStage.movieSwitch] when the player itself started this load.
+  /// Retained for the existing in-player reload call sites. Playback ads
+  /// are disabled, so this value no longer changes the loading experience.
   final PlaybackAdStage adStage;
 
   @override
@@ -111,7 +106,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
   int currentProviderIndex = 0;
   String _scraperApiUrl = '';
   final Map<String, int?> _streamSizeCacheByToken = {};
-  PlaybackAdPreload? _adPreload;
 
   Map<String, String> videos = {};
   List<BetterPlayerSubtitlesSource> subs = [];
@@ -129,27 +123,9 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
 
   Future<void> _startPlayback() async {
     if (!mounted) return;
-    if (!await AdBlockGate.instance.allowPlayback(context,
-        download: widget.download, television: widget.useTvPlayer)) {
-      if (mounted) Navigator.pop(context, false);
-      return;
-    }
-    if (!mounted) return;
-    _adPreload = AdsterraPlaybackAdsService.instance.preloadStreamFound(context,
-        download: widget.download,
-        television: widget.useTvPlayer,
-        stage: widget.adStage);
-    try {
-      await loadVideo();
-    } finally {
-      _adPreload?.dispose();
-    }
-  }
-
-  @override
-  void dispose() {
-    _adPreload?.dispose();
-    super.dispose();
+    // Resolve playback immediately; ad and ad-blocker overlays must not
+    // intercept the Watch action before a source can be loaded.
+    await loadVideo();
   }
 
   Future<void> _loadProviders() async {
@@ -268,7 +244,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           if (selection != null || !mounted) break;
         }
       } else {
-        // Try sources one at a time until one returns playable links.
+        // Query all playback sources and combine every usable response.
         selection = await _fetchSelection(
           providers: selectedDownloadProvider == null
               ? videoProviders
@@ -276,16 +252,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
         );
       }
 
-      if (selection != null) {
-        if (!await AdsterraPlaybackAdsService.instance.streamFound(context,
-                download: widget.download,
-                television: widget.useTvPlayer,
-                preload: _adPreload,
-                stage: widget.adStage) ||
-            !mounted) {
-          return;
-        }
-      }
       final firstWorkingProviderCode = selection?.provider.codeName;
       if (selection != null) {
         _showSelectedProvider(selection.provider);
@@ -410,15 +376,15 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     });
   }
 
-  /// Tries [providers] in configured order until one returns playable links.
+  /// Loads all [providers] concurrently and combines their playable links.
   Future<ProviderSelection?> _fetchSelection({
     required List<VideoProvider> providers,
   }) {
-    return ProviderLoader.loadFirstSuccessful(
+    return ProviderLoader.loadAllSuccessful(
       providers: providers,
       load: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
-        // Only the current provider shows as loading; the rest wait their turn.
+        // Providers resolve concurrently, so each active request gets a loading state.
         if (mounted) {
           setState(() {
             final providerIndex = providerStates.indexWhere(
@@ -442,6 +408,10 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           seasonNumber: widget.metadata.seasonNumber!,
           episodeNumber: widget.metadata.episodeNumber!,
           scraperApiUrl: _scraperApiUrl,
+          // During playback, ask for every server the provider exposes. The
+          // API falls back automatically when full collection is unsupported.
+          // Downloads keep the narrower single-provider response.
+          full: !widget.download,
         );
       },
       onResult: (index, provider, result) {
