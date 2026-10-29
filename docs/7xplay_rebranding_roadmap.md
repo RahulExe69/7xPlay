@@ -1,12 +1,6 @@
 # 7xPlay — Rebranding & Product Completion Roadmap
 
-> **Status:** Active implementation. Checkboxes represent verified work, not assumptions.
->
-> **Current implementation branch:** `rebrand/7xplay-identity-and-apk-size`
->
-> **Verified in source changes:** Added a new 7xPlay mark/wordmark, Android launcher and TV banner vectors, Android label, splash/notification assets, About-page links, localized product-name strings, README refresh, and an optimized per-ABI release workflow. The CI build still needs to pass before the build pipeline is considered verified. Fresh screenshots and device-level visual checks remain outstanding.
->
-> **Compatibility boundary:** The application ID/namespace (`dev.beamlak.flixquest_v2`) and internal Dart package name (`flixquest`) are deliberately retained for now. Firebase and verified `flix.quest` links are attached to the current Android identity. The separately hosted scraper API is not part of this repository; its legacy `FLIXQUEST_API_URL` config key remains for compatibility.
+> **Status:** Planning document. Checkboxes are work to verify or complete, not claims that implementation is already finished.
 >
 > **Product direction:** Android-first. Keep the current Flutter application for now while avoiding unnecessary blockers to future iOS support. Do not rewrite to React + Capacitor unless a repository audit demonstrates a clear benefit.
 
@@ -33,24 +27,24 @@
 **Exit criteria:** A technical inventory exists, risky dependencies are understood, and the app can be built or existing build failures are recorded.
 
 ## Phase 1 — Brand Identity
-- [x] Use **7xPlay** consistently as the user-facing product name in the main Android label, About page, and four bundled translations; a full-repository/visual sweep is still required.
-- [x] Create an original logo and launcher icon suitable for small Android sizes (vector sources added; visual/device review pending).
-- [x] Define brand colours and icon style in `docs/7xplay_brand_guide.md`; typography/component-wide UI redesign remains open.
-- [x] Update Android launch/splash source resources and configure CI to generate the splash PNG before building; build verification pending.
-- [ ] Replace old branding throughout every dialog, overlay, player surface, settings, and error path; About page and bundled translations have been updated, but full source sweep remains open.
-- [ ] Update the repository description and refresh screenshots after device review; README and brand-guide documentation have been updated.
+- [x] Use **7xPlay** consistently in the app label and primary README branding; repository-wide UI copy review remains open.
+- [x] Add an original 7xPlay SVG logo and scalable Android launcher mark; TV legacy bitmap art still needs visual review.
+- [ ] Define brand colours, typography, icon style, spacing, and component conventions.
+- [x] Replace native launch and Android 12 splash references with the 7xPlay mark.
+- [ ] Replace old branding in dialogs, overlays, player surfaces, settings, errors, and About screens.
+- [ ] Update repository description and screenshots; README and Android build documentation now use 7xPlay branding.
 - [ ] Remove obsolete assets only after confirming they are no longer referenced.
 - [ ] Preserve required copyright, open-source licence, and third-party attribution notices.
 
 **Exit criteria:** A repository-wide search and visual review finds no accidental user-facing old branding; required legal notices remain.
 
 ## Phase 2 — Android Identity & Future Platform Readiness
-- [x] Update Android app label, launcher icon, and TV banner resource references (native build still needs CI verification).
-- [x] Update splash and notification icon source resources.
+- [x] Update Android app label and adaptive/legacy vector launcher resources.
+- [x] Update splash resources; notification icon still needs a dedicated brand review.
 - [ ] Review Android application ID, Kotlin namespace, deep links, intent filters, and exported components.
 - [ ] Decide whether to use com.sevenx.play; do not change the package until upgrade/install consequences are understood.
 - [ ] Review permissions and remove only those proven unnecessary.
-- [x] Update CI artifact naming to 7xPlay per-ABI release outputs; release version/build-number policy remains to be reviewed.
+- [x] Rename CI artifact labels and switch to ABI-split optimized release APKs.
 - [ ] Verify clean installation, app restart, session persistence, and upgrade behaviour.
 - [ ] Keep shared business logic and platform-specific code clearly separated where practical.
 - [ ] Document iOS blockers and platform-specific dependencies, but do not require an iOS release in this phase.
@@ -157,14 +151,14 @@
 - [ ] Verify Android back-button, screen rotation, and lifecycle behaviour.
 
 ## Phase 11 — Automated Testing & Release Engineering
-- [ ] Add/verify reproducible optimized per-ABI release builds; workflow has been changed but CI has not yet passed.
+- [x] CI now targets reproducible ABI-split release builds; green workflow verification is pending.
 - [ ] Run formatter, static analysis, unit tests, and integration tests that the project supports.
 - [ ] Add tests for search merging/deduplication and language/source aggregation.
 - [ ] Add tests for Watch action, resolver failures, authentication, and ad-free behaviour.
 - [ ] Build and install a release APK on a clean Android device/emulator.
 - [ ] Build an Android App Bundle if needed for the distribution target.
 - [ ] Test upgrades from prior releases if in-place upgrade compatibility is intended.
-- [ ] Verify signing and release configuration without exposing signing secrets.
+- [ ] Verify production signing with a protected release keystore; CI currently uses a documented debug-key fallback when none is configured.
 - [ ] Verify CI workflow status and archive build artifacts.
 - [ ] Update version numbers and release notes.
 - [ ] Record failed or unavailable tests rather than claiming they passed.
@@ -204,11 +198,6 @@ A 7xPlay release is ready only when:
 - Android is the immediate target; iOS is a future compatibility goal, not a release requirement.
 
 
-## Implementation log — 2026-10-29
+## 2026-10-29 implementation note
 
-- Added original 7xPlay SVG mark and wordmark, plus Android vector icon/background/TV banner.
-- Rebranded Android production/dev labels, About-page title and project links, splash layers, status-bar notification icons, and four language files.
-- Kept `applicationId`, namespace, package imports, old external dependency repository path, and `FLIXQUEST_API_URL` stable to avoid breaking Firebase auth, deep links, or the externally hosted scraper configuration.
-- Changed Android CI from universal debug output to R8/resource-shrunk release builds split by `arm64-v8a`, `armeabi-v7a`, and `x86_64`, with Flutter icon tree shaking and Dart obfuscation/split symbols. Each device-targeted download should be smaller than the old all-ABI debug APK.
-- CI build, artifact sizes, signing continuity, install/upgrade behaviour, login, playback, widget appearance, and Android TV visuals remain unverified until the workflow completes and device smoke tests are performed.
-- Without a stable production keystore configured as repository secrets, CI falls back to the runner debug key; such an APK is for testing, not a trustworthy long-term update channel.
+A feature branch `7xplay/full-rebrand-and-size-optimization` adds 7xPlay display branding, original SVG/vector marks, native splash and Android TV banner resources, README/build-doc updates, release minification/resource shrinking, Dart obfuscation, icon tree-shaking, and per-ABI APK artifacts. The existing Android application ID and Gradle namespace remain unchanged intentionally to avoid breaking the existing Firebase Android registration and installed-app upgrade path. Do not mark the phase complete until CI builds and tests pass and a human visually checks the resulting APK on phone and Android TV.

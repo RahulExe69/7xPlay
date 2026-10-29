@@ -13,7 +13,7 @@ import io.flutter.embedding.engine.loader.FlutterLoader
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class FlixQuestApplication : Application() {
+class SevenXPlayApplication : Application() {
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
         val uiModeManager = base.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
@@ -22,7 +22,7 @@ class FlixQuestApplication : Application() {
                 base.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
         if (!isTelevision) return
         Log.i(
-            "FlixQuestRenderer",
+            "7xPlayRenderer",
             "TV renderer policy=skia " +
                 "manufacturer=${Build.MANUFACTURER} brand=${Build.BRAND} " +
                 "model=${Build.MODEL} sdk=${Build.VERSION.SDK_INT}",

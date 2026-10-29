@@ -650,13 +650,13 @@ class _HomeHeader extends StatelessWidget {
                     fit: FlexFit.tight,
                     child: Semantics(
                       header: true,
-                      label: 'FlixQuest',
+                      label: '7xPlay',
                       excludeSemantics: true,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           AppLogo(
-                            fallbackAsset: 'assets/images/fq_mark.svg',
+                            fallbackAsset: 'assets/images/7xplay_logo.svg',
                             height: 26,
                             fallbackColor:
                                 Theme.of(context).colorScheme.primary,
@@ -669,7 +669,7 @@ class _HomeHeader extends StatelessWidget {
                               fit: BoxFit.scaleDown,
                               alignment: AlignmentDirectional.centerStart,
                               child: Text(
-                                'FLIXQUEST',
+                                '7XPLAY',
                                 textScaler: TextScaler.noScaling,
                                 style: TextStyle(
                                   color: palette.foreground,
@@ -893,7 +893,7 @@ List<Widget> homeRows(
         badgeFor: (item) => _releaseBadge(context, item),
       ),
     adSlot('genres'),
-    // FlixQuest's categorized feed: a few genres at random, each laid out its
+    // 7xPlay's categorized feed: a few genres at random, each laid out its
     // own way, labelled with its kind where both are on show.
     for (final category in feed.categories)
       CategorySection(

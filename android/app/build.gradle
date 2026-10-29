@@ -29,15 +29,8 @@ def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
-def releaseSigningReady = keystorePropertiesFile.exists() &&
-    ['keyAlias', 'keyPassword', 'storeFile', 'storePassword'].every {
-        keystoreProperties.getProperty(it)?.trim()
-    }
 
 android {
-    // Keep this namespace and applicationId while the visual rebrand is in progress:
-    // Firebase and verified flix.quest App Links are registered to this identity.
-    // Migrate only with a new Firebase Android registration, signing, and assetlinks updates.
     namespace 'dev.beamlak.flixquest_v2'
     compileSdk 36
     ndkVersion "28.2.13676358"
@@ -95,9 +88,15 @@ android {
    
    buildTypes {
        release {
-           // Optimized CI builds remain installable without exposing a release keystore.
-           // Set repository secrets to sign distributable builds with the production key.
-           signingConfig releaseSigningReady ? signingConfigs.release : signingConfigs.debug
+           // Use the private release keystore when key.properties is present. CI without
+           // release secrets uses the local debug key so the optimized APK remains installable.
+           // Never distribute a debug-key-signed build as an official store release.
+           def hasReleaseKey = keystorePropertiesFile.exists() &&
+               keystoreProperties['keyAlias'] &&
+               keystoreProperties['keyPassword'] &&
+               keystoreProperties['storeFile'] &&
+               keystoreProperties['storePassword']
+           signingConfig(hasReleaseKey ? signingConfigs.release : signingConfigs.debug)
            shrinkResources true
            minifyEnabled true
        }

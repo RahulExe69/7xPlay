@@ -104,22 +104,12 @@ class AboutPage extends StatelessWidget {
               ),
               const SizedBox(height: AppSpace.xxl),
               SettingsGroup(
-                title: '7xPlay',
+                title: '7xPlay Project',
                 children: [
                   _LinkRow(
                     icon: PhosphorIcons.githubLogo(),
-                    label: '7xPlay source code',
+                    label: 'GitHub',
                     uri: 'https://github.com/RahulExe69/7xPlay',
-                  ),
-                  _LinkRow(
-                    icon: PhosphorIcons.arrowSquareOut(),
-                    label: 'Builds and releases',
-                    uri: 'https://github.com/RahulExe69/7xPlay/actions',
-                  ),
-                  _LinkRow(
-                    icon: PhosphorIcons.bug(),
-                    label: 'Report a problem',
-                    uri: 'https://github.com/RahulExe69/7xPlay/issues/new/choose',
                   ),
                 ],
               ),
@@ -133,7 +123,7 @@ class AboutPage extends StatelessWidget {
               Text(
                 tr(
                   'year_range',
-                  namedArgs: {'startYear': '2026', 'endYear': '2026'},
+                  namedArgs: {'startYear': '2018', 'endYear': '2026'},
                 ),
                 textAlign: TextAlign.center,
                 style: AppType.metadata.copyWith(color: palette.mutedText),
@@ -149,7 +139,7 @@ class AboutPage extends StatelessWidget {
 Future<void> _open(String uri) =>
     launchUrl(Uri.parse(uri), mode: LaunchMode.externalApplication);
 
-/// A place to open 7xPlay resources outside the app.
+/// A project link that opens outside the app.
 class _LinkRow extends StatelessWidget {
   const _LinkRow({required this.icon, required this.label, required this.uri});
 

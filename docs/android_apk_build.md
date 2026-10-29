@@ -1,43 +1,26 @@
 # Android APK build
 
-The GitHub Actions workflow at `.github/workflows/build-android.yml` builds optimized **release APKs split by CPU architecture** for pull requests targeting `main`, pushes to `main`, and manual workflow runs.
+The GitHub Actions workflow at `.github/workflows/build-android.yml` builds optimized, installable **release APKs split by CPU architecture** for pushes to `main`, pull requests targeting `main`, and manual workflow runs.
 
-## Download the right APK
+## Download the smallest APK for your device
 
 1. Open the repository's **Actions** tab.
-2. Open the successful **Build optimized Android APKs** run for the commit or pull request.
-3. Download the artifact matching the device:
-   - `7xPlay-arm64-v8a-release-<commit-sha>` — recommended for most modern Android phones and Android TV devices.
-   - `7xPlay-armeabi-v7a-release-<commit-sha>` — older 32-bit ARM devices.
-   - `7xPlay-x86_64-release-<commit-sha>` — x86_64 emulators and compatible Intel devices.
-4. Extract the ZIP, then install the APK inside it. Do not install one of the other ABI variants just because its filename looks shorter.
+2. Open the successful **Build Android APKs** run for the desired commit.
+3. In **Artifacts**, download `7xPlay-release-split-apks-<commit-sha>`.
+4. Extract the ZIP and install only one APK:
+   - `app-prod-arm64-v8a-release.apk` — most modern Android phones; choose this first for most current devices.
+   - `app-prod-armeabi-v7a-release.apk` — older 32-bit ARM phones.
+   - `app-prod-x86_64-release.apk` — x86-64 Android devices/emulators.
+5. Do not install multiple ABI APKs over one another. Choose the one matching the device CPU.
 
-## Size optimizations
+Each APK contains native libraries for only one ABI instead of bundling all CPU architectures in one universal APK. The release build also enables R8 code shrinking, resource shrinking, Flutter icon tree-shaking, and Dart obfuscation. Split Dart symbol files are archived separately for crash diagnosis.
 
-- A **release** build, not a debug build.
-- `--split-per-abi` packages only the native Flutter engine for each CPU architecture instead of combining all supported ABIs into one file.
-- Android R8 minification and resource shrinking are enabled in the release build.
-- `--tree-shake-icons` excludes unused icon glyphs.
-- `--obfuscate --split-debug-info=build/symbols` obfuscates Dart symbols and stores symbol maps separately from the APK.
-- CI prints the exact size of each generated APK in the build log. Use those measurements before making further dependency cuts.
+## Build and signing notes
 
-The output is intentionally **not a universal APK**. The per-device files should be substantially smaller than the previous universal debug build. The app still includes Flutter, Firebase, video-player/Media3, download, and other functionality; reducing the APK further would require measured, feature-by-feature dependency analysis and tests.
+The workflow checks out the required `flixquest-betterplayer` path dependency at `claude/relaxed-dirac-tw37rj`, sets up Java 17 and Flutter 3.41.5, runs `flutter test test/provider_loader_test.dart`, and copies `.env.example` to `.env`. It uses `--android-skip-build-dependency-validation` because the Android project currently uses Gradle 8.7.
 
-## Signing
+If `android/key.properties` and its referenced keystore are present, Gradle uses that release key. Otherwise, CI falls back to the local debug key so the optimized APK can be installed for testing. **Never publish a debug-key-signed APK as an official store release.** Configure a protected production keystore before publishing. Signing keys and passwords must never be committed.
 
-CI reads these optional repository secrets to sign with a stable distribution key:
+The Android application ID is intentionally unchanged for now to preserve the existing Firebase registration and allow compatible upgrades from existing installations. The launcher label and visual brand are 7xPlay. Changing the application ID later would create a separate Android app identity and may prevent in-place upgrades.
 
-- `ANDROID_KEYSTORE_BASE64`: base64-encoded Android keystore.
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEY_PASSWORD`
-- `ANDROID_STORE_PASSWORD`
-
-Without all the signing values, CI falls back to the runner's debug signing key so the artifacts remain installable for testing. **Do not publish that fallback build as an official update**, because the runner key is not a stable production signing identity. Existing installs can upgrade only when signatures and versioning are compatible.
-
-## Build environment
-
-The workflow checks out the required external `flixquest-betterplayer` path dependency at `claude/relaxed-dirac-tw37rj`, which includes the configured hold-speed gesture options. It uses Java 17 and Flutter 3.41.5; newer Flutter versions currently hit an `IconData` compatibility issue with `phosphor_flutter` 2.1.0. CI copies `.env.example` to `.env`, rasterizes the SVG splash source, generates native splash assets, runs `flutter test test/provider_loader_test.dart`, and then builds the APKs.
-
-## Publishing for the in-app updater
-
-GitHub Actions artifacts are temporary downloads for build/test use, not permanent direct-download URLs. For public updates, publish the correct per-ABI APKs to a stable GitHub Release or another controlled HTTPS host, then set Remote Config's `app_download_url_arm64_v8a`, `app_download_url_armeabi_v7a`, and `app_download_url_x86_64` keys to the matching APK URLs. Keep `app_download_url` as the universal fallback URL only if a universal APK is deliberately built and hosted. Do not point those fields at an artifact ZIP; the updater expects an APK.
+APK size depends on the app's Flutter engine, video playback libraries, Firebase integrations, and native dependencies. ABI splitting removes the largest avoidable duplication for direct APK downloads; removing more dependencies requires usage audits and regression tests rather than blindly deleting features.
