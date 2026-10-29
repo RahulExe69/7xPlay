@@ -1,5 +1,6 @@
+# Internal Dart package name retained because source imports package:flixquest/.
 name: flixquest
-description: A Flutter movie app.
+description: 7xPlay — an Android-first movie and TV entertainment app.
 
 publish_to: "none"
 
@@ -129,10 +130,10 @@ flutter:
         - asset: assets/fonts/imdb.ttf
 
 flutter_native_splash:
-  color: "#FFFFFF"
-  color_dark: "#161716"
-  image: assets/images/splash_logo.png
+  color: "#0B1020"
+  color_dark: "#0B1020"
+  image: assets/images/7xplay_splash.png
   android_12:
-    image: assets/images/splash_logo.png
-    color: "#FFFFFF"
-    color_dark: "#161716"
+    image: assets/images/7xplay_splash.png
+    color: "#0B1020"
+    color_dark: "#0B1020"
