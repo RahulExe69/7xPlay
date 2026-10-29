@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APKs
 
 on:
   push:
@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-apk:
+  build-apks:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out 7xPlay
         uses: actions/checkout@v4
@@ -56,14 +56,20 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/provider_loader_test.dart
 
-      - name: Build installable Android APK
+      - name: Build optimized ABI-specific release APKs
         working-directory: 7xPlay
-        run: flutter build apk --debug --flavor prod --android-skip-build-dependency-validation
+        run: |
+          flutter build apk --release --flavor prod --split-per-abi --android-skip-build-dependency-validation
+          echo "Built APK sizes:"
+          find build/app/outputs/flutter-apk -maxdepth 1 -name 'app-prod-*-release.apk' -printf '%f %k KB\n' | sort
 
-      - name: Upload APK
+      - name: Upload optimized APKs
         uses: actions/upload-artifact@v4
         with:
-          name: 7xPlay-debug-apk-${{ github.event.pull_request.head.sha || github.sha }}
-          path: 7xPlay/build/app/outputs/flutter-apk/app-prod-debug.apk
+          name: 7xPlay-release-split-apks-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            7xPlay/build/app/outputs/flutter-apk/app-prod-armeabi-v7a-release.apk
+            7xPlay/build/app/outputs/flutter-apk/app-prod-arm64-v8a-release.apk
+            7xPlay/build/app/outputs/flutter-apk/app-prod-x86_64-release.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
