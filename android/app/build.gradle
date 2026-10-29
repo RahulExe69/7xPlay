@@ -2,8 +2,6 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
-    id "com.google.firebase.crashlytics"
 }
 
 def localProperties = new Properties()
@@ -55,7 +53,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "dev.beamlak.flixquest_v2"
+        applicationId "com.sevenx.play"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
@@ -71,8 +69,8 @@ android {
         }
         dev {
             dimension "environment"
-            // Reuse the registered Firebase package; a suffix would require
-            // another Firebase Android app and matching Google services file.
+            // Firebase runtime integrations are disabled for this build; keep the
+            // dev flavor on the same distinct 7xPlay application ID.
             manifestPlaceholders = [appLabel: "7xPlay Dev"]
         }
     }

@@ -18,17 +18,17 @@ concurrency:
 jobs:
   provider-tests:
     name: Fast provider tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check out 7xPlay
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: 7xPlay
 
       - name: Check out local BetterPlayer dependency
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: BeamlakAschalew/flixquest-betterplayer
           ref: claude/relaxed-dirac-tw37rj
@@ -46,7 +46,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Cache Pub packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
@@ -63,7 +63,7 @@ jobs:
 
   build-apks:
     name: Build ${{ matrix.name }} APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -82,20 +82,20 @@ jobs:
 
     steps:
       - name: Check out 7xPlay
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: 7xPlay
 
       - name: Check out local BetterPlayer dependency
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: BeamlakAschalew/flixquest-betterplayer
           ref: claude/relaxed-dirac-tw37rj
           path: flixquest-betterplayer
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -108,16 +108,14 @@ jobs:
           cache: true
 
       - name: Cache Gradle dependencies and build outputs
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-cleanup: on-success
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
         run: cp .env.example .env
 
       - name: Cache Pub packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
@@ -143,7 +141,7 @@ jobs:
           du -h "build/artifacts/${ABI_TARGET}/7xPlay-${{ matrix.abi }}-release.apk"
 
       - name: Upload optimized APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: 7xPlay-${{ matrix.abi }}-release-${{ github.event.pull_request.head.sha || github.sha }}
           path: 7xPlay/build/artifacts/${{ matrix.target }}/7xPlay-${{ matrix.abi }}-release.apk
@@ -151,7 +149,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Dart symbol files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: 7xPlay-symbols-${{ matrix.abi }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: 7xPlay/build/symbols/${{ matrix.target }}/
