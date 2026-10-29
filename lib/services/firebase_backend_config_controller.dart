@@ -17,8 +17,8 @@ const _supabaseConfigKey = String.fromEnvironment(
 
 /// Discovers the Laravel API endpoint from the public Supabase app_config
 /// table. The bundled URL remains the safe fallback when Supabase is offline.
-class FirebaseBackendConfigController {
-  FirebaseBackendConfigController({
+class SupabaseBackendConfigController {
+  SupabaseBackendConfigController({
     required String fallbackUrl,
     required this.onUrlChanged,
     Stream<bool>? connectivityChanges,
