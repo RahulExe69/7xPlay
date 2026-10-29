@@ -130,14 +130,14 @@ MIXPANEL_API_KEY="your_mixpanel_api_key"
 ### Obtaining API Keys
 
 - **TMDB API Key**: Register at [The Movie Database (TMDB)](https://developer.themoviedb.org/v3/reference/intro/authentication#api-key-quick-start) to get your free API key.
-- **7xPlay Scraper API**: The scraper service is closed-source. For API access, self-hosting inquiries, or support, please reach out to [7xplayapp@gmail.com](mailto:7xplayapp@gmail.com).
+- **7xPlay Scraper API**: The scraper service is closed-source. For API access, self-hosting inquiries, or support, please open an issue in this repository.
 - **Mixpanel Token** _(Optional)_: Create a free account at [Mixpanel](https://mixpanel.com).
 
 ---
 
 ## 🕷️ 7xPlay Scraper API v2
 
-7xPlay communicates with **7xPlay Scraper API v2** for resolving streaming sources. The backend service is closed-source; please contact [7xplayapp@gmail.com](mailto:7xplayapp@gmail.com) for support or API instance access.
+7xPlay communicates with **7xPlay Scraper API v2** for resolving streaming sources. The backend service is closed-source; please open an issue in this repository for support or API instance access.
 
 The client-side API contract and payload schemas are documented in [`openapi.json`](openapi.json).
 
