@@ -3,6 +3,7 @@ import 'data/sync/sync_runtime.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'data/ads/ad_events_controller.dart';
 import 'services/hosted_ads_repository.dart';
+import 'presentation/config/refresh_controller.dart';
 import 'services/local_account_data.dart';
 import 'presentation/session/auth_runtime.dart';
 import 'presentation/session/session_view_model.dart';
