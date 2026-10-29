@@ -27,24 +27,24 @@
 **Exit criteria:** A technical inventory exists, risky dependencies are understood, and the app can be built or existing build failures are recorded.
 
 ## Phase 1 — Brand Identity
-- [ ] Use **7xPlay** consistently as the user-facing product name.
-- [ ] Create an original logo and launcher icon suitable for small Android sizes.
+- [x] Use **7xPlay** consistently in the app label and primary README branding; repository-wide UI copy review remains open.
+- [x] Add an original 7xPlay SVG logo and scalable Android launcher mark; TV legacy bitmap art still needs visual review.
 - [ ] Define brand colours, typography, icon style, spacing, and component conventions.
-- [ ] Redesign the launch/splash experience.
+- [x] Replace native launch and Android 12 splash references with the 7xPlay mark.
 - [ ] Replace old branding in dialogs, overlays, player surfaces, settings, errors, and About screens.
-- [ ] Update repository description, README, screenshots, and documentation.
+- [ ] Update repository description and screenshots; README and Android build documentation now use 7xPlay branding.
 - [ ] Remove obsolete assets only after confirming they are no longer referenced.
 - [ ] Preserve required copyright, open-source licence, and third-party attribution notices.
 
 **Exit criteria:** A repository-wide search and visual review finds no accidental user-facing old branding; required legal notices remain.
 
 ## Phase 2 — Android Identity & Future Platform Readiness
-- [ ] Update Android app label and launcher/adaptive icons.
-- [ ] Update splash resources and notification branding.
+- [x] Update Android app label and adaptive/legacy vector launcher resources.
+- [x] Update splash resources; notification icon still needs a dedicated brand review.
 - [ ] Review Android application ID, Kotlin namespace, deep links, intent filters, and exported components.
 - [ ] Decide whether to use com.sevenx.play; do not change the package until upgrade/install consequences are understood.
 - [ ] Review permissions and remove only those proven unnecessary.
-- [ ] Update release artifact names and build metadata.
+- [x] Rename CI artifact labels and switch to ABI-split optimized release APKs.
 - [ ] Verify clean installation, app restart, session persistence, and upgrade behaviour.
 - [ ] Keep shared business logic and platform-specific code clearly separated where practical.
 - [ ] Document iOS blockers and platform-specific dependencies, but do not require an iOS release in this phase.
@@ -151,14 +151,14 @@
 - [ ] Verify Android back-button, screen rotation, and lifecycle behaviour.
 
 ## Phase 11 — Automated Testing & Release Engineering
-- [ ] Establish reproducible debug and release builds.
+- [x] CI now targets reproducible ABI-split release builds; green workflow verification is pending.
 - [ ] Run formatter, static analysis, unit tests, and integration tests that the project supports.
 - [ ] Add tests for search merging/deduplication and language/source aggregation.
 - [ ] Add tests for Watch action, resolver failures, authentication, and ad-free behaviour.
 - [ ] Build and install a release APK on a clean Android device/emulator.
 - [ ] Build an Android App Bundle if needed for the distribution target.
 - [ ] Test upgrades from prior releases if in-place upgrade compatibility is intended.
-- [ ] Verify signing and release configuration without exposing signing secrets.
+- [ ] Verify production signing with a protected release keystore; CI currently uses a documented debug-key fallback when none is configured.
 - [ ] Verify CI workflow status and archive build artifacts.
 - [ ] Update version numbers and release notes.
 - [ ] Record failed or unavailable tests rather than claiming they passed.
@@ -196,3 +196,8 @@ A 7xPlay release is ready only when:
 - Never claim builds, tests, playback, or provider behaviour were verified unless they were actually checked.
 - Keep a progress log with links to commits, PRs, test results, and unresolved blockers.
 - Android is the immediate target; iOS is a future compatibility goal, not a release requirement.
+
+
+## 2026-10-29 implementation note
+
+A feature branch `7xplay/full-rebrand-and-size-optimization` adds 7xPlay display branding, original SVG/vector marks, native splash and Android TV banner resources, README/build-doc updates, release minification/resource shrinking, Dart obfuscation, icon tree-shaking, and per-ABI APK artifacts. The existing Android application ID and Gradle namespace remain unchanged intentionally to avoid breaking the existing Firebase Android registration and installed-app upgrade path. Do not mark the phase complete until CI builds and tests pass and a human visually checks the resulting APK on phone and Android TV.
