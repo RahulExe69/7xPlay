@@ -495,7 +495,7 @@ class TvSettingsScreen extends StatelessWidget {
   }
 
   static String _colorThemeLabel(int index) => switch (index) {
-        -1 => 'FlixQuest',
+        -1 => '7xPlay',
         AppColor.customIndex => tr('tv_custom'),
         1 => tr('tv_indigo'),
         2 => tr('tv_pink'),
@@ -517,7 +517,7 @@ class TvSettingsScreen extends StatelessWidget {
         18 => tr('tv_fuchsia'),
         19 => tr('tv_deep_emerald'),
         20 => tr('tv_coral'),
-        _ => 'FlixQuest',
+        _ => '7xPlay',
       };
 
   static Future<void> _showThemeModePicker(
