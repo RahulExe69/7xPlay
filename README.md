@@ -44,7 +44,7 @@
 
 ### 🚀 Multi-Source Video Providers & Scraper API v2
 
-- **Dynamic Provider System**: Integrated with **7xPlay Scraper API v2** for scraping high-quality streams.
+- **Dynamic Provider System**: Integrated with a separately hosted scraper/provider API for resolving high-quality streams.
 - **Live Provider Health Status**: Real-time provider uptime monitoring (`/providers/status`) with in-app status indicators.
 - **Direct Fallback Provider**: Built-in direct VixSrc provider fallback.
 - **Custom Provider Prioritization**: Reorder and prioritize your preferred streaming providers in Settings.
@@ -106,8 +106,8 @@ Fresh mobile, tablet, player, and Android TV screenshots will be added after the
 # Required: TMDB API Key for movie and TV show metadata
 TMDB_API_KEY="your_tmdb_api_key"
 
-# Required: 7xPlay Scraper API v2 instance URL
-FLIXQUEST_API_URL="https://your-flixquest-api-instance.com"
+# Required: URL of the separately hosted provider scraper API
+FLIXQUEST_API_URL="https://your-provider-api-instance.com"
 
 # Optional: Mixpanel project token for general analytics
 MIXPANEL_API_KEY="your_mixpanel_api_key"
@@ -161,7 +161,7 @@ Key endpoints consumed by the app:
 
 ## ▶️ Custom `better_player` Package
 
-This repository uses a customized version of `better_player` (`better_player_plus`) located at [github.com/BeamlakAschalew/flixquest-betterplayer](https://github.com/BeamlakAschalew/flixquest-betterplayer).
+This repository uses the customized `better_player_plus` package from the upstream dependency repository [BeamlakAschalew/flixquest-betterplayer](https://github.com/BeamlakAschalew/flixquest-betterplayer). Its upstream repository name is retained here as a dependency reference.
 
 You can configure it in `pubspec.yaml` using a local path or git URL:
 
