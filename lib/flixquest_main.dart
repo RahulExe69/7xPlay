@@ -196,8 +196,6 @@ class _FlixQuestState extends State<FlixQuest>
     _widgetRefreshDebounce?.cancel();
     _tmdbNetworkSubscription?.cancel();
     TmdbConnectivity.instance.proxyUrlSource = null;
-    _firebaseConfig?.dispose();
-    widget.backendConfigController?.dispose();
     widget.configController?.dispose();
     unawaited(widget.adsController?.dispose());
     InAppMessagingService.dispose();
