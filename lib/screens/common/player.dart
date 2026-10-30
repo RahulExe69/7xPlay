@@ -3897,6 +3897,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final previousManifestTrackKey = _activeManifestAudioTrackKey;
     final previousProviderCode = _currentProviderCode;
     Object? lastError;
+    var attemptedSource = false;
 
     setState(() => _isSwitchingProvider = true);
     _activeAudioLanguageCode = languageCode;
@@ -3934,6 +3935,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
       try {
         await _betterPlayerController.pause();
+        attemptedSource = true;
         await _betterPlayerController.setupDataSource(
           _buildDataSource(
             sources: candidateSources,
@@ -4043,7 +4045,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
     }
 
-    if (mounted && previousDataSource != null) {
+    if (mounted && attemptedSource && previousDataSource != null) {
       try {
         await _betterPlayerController.setupDataSource(
           previousDataSource,
