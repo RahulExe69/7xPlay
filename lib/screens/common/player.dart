@@ -258,7 +258,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _initialPlaybackReady = false;
   VoidCallback? _audioLanguageSheetRefresh;
   String? _activeAudioLanguageCode;
+  String? _activeManifestAudioTrackKey;
   bool _audioLanguageExplicitlySelected = false;
+  bool _manifestAudioExplicitlySelected = false;
   bool _audioLanguageDiscoveryRunning = false;
   final Map<String, int?> _streamSizeCacheByToken = {};
   final Set<String> _loadingProviders =
@@ -840,7 +842,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final tracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
     var selected = _activeAudioLanguageCode;
-    if (tracks.isNotEmpty && !_audioLanguageExplicitlySelected) {
+    if (tracks.isNotEmpty &&
+        !_audioLanguageExplicitlySelected &&
+        !_manifestAudioExplicitlySelected) {
       final manifestPreference = PreferredAudioLanguagePolicy.select(
         availableLanguageLabels: tracks.expand(
           (track) => <String>[track.language ?? '', track.label ?? ''],
@@ -865,11 +869,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           .toSet();
       return knownCodes.isEmpty || knownCodes.contains(selected);
     }
-    for (final track in tracks) {
+    for (var index = 0; index < tracks.length; index++) {
+      final track = tracks[index];
       final code = languageCodeForLabel(track.language) ??
           languageCodeForLabel(track.label);
       if (code == selected) {
         _betterPlayerController.setAudioTrack(track);
+        _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
         return true;
       }
     }
@@ -3095,13 +3101,63 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool get _hasMultipleSourceAudioLanguages =>
       _audioSourceKeysByLanguage.length > 1;
 
-  bool get _showAudioLanguageSwitcherEntry =>
-      _hasMultipleSourceAudioLanguages ||
-      _backgroundProviderAggregationPending ||
-      _audioLanguageDiscoveryRunning;
+  // The action must remain reachable even when providers omit language
+  // metadata. The sheet can still expose native HLS/DASH tracks from the
+  // active manifest, and it explains when a source reports no alternatives.
+  bool get _showAudioLanguageSwitcherEntry => true;
+
+  String _manifestAudioTrackKey(dynamic track, int index) {
+    final language = track.language?.toString().trim() ?? '';
+    final label = track.label?.toString().trim() ?? '';
+    return '$language|$label|$index';
+  }
+
+  String _manifestAudioTrackName(dynamic track, int index) {
+    final language = track.language?.toString().trim() ?? '';
+    final label = track.label?.toString().trim() ?? '';
+    final code =
+        languageCodeForLabel(language) ?? languageCodeForLabel(label);
+    if (code == null) {
+      return label.isNotEmpty
+          ? label
+          : language.isNotEmpty
+              ? language
+              : 'Audio track ${index + 1}';
+    }
+    final name = languageNameForCode(code);
+    if (label.isEmpty || languageCodeForLabel(label) == code) return name;
+    return '$name · $label';
+  }
+
+  void _selectManifestAudioTrack(
+    dynamic track, {
+    required int index,
+    required String? languageCode,
+  }) {
+    if (!mounted || _isSwitchingProvider) return;
+    try {
+      _betterPlayerController.setAudioTrack(track);
+      setState(() {
+        _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
+        if (languageCode != null) _activeAudioLanguageCode = languageCode;
+        _manifestAudioExplicitlySelected = true;
+      });
+      _audioLanguageSheetRefresh?.call();
+      debugPrint(
+        '[Player][Audio] Selected manifest track '
+        'language=${languageCode ?? 'unknown'} index=$index',
+      );
+    } catch (error) {
+      debugPrint('[Player][Audio] Manifest track selection failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('provider_language_unavailable'))),
+        );
+      }
+    }
+  }
 
   void _showAudioLanguageSwitcher() {
-    if (!_showAudioLanguageSwitcherEntry) return;
     showPlayerSheet<void>(
       context: context,
       builder: (sheetContext) => StatefulBuilder(
@@ -3110,8 +3166,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             if (sheetContext.mounted) setSheetState(() {});
           };
           final options = _audioSourceKeysByLanguage;
+          final manifestTracks =
+              _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
           final waiting = _backgroundProviderAggregationPending ||
               _audioLanguageDiscoveryRunning;
+          final showEmptyState =
+              manifestTracks.isEmpty && options.isEmpty && !waiting;
           return DraggableScrollableSheet(
             expand: false,
             initialChildSize: .58,
@@ -3134,10 +3194,83 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               child: ListView.separated(
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                itemCount: options.length + (waiting ? 1 : 0),
+                itemCount: manifestTracks.length +
+                    options.length +
+                    (waiting ? 1 : 0) +
+                    (showEmptyState ? 1 : 0),
                 separatorBuilder: (_, __) => const SizedBox(height: 2),
                 itemBuilder: (context, index) {
-                  if (index >= options.length) {
+                  if (index < manifestTracks.length) {
+                    final track = manifestTracks[index];
+                    final languageCode =
+                        languageCodeForLabel(track.language) ??
+                            languageCodeForLabel(track.label);
+                    final trackKey = _manifestAudioTrackKey(track, index);
+                    final selected = _activeManifestAudioTrackKey == trackKey ||
+                        (_activeManifestAudioTrackKey == null &&
+                            languageCode != null &&
+                            languageCode == _activeAudioLanguageCode);
+                    return PlayerChoiceCard(
+                      kicker: selected ? tr('player_now_playing') : null,
+                      title: _manifestAudioTrackName(track, index),
+                      subtitle: 'Audio track in the current stream',
+                      selected: selected,
+                      trailing: selected
+                          ? Icon(
+                              PhosphorIcons.checkCircle(),
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : null,
+                      onTap: selected || _isSwitchingProvider
+                          ? null
+                          : () {
+                              _selectManifestAudioTrack(
+                                track,
+                                index: index,
+                                languageCode: languageCode,
+                              );
+                              setSheetState(() {});
+                            },
+                    );
+                  }
+                  final sourceIndex = index - manifestTracks.length;
+                  if (sourceIndex < options.length) {
+                    final code = options.keys.elementAt(sourceIndex);
+                    final keys = options[code]!;
+                    final selected = code == _activeAudioLanguageCode;
+                    final providerCodes = keys
+                        .map((key) => _allVideoProviderCodes[key])
+                        .whereType<String>()
+                        .toSet();
+                    return PlayerChoiceCard(
+                      kicker: selected ? tr('player_now_playing') : null,
+                      title: languageNameForCode(code),
+                      selected: selected,
+                      subtitle: tr(
+                        'player_audio_language_source_count',
+                        namedArgs: {
+                          'count': (providerCodes.isEmpty
+                                  ? keys.length
+                                  : providerCodes.length)
+                              .toString(),
+                        },
+                      ),
+                      trailing: selected
+                          ? Icon(
+                              PhosphorIcons.checkCircle(),
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : null,
+                      onTap: selected || _isSwitchingProvider
+                          ? null
+                          : () {
+                              _audioLanguageSheetRefresh = null;
+                              Navigator.pop(sheetContext);
+                              unawaited(_switchToAudioLanguage(code, keys));
+                            },
+                    );
+                  }
+                  if (waiting) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -3150,44 +3283,20 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(child: Text(tr('loading_video_sources'))),
+                          const Expanded(
+                            child: Text('Checking available audio tracks…'),
+                          ),
                         ],
                       ),
                     );
                   }
-                  final code = options.keys.elementAt(index);
-                  final keys = options[code]!;
-                  final selected = code == _activeAudioLanguageCode;
-                  final providerCodes = keys
-                      .map((key) => _allVideoProviderCodes[key])
-                      .whereType<String>()
-                      .toSet();
-                  return PlayerChoiceCard(
-                    kicker: selected ? tr('player_now_playing') : null,
-                    title: languageNameForCode(code),
-                    selected: selected,
-                    subtitle: tr(
-                      'player_audio_language_source_count',
-                      namedArgs: {
-                        'count': (providerCodes.isEmpty
-                                ? keys.length
-                                : providerCodes.length)
-                            .toString(),
-                      },
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                    child: Text(
+                      'No alternate audio tracks were detected for this stream. '
+                      'Try another provider or stream quality; some sources expose '
+                      'only one audio track.',
                     ),
-                    trailing: selected
-                        ? Icon(
-                            PhosphorIcons.checkCircle(),
-                            color: Theme.of(context).colorScheme.primary,
-                          )
-                        : null,
-                    onTap: selected || _isSwitchingProvider
-                        ? null
-                        : () {
-                            _audioLanguageSheetRefresh = null;
-                            Navigator.pop(sheetContext);
-                            unawaited(_switchToAudioLanguage(code, keys));
-                          },
                   );
                 },
               ),
@@ -3207,6 +3316,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _preRollActive) {
       return;
     }
+
+    if (_manifestAudioExplicitlySelected) return;
 
     final preferred = PreferredAudioLanguagePolicy.select(
       availableLanguageLabels: _audioSourceKeysByLanguage.keys,
@@ -3275,6 +3386,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final previousDataSource = _betterPlayerController.betterPlayerDataSource;
     final previousAudioLanguage = _activeAudioLanguageCode;
     final previousExplicitSelection = _audioLanguageExplicitlySelected;
+    final previousManifestSelection = _manifestAudioExplicitlySelected;
+    final previousManifestTrackKey = _activeManifestAudioTrackKey;
     final previousProviderCode = _currentProviderCode;
     final providerCode = _allVideoProviderCodes[preferred.key];
     setState(() => _isSwitchingProvider = true);
@@ -3282,6 +3395,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       await _betterPlayerController.pause();
       _activeAudioLanguageCode = languageCode;
       _audioLanguageExplicitlySelected = userInitiated;
+      _manifestAudioExplicitlySelected = false;
+      _activeManifestAudioTrackKey = null;
       await _betterPlayerController.setupDataSource(
         _buildDataSource(
           sources: sources,
@@ -3325,6 +3440,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       debugPrint('[Player] Audio source switch failed: $error');
       _activeAudioLanguageCode = previousAudioLanguage;
       _audioLanguageExplicitlySelected = previousExplicitSelection;
+      _manifestAudioExplicitlySelected = previousManifestSelection;
+      _activeManifestAudioTrackKey = previousManifestTrackKey;
       _currentProviderCode = previousProviderCode;
       if (mounted && previousDataSource != null) {
         try {
