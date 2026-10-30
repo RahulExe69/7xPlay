@@ -88,7 +88,7 @@ internal class DownloadSourceResolver {
                 progressive -> "progressive"
                 link.optBoolean("isM3U8") || streamPath.endsWith(".m3u8") -> "hls"
                 link.optBoolean("isDASH") || streamPath.endsWith(".mpd") -> "dash"
-                else -> "progressive"
+                else -> "hls"
             }
             link.optString("quality", "unknown quality") == source.getString("quality") &&
                 link.optString("server") == source.optString("server") &&
