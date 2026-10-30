@@ -22,7 +22,12 @@ abstract final class ProviderAudioLanguageCache {
     final existing = _memory;
     if (existing != null) return existing;
     final preferences = await SharedPreferences.getInstance();
-    final decoded = jsonDecode(preferences.getString(_storageKey) ?? '{}');
+    Object? decoded;
+    try {
+      decoded = jsonDecode(preferences.getString(_storageKey) ?? '{}');
+    } on FormatException {
+      decoded = const <String, Object?>{};
+    }
     final result = <String, _CachedLanguages>{};
     if (decoded is Map) {
       for (final entry in decoded.entries) {
@@ -93,11 +98,14 @@ abstract final class ProviderAudioLanguageCache {
 
   static String _fingerprint(String providerCode, RegularVideoLinks link) {
     final uri = Uri.tryParse(link.url?.trim() ?? '');
+    final authority = uri == null
+        ? ''
+        : uri.hasPort
+            ? '${uri.host.toLowerCase()}:${uri.port}'
+            : uri.host.toLowerCase();
     final stableUrl = uri == null
         ? (link.url?.split('?').first ?? '')
-        : '${uri.scheme.toLowerCase()}://${uri.host.toLowerCase()}'
-            '${uri.hasPort ? ': ${uri.port}'.replaceAll(' ', '') : ''}'
-            '${uri.path}';
+        : '${uri.scheme.toLowerCase()}://$authority${uri.path}';
     final headerNames = link.headers?.keys
             .map((key) => key.toLowerCase())
             .toList()
