@@ -51,10 +51,15 @@ class ProviderLoadSession {
   const ProviderLoadSession({
     required this.firstPlayable,
     required this.allSuccessful,
+    this.providerAttempts,
   });
 
   final Future<ProviderAttempt?> firstPlayable;
   final Future<ProviderSelection?> allSuccessful;
+
+  /// Single-subscription stream that replays fast and final provider results
+  /// to the player as they arrive, without waiting for the slowest provider.
+  final Stream<ProviderAttempt>? providerAttempts;
 }
 
 /// Single loading boundary for direct and API-backed stream providers.
@@ -101,6 +106,9 @@ abstract final class ProviderLoader {
     Duration providerTimeout = const Duration(seconds: 25),
   }) {
     final firstPlayableCompleter = Completer<ProviderAttempt?>();
+    final providerAttemptsController = StreamController<ProviderAttempt>(
+      sync: true,
+    );
 
     Future<ProviderAttempt> attempt(
       int index,
@@ -119,6 +127,7 @@ abstract final class ProviderLoader {
         provider: provider,
         result: result,
       );
+      providerAttemptsController.add(loaded);
       if (loaded.hasPlayableSources && !firstPlayableCompleter.isCompleted) {
         firstPlayableCompleter.complete(loaded);
       }
@@ -131,6 +140,7 @@ abstract final class ProviderLoader {
           ),
     );
     final allSuccessful = attemptsFuture.then(_combineSuccessfulAttempts);
+    allSuccessful.whenComplete(providerAttemptsController.close);
     allSuccessful.then(
       (_) {
         if (!firstPlayableCompleter.isCompleted) {
@@ -147,6 +157,7 @@ abstract final class ProviderLoader {
     return ProviderLoadSession(
       firstPlayable: firstPlayableCompleter.future,
       allSuccessful: allSuccessful,
+      providerAttempts: providerAttemptsController.stream,
     );
   }
 
@@ -185,6 +196,9 @@ abstract final class ProviderLoader {
     Duration expansionTimeout = const Duration(seconds: 35),
   }) {
     final firstPlayableCompleter = Completer<ProviderAttempt?>();
+    final providerAttemptsController = StreamController<ProviderAttempt>(
+      sync: true,
+    );
 
     Future<ProviderAttempt> runProvider(
       int index,
@@ -203,6 +217,7 @@ abstract final class ProviderLoader {
         provider: provider,
         result: fastResult,
       );
+      providerAttemptsController.add(fastAttempt);
       if (fastAttempt.hasPlayableSources &&
           !firstPlayableCompleter.isCompleted) {
         firstPlayableCompleter.complete(fastAttempt);
@@ -248,6 +263,7 @@ abstract final class ProviderLoader {
           'provider=${provider.codeName}: $expansionError',
         );
         onFinalResult?.call(index, provider, fastResult);
+        providerAttemptsController.add(fastAttempt);
         return fastAttempt;
       }
 
@@ -261,6 +277,7 @@ abstract final class ProviderLoader {
           firstPlayableCompleter.complete(expandedAttempt);
         }
         onFinalResult?.call(index, provider, expandedResult);
+        providerAttemptsController.add(expandedAttempt);
         return expandedAttempt;
       }
 
@@ -270,6 +287,7 @@ abstract final class ProviderLoader {
       final finalAttempt =
           fastAttempt.hasPlayableSources ? fastAttempt : expandedAttempt;
       onFinalResult?.call(index, provider, finalAttempt.result);
+      providerAttemptsController.add(finalAttempt);
       return finalAttempt;
     }
 
@@ -279,6 +297,7 @@ abstract final class ProviderLoader {
           ),
     );
     final allSuccessful = attemptsFuture.then(_combineSuccessfulAttempts);
+    allSuccessful.whenComplete(providerAttemptsController.close);
     allSuccessful.then(
       (_) {
         if (!firstPlayableCompleter.isCompleted) {
@@ -295,6 +314,7 @@ abstract final class ProviderLoader {
     return ProviderLoadSession(
       firstPlayable: firstPlayableCompleter.future,
       allSuccessful: allSuccessful,
+      providerAttempts: providerAttemptsController.stream,
     );
   }
 
