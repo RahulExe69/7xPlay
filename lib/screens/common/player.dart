@@ -3704,6 +3704,36 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     return false;
   }
 
+  Future<bool> _refreshFailedProviderForRecovery({
+    required String? failedProviderCode,
+    required Duration? resumeAt,
+  }) async {
+    if (failedProviderCode == null ||
+        failedProviderCode != _currentProviderCode ||
+        !(widget.availableProviders
+                ?.any((provider) => provider.codeName == failedProviderCode) ??
+            false)) {
+      return false;
+    }
+    // Re-resolve the same provider before abandoning it. The old signed link
+    // may have expired or its first lookup may have been transiently stale.
+    final refreshed = await _switchToProvider(
+      failedProviderCode,
+      reload: true,
+      automatic: true,
+      resumeAt: resumeAt,
+      refreshMenu: () {},
+      closeMenu: () {},
+    );
+    if (refreshed) {
+      _trackPlaybackEvent(
+        'automatic_provider_refresh_succeeded',
+        value: _providerDisplayName(failedProviderCode),
+      );
+    }
+    return refreshed;
+  }
+
   /// The player's last automatic recovery step: provider links expire, so
   /// resolve the current provider again and carry on from [position]. The
   /// playback error shows only if this fails too.
@@ -4067,6 +4097,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
 
       _automaticFallbackRunning = true;
+      try {
+        if (await _refreshFailedProviderForRecovery(
+          failedProviderCode: failedProviderCode,
+          resumeAt: resumeAt,
+        )) {
+          return true;
+        }
+      } catch (error) {
+        debugPrint('[Player] Same-provider refresh failed: $error');
+      }
       if (failedProviderCode != null) {
         _providerErrors[failedProviderCode] = tr('provider_playback_failed');
         // Penalize only sources belonging to the provider that just failed;
@@ -4109,6 +4149,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // before the viewer explicitly locks a language.
     final allowed = providers.map((provider) => provider.codeName).toSet();
     _automaticFallbackRunning = true;
+    try {
+      if (await _refreshFailedProviderForRecovery(
+        failedProviderCode: failedProviderCode,
+        resumeAt: resumeAt,
+      )) {
+        return true;
+      }
+    } catch (error) {
+      debugPrint('[Player] Same-provider refresh failed: $error');
+    }
     if (failedProviderCode != null) {
       _providerErrors[failedProviderCode] = tr('provider_playback_failed');
       _automaticFallbackTried.add(failedProviderCode);
