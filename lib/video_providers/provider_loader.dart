@@ -163,8 +163,9 @@ abstract final class ProviderLoader {
       ProviderLoadResult fastResult,
     ) loadExpanded,
     ProviderResultCallback? onResult,
-    Duration providerTimeout = const Duration(seconds: 12),
-    Duration expansionTimeout = const Duration(seconds: 12),
+    ProviderResultCallback? onFinalResult,
+    Duration providerTimeout = const Duration(seconds: 25),
+    Duration expansionTimeout = const Duration(seconds: 35),
   }) {
     final firstPlayableCompleter = Completer<ProviderAttempt?>();
 
@@ -202,6 +203,7 @@ abstract final class ProviderLoader {
           '[ProviderLoader] Background expansion failed '
           'provider=${provider.codeName}: $error',
         );
+        onFinalResult?.call(index, provider, fastResult);
         return fastAttempt;
       }
 
@@ -214,11 +216,17 @@ abstract final class ProviderLoader {
         if (!firstPlayableCompleter.isCompleted) {
           firstPlayableCompleter.complete(expandedAttempt);
         }
+        onFinalResult?.call(index, provider, expandedResult);
         return expandedAttempt;
       }
-      // Retain the fast source when the optional expansion fails or returns
-      // no links. Background work must never discard a working stream.
-      return fastAttempt;
+
+      // Retain a fast source when optional expansion fails or returns no links.
+      // If the fast request failed too, publish the final expansion error so
+      // the provider does not remain stuck on a stale loading/failed status.
+      final finalAttempt =
+          fastAttempt.hasPlayableSources ? fastAttempt : expandedAttempt;
+      onFinalResult?.call(index, provider, finalAttempt.result);
+      return finalAttempt;
     }
 
     final attemptsFuture = Future.wait<ProviderAttempt>(
