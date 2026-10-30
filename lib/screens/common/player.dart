@@ -722,17 +722,33 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     setState(() {
       for (final attempt in selection?.attempts ?? const <ProviderAttempt>[]) {
         final code = attempt.provider.codeName;
-        if (!_loadedProviderAttempts.any(
+        final existingAttemptIndex = _loadedProviderAttempts.indexWhere(
           (loaded) => loaded.provider.codeName == code,
-        )) {
+        );
+        if (existingAttemptIndex < 0) {
           _loadedProviderAttempts.add(attempt);
+        } else {
+          // Replace the first-response snapshot with the final expanded
+          // result. Fallback must see every recovered server and language.
+          _loadedProviderAttempts[existingAttemptIndex] = attempt;
         }
         _loadingProviders.remove(code);
         if (!attempt.hasPlayableSources) {
+          _providerFailureCounts.update(
+            code,
+            (count) => count + 1,
+            ifAbsent: () => 1,
+          );
           _providerErrors[code] = _providerFailureSummary(attempt.result);
           continue;
         }
         _providerErrors.remove(code);
+        final recoveredFailures = _providerFailureCounts[code] ?? 0;
+        if (recoveredFailures <= 1) {
+          _providerFailureCounts.remove(code);
+        } else {
+          _providerFailureCounts[code] = recoveredFailures - 1;
+        }
         // Replace the first-response snapshot with the expanded collection
         // when it arrives; retaining the old value would hide alternate audio
         // sources discovered by the background request.
