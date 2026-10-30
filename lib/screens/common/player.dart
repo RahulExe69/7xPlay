@@ -816,7 +816,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _providerSourceCounts[providerCode] = links.length;
       _loadedProviders[providerCode] =
           _providerSourceFromResult(attempt.provider, attempt.result);
-      _rawVideoLinksByProvider[providerCode] = links;
+      // Keep the backend's original quality/server labels for download
+      // renewal. Playback maps use provider-tagged display keys, but the
+      // scraper API expects the raw quality value when renewing a signed URL.
+      _rawVideoLinksByProvider[providerCode] = List.of(
+        incoming.result.videoLinks ?? const <RegularVideoLinks>[],
+      );
       _allVideoSources = {..._allVideoSources, ...sources};
       _allVideoFormats = {...?_allVideoFormats, ...formats};
       _allVideoHeaders = {..._allVideoHeaders, ...headers};
