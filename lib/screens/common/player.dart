@@ -735,6 +735,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
       if (!mounted || _adBlockStopped) return;
       _applyPreferredAdaptiveQuality();
+      if (!_preRollActive &&
+          !await _waitForSourceReady(expectPlaying: true)) {
+        throw TimeoutException(tr('provider_playback_failed'));
+      }
       if (!_applyPreferredAudioTrack()) {
         final failedCode = _currentProviderCode;
         if (failedCode != null) {
@@ -2883,6 +2887,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         Duration.zero;
     // A refresh replaces a source that failed while the viewer watched it.
     final wasPlaying = reload ||
+        automatic ||
         _betterPlayerController.videoPlayerController?.value.isPlaying == true;
     final previousDataSource = _betterPlayerController.betterPlayerDataSource;
     var replacementStarted = false;
@@ -2936,6 +2941,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!mounted || _adBlockStopped) return false;
       _applyPreferredAdaptiveQuality();
+      if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
+        throw TimeoutException(tr('provider_playback_failed'));
+      }
       if (!_applyPreferredAudioTrack()) {
         languageTrackUnavailable = true;
         throw StateError(tr('provider_language_unavailable'));
@@ -3056,6 +3064,30 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
     }
     return switched;
+  }
+
+  Future<bool> _waitForSourceReady({
+    required bool expectPlaying,
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (!mounted || _adBlockStopped) return false;
+      final value = _betterPlayerController.videoPlayerController?.value;
+      if (value?.hasError == true) return false;
+      if (value?.isInitialized == true &&
+          (!expectPlaying ||
+              value!.isPlaying ||
+              value.position > Duration.zero)) {
+        return true;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    final value = _betterPlayerController.videoPlayerController?.value;
+    return value != null &&
+        value.isInitialized &&
+        !value.hasError &&
+        (!expectPlaying || value.isPlaying || value.position > Duration.zero);
   }
 
   Future<void> _recoverFromPlaybackFailure(String reason) async {

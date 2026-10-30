@@ -21,6 +21,7 @@ class UnifiedPlaybackLanguageDiscovery {
   const UnifiedPlaybackLanguageDiscovery({
     required this.options,
     required this.providerCodesByLanguage,
+    required this.sourceKeysByLanguage,
     required this.unknownProviderCodes,
   });
 
