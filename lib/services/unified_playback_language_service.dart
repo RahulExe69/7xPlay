@@ -86,6 +86,18 @@ abstract final class UnifiedPlaybackLanguageService {
     );
   }
 
+  static bool allowsProviderForSelectedLanguage({
+    required String? selectedLanguageCode,
+    required Iterable<String> eligibleProviderCodes,
+    required String providerCode,
+  }) {
+    // No language selection is used by legacy entry points and downloads.
+    if (selectedLanguageCode == null) return true;
+    // This also constrains the explicit "Original / unverified" option to
+    // providers which actually supplied an unverified source.
+    return eligibleProviderCodes.contains(providerCode);
+  }
+
   static Future<UnifiedPlaybackLanguageDiscovery> discover(
     List<ProviderAttempt> attempts, {
     int candidatesPerProvider = 3,
@@ -96,8 +108,9 @@ abstract final class UnifiedPlaybackLanguageService {
         .where((attempt) => attempt.hasPlayableSources)
         .toList(growable: false);
     final labelsByProvider = <String, Set<String>>{};
-    final sourceKeysByLanguage = <String, Map<String, LinkedHashSet<String>>>{};
-    final unknown = <String>{};
+    final sourceKeysByLanguage = <String, Map<String, LinkedHashSet<String>>{};
+    final unverifiedSourcesByProvider =
+        <String, LinkedHashSet<String>>{};
     final jobs = <Future<void> Function()>[];
 
     void record(String providerCode, RegularVideoLinks link, String? code) {
@@ -105,6 +118,12 @@ abstract final class UnifiedPlaybackLanguageService {
       labelsByProvider.putIfAbsent(providerCode, () => <String>{}).add(code);
       sourceKeysByLanguage
           .putIfAbsent(code, () => <String, LinkedHashSet<String>>{})
+          .putIfAbsent(providerCode, LinkedHashSet<String>.new)
+          .add(_sourceIdentity(link));
+    }
+
+    void recordUnverified(String providerCode, RegularVideoLinks link) {
+      unverifiedSourcesByProvider
           .putIfAbsent(providerCode, LinkedHashSet<String>.new)
           .add(_sourceIdentity(link));
     }
@@ -130,15 +149,21 @@ abstract final class UnifiedPlaybackLanguageService {
                 ? 'hls'
                 : null;
 
-        // Do not try to parse progressive files as HLS. Their language stays
-        // unknown unless the provider explicitly reports it.
-        if (format == null) continue;
+        // Progressive files and unrecognised formats are never sent to
+        // the HLS/DASH parser. Keep this individual source available as
+        // Original / unverified, even when another link from the same
+        // provider has a verified language.
+        if (format == null) {
+          recordUnverified(attempt.provider.codeName, link);
+          continue;
+        }
         final resolvedFormat = format;
 
         jobs.add(() async {
           final headers = link.headers?.isNotEmpty == true
               ? Map<String, String>.of(link.headers!)
               : const <String, String>{};
+          var foundLanguage = false;
           try {
             final tracks = await OfflineDownloadService.instance
                 .getAudioTracks(
@@ -152,11 +177,18 @@ abstract final class UnifiedPlaybackLanguageService {
                     track.selection['language']?.toString(),
                   ) ??
                   languageCodeForLabel(track.name);
-              record(attempt.provider.codeName, link, code);
+              if (code != null) {
+                foundLanguage = true;
+                record(attempt.provider.codeName, link, code);
+              }
+            }
+            if (!foundLanguage) {
+              recordUnverified(attempt.provider.codeName, link);
             }
           } catch (_) {
-            // Some providers deny manifest inspection. Their result remains
-            // available as Original / unverified, never falsely labelled.
+            // Some providers deny manifest inspection. Their individual
+            // source remains available as Original / unverified.
+            recordUnverified(attempt.provider.codeName, link);
           }
         });
       }
@@ -176,17 +208,19 @@ abstract final class UnifiedPlaybackLanguageService {
     );
     await Future.wait(workers);
 
-    for (final attempt in successful) {
-      if (labelsByProvider[attempt.provider.codeName]?.isNotEmpty != true) {
-        unknown.add(attempt.provider.codeName);
-      }
-    }
+    final unknownSources = <String, Map<String, LinkedHashSet<String>>>{
+      if (unverifiedSourcesByProvider.isNotEmpty)
+        'und': unverifiedSourcesByProvider,
+    };
 
     return fromDetectedLanguages(
       attempts: successful,
       detectedByProvider: labelsByProvider,
-      unknownProviderCodes: unknown,
-      sourceKeysByLanguage: sourceKeysByLanguage,
+      unknownProviderCodes: unverifiedSourcesByProvider.keys.toSet(),
+      sourceKeysByLanguage: {
+        ...sourceKeysByLanguage,
+        ...unknownSources,
+      },
     );
   }
 
@@ -261,19 +295,25 @@ abstract final class UnifiedPlaybackLanguageService {
     final reportedUnknownCodes = unknownProviderCodes
         .where(successfulCodes.contains)
         .toSet();
-    final unverifiedCodes =
-        options.isEmpty ? successfulCodes : reportedUnknownCodes;
+    final unverifiedSourceMap = normalizedSourceKeys['und'];
+    final unverifiedCodes = unverifiedSourceMap?.keys.toSet() ??
+        (options.isEmpty ? successfulCodes : reportedUnknownCodes);
     if (unverifiedCodes.isNotEmpty) {
-      final unverifiedSources = <String, LinkedHashSet<String>>{};
-      for (final attempt in attempts) {
-        if (!unverifiedCodes.contains(attempt.provider.codeName)) continue;
-        unverifiedSources[attempt.provider.codeName] = LinkedHashSet<String>.of(
-          (attempt.result.videoLinks ?? const <RegularVideoLinks>[])
-              .where((link) => link.url?.trim().isNotEmpty == true)
-              .map(_sourceIdentity),
-        );
+      // When discovery supplied per-source identities, preserve those exact
+      // links. The legacy pure builder still supports provider-level unknowns.
+      if (unverifiedSourceMap == null) {
+        final unverifiedSources = <String, LinkedHashSet<String>>{};
+        for (final attempt in attempts) {
+          if (!unverifiedCodes.contains(attempt.provider.codeName)) continue;
+          unverifiedSources[attempt.provider.codeName] =
+              LinkedHashSet<String>.of(
+            (attempt.result.videoLinks ?? const <RegularVideoLinks>[])
+                .where((link) => link.url?.trim().isNotEmpty == true)
+                .map(_sourceIdentity),
+          );
+        }
+        normalizedSourceKeys['und'] = unverifiedSources;
       }
-      normalizedSourceKeys['und'] = unverifiedSources;
       options.add(
         UnifiedPlaybackLanguageOption(
           code: 'und',

@@ -120,6 +120,76 @@ void main() {
     expect(discovery.providerCodesFor('und'), [providers[0].codeName]);
   });
 
+  test('keeps unverified progressive links separate from verified links', () async {
+    final provider = providers[0];
+    final sourceAttempt = ProviderAttempt(
+      index: 0,
+      provider: provider,
+      result: ProviderLoadResult(
+        success: true,
+        videoLinks: [
+          RegularVideoLinks(
+            url: 'https://example.com/verified-english.m3u8',
+            isM3U8: true,
+            audioLanguage: 'en',
+          ),
+          RegularVideoLinks(
+            url: 'https://example.com/original-audio.mp4',
+            isM3U8: false,
+            audioLanguage: null,
+          ),
+        ],
+      ),
+    );
+
+    final discovery =
+        await UnifiedPlaybackLanguageService.discover([sourceAttempt]);
+
+    expect(
+      discovery.options.map((option) => option.code),
+      containsAll(['en', 'und']),
+    );
+    expect(discovery.providerCodesFor('und'), [provider.codeName]);
+
+    final filtered =
+        UnifiedPlaybackLanguageService.filterAttemptsForLanguage(
+      attempts: [sourceAttempt],
+      discovery: discovery,
+      languageCode: 'und',
+    );
+    expect(
+      filtered.single.result.videoLinks!.map((link) => link.url),
+      ['https://example.com/original-audio.mp4'],
+    );
+  });
+
+  test('selected language requires an explicitly eligible provider', () {
+    expect(
+      UnifiedPlaybackLanguageService.allowsProviderForSelectedLanguage(
+        selectedLanguageCode: 'hi',
+        eligibleProviderCodes: const [],
+        providerCode: providers[1].codeName,
+      ),
+      isFalse,
+    );
+    expect(
+      UnifiedPlaybackLanguageService.allowsProviderForSelectedLanguage(
+        selectedLanguageCode: 'hi',
+        eligibleProviderCodes: [providers[1].codeName],
+        providerCode: providers[1].codeName,
+      ),
+      isTrue,
+    );
+    expect(
+      UnifiedPlaybackLanguageService.allowsProviderForSelectedLanguage(
+        selectedLanguageCode: null,
+        eligibleProviderCodes: const [],
+        providerCode: providers[1].codeName,
+      ),
+      isTrue,
+    );
+  });
+
   test('does not expose a failed provider as a language candidate', () {
     final failed = ProviderAttempt(
       index: 1,

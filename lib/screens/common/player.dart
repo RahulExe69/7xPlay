@@ -630,10 +630,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   bool _providerSupportsSelectedAudio(String providerCode) {
-    final selected = widget.selectedAudioLanguageCode;
-    if (selected == null || selected == 'und') return true;
-    final configured = widget.eligibleProviderCodes;
-    return configured.isEmpty || configured.contains(providerCode);
+    return UnifiedPlaybackLanguageService.allowsProviderForSelectedLanguage(
+      selectedLanguageCode: widget.selectedAudioLanguageCode,
+      eligibleProviderCodes: widget.eligibleProviderCodes,
+      providerCode: providerCode,
+    );
   }
 
   bool _applyPreferredAudioTrack() {
@@ -2862,7 +2863,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }) async {
     if (_adBlockStopped ||
         _isSwitchingProvider ||
-        (!reload && providerCode == _currentProviderCode)) {
+        (!reload && providerCode == _currentProviderCode) ||
+        (!reload && !_providerSupportsSelectedAudio(providerCode))) {
       return false;
     }
     if (!reload) _feedbackSourceSwitches++;
@@ -3122,9 +3124,18 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final providers = widget.availableProviders ?? const <VideoProvider>[];
     if (providers.isEmpty) return false;
 
-    final allowed = widget.eligibleProviderCodes.isEmpty
+    final allowed = widget.selectedAudioLanguageCode == null
         ? providers.map((provider) => provider.codeName).toSet()
         : widget.eligibleProviderCodes.toSet();
+    // A selected language is a hard constraint. Missing eligibility data must
+    // stop fallback, never broaden it to every provider.
+    if (widget.selectedAudioLanguageCode != null && allowed.isEmpty) {
+      _trackPlaybackEvent(
+        'automatic_provider_fallback_blocked_no_eligible_source',
+        error: reason,
+      );
+      return false;
+    }
     _automaticFallbackRunning = true;
     if (failedProviderCode != null) {
       _providerErrors[failedProviderCode] = tr('provider_playback_failed');
