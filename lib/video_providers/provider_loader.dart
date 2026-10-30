@@ -148,6 +148,102 @@ abstract final class ProviderLoader {
     );
   }
 
+  /// Resolves a first playable source quickly, then expands successful
+  /// scraper providers in the background for alternate servers and audio
+  /// languages. A failed fast request also gets one full-collection attempt,
+  /// but it can never delay an already playable source.
+  static ProviderLoadSession startFastThenExpand({
+    required List<VideoProvider> providers,
+    required Future<ProviderLoadResult> Function(VideoProvider provider)
+        loadFast,
+    required Future<ProviderLoadResult> Function(
+      VideoProvider provider,
+      ProviderLoadResult fastResult,
+    ) loadExpanded,
+    ProviderResultCallback? onResult,
+    Duration providerTimeout = const Duration(seconds: 12),
+    Duration expansionTimeout = const Duration(seconds: 12),
+  }) {
+    final firstPlayableCompleter = Completer<ProviderAttempt?>();
+
+    Future<ProviderAttempt> runProvider(
+      int index,
+      VideoProvider provider,
+    ) async {
+      ProviderLoadResult fastResult;
+      try {
+        fastResult = await loadFast(provider).timeout(providerTimeout);
+      } catch (error) {
+        fastResult = ProviderLoadResult(errorMessage: error.toString());
+      }
+
+      onResult?.call(index, provider, fastResult);
+      final fastAttempt = ProviderAttempt(
+        index: index,
+        provider: provider,
+        result: fastResult,
+      );
+      if (fastAttempt.hasPlayableSources &&
+          !firstPlayableCompleter.isCompleted) {
+        firstPlayableCompleter.complete(fastAttempt);
+      }
+
+      // Start expansion only after the fast response is known. This means
+      // full server collection can add audio variants without holding up the
+      // first stream hand-off.
+      ProviderLoadResult expandedResult;
+      try {
+        expandedResult = await loadExpanded(provider, fastResult)
+            .timeout(expansionTimeout);
+      } catch (error) {
+        debugPrint(
+          '[ProviderLoader] Background expansion failed '
+          'provider=${provider.codeName}: $error',
+        );
+        return fastAttempt;
+      }
+
+      final expandedAttempt = ProviderAttempt(
+        index: index,
+        provider: provider,
+        result: expandedResult,
+      );
+      if (expandedAttempt.hasPlayableSources) {
+        if (!firstPlayableCompleter.isCompleted) {
+          firstPlayableCompleter.complete(expandedAttempt);
+        }
+        return expandedAttempt;
+      }
+      // Retain the fast source when the optional expansion fails or returns
+      // no links. Background work must never discard a working stream.
+      return fastAttempt;
+    }
+
+    final attemptsFuture = Future.wait<ProviderAttempt>(
+      providers.asMap().entries.map(
+            (entry) => runProvider(entry.key, entry.value),
+          ),
+    );
+    final allSuccessful = attemptsFuture.then(_combineSuccessfulAttempts);
+    allSuccessful.then(
+      (_) {
+        if (!firstPlayableCompleter.isCompleted) {
+          firstPlayableCompleter.complete(null);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!firstPlayableCompleter.isCompleted) {
+          firstPlayableCompleter.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    return ProviderLoadSession(
+      firstPlayable: firstPlayableCompleter.future,
+      allSuccessful: allSuccessful,
+    );
+  }
+
   /// Waits for all providers and returns their combined usable streams.
   /// Use [startLoadingAllSuccessful] when the player should start from the
   /// first usable provider without waiting for slower alternatives.
