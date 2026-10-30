@@ -724,6 +724,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   ProviderAttempt _tagProviderAttempt(ProviderAttempt attempt) {
     final providerName = attempt.provider.displayName;
     final links = (attempt.result.videoLinks ?? const <RegularVideoLinks>[])
+        .where((link) => link.url?.trim().isNotEmpty == true)
         .map(
           (link) => RegularVideoLinks(
             url: link.url,
