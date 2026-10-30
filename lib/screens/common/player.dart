@@ -4161,6 +4161,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   /// resolve the current provider again and carry on from [position]. The
   /// playback error shows only if this fails too.
   Future<bool> _refreshCurrentProviderSource(Duration? position) async {
+    // The media pipeline can request source recovery for a transient exception
+    // even while decoded frames continue. Treat advancing playback as already
+    // recovered; don't replace a healthy English stream with another provider.
+    if (await _isCurrentPlaybackProgressing()) {
+      debugPrint(
+        '[Player][Recovery] Source refresh skipped; active stream is healthy.',
+      );
+      return true;
+    }
+    if (!mounted || _adBlockStopped) return false;
     final providerCode = _currentProviderCode;
     final known = widget.availableProviders
             ?.any((provider) => provider.codeName == providerCode) ==
@@ -4460,18 +4470,35 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         (!expectPlaying || value.isPlaying || value.position > Duration.zero);
   }
 
-  Future<void> _recoverFromPlaybackFailure(String reason) async {
-    if (_automaticFallbackRunning || !mounted || _adBlockStopped) return;
-
-    // BetterPlayer can emit a transient exception while the active stream is
-    // still healthy. Capture progress before allowing its own retry/recovery
-    // window; never punish a provider if playback continues normally.
+  Future<bool> _isCurrentPlaybackProgressing() async {
     final initialValue =
         _betterPlayerController.videoPlayerController?.value;
-    if (initialValue == null) return;
+    if (initialValue == null) return false;
     final initialPosition = initialValue.position;
 
     await Future<void>.delayed(const Duration(milliseconds: 1800));
+    if (!mounted || _adBlockStopped) return false;
+
+    final value = _betterPlayerController.videoPlayerController?.value;
+    return value != null &&
+        value.isPlaying &&
+        !value.isBuffering &&
+        value.position - initialPosition >=
+            const Duration(milliseconds: 700);
+  }
+
+  Future<void> _recoverFromPlaybackFailure(String reason) async {
+    if (_automaticFallbackRunning || !mounted || _adBlockStopped) return;
+
+    // A transient player exception is not a failed stream if playback keeps
+    // advancing. Confirm actual playback failure before trying another source.
+    if (await _isCurrentPlaybackProgressing()) {
+      debugPrint(
+        '[Player][Recovery] Ignoring transient exception; active stream '
+        'continued progressing.',
+      );
+      return;
+    }
     if (!mounted || _adBlockStopped || _automaticFallbackRunning) return;
 
     final value = _betterPlayerController.videoPlayerController?.value;
@@ -4479,16 +4506,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         !value.hasError ||
         value.isBuffering ||
         !value.isNetworkAvailable) {
-      return;
-    }
-
-    final playbackAdvanced =
-        value.position - initialPosition >= const Duration(milliseconds: 700);
-    if (value.isPlaying && playbackAdvanced) {
-      debugPrint(
-        '[Player][Recovery] Ignoring transient exception; playback is '
-        'healthy (advanced: ' + (value.position - initialPosition).toString() + ').',
-      );
       return;
     }
 
