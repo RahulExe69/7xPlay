@@ -84,6 +84,45 @@ void main() {
   );
 
   test(
+    'retries one transient expansion failure before reporting a provider',
+    () async {
+      var expansionCalls = 0;
+      final finalResults = <ProviderLoadResult>[];
+      final session = ProviderLoader.startFastThenExpand(
+        providers: providers.take(1).toList(),
+        loadFast: (_) async => playableResult(),
+        loadExpanded: (_, __) async {
+          expansionCalls++;
+          if (expansionCalls == 1) {
+            return const ProviderLoadResult(
+              errorMessage: 'HTTP 503 Service Unavailable',
+            );
+          }
+          return ProviderLoadResult(
+            success: true,
+            videoLinks: [
+              RegularVideoLinks(
+                url: 'https://example.com/recovered-expanded.m3u8',
+                audioLanguage: 'hi',
+              ),
+            ],
+          );
+        },
+        onFinalResult: (_, __, result) => finalResults.add(result),
+      );
+
+      final first = await session.firstPlayable;
+      final combined = await session.allSuccessful;
+
+      expect(first?.hasPlayableSources, isTrue);
+      expect(expansionCalls, 2);
+      expect(combined?.result.videoLinks?.single.url,
+          'https://example.com/recovered-expanded.m3u8');
+      expect(finalResults.single.success, isTrue);
+    },
+  );
+
+  test(
     'starts the player before waiting for background stream expansion',
     () async {
       final expansion = Completer<ProviderLoadResult>();
