@@ -3,11 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('PreferredAudioLanguagePolicy', () {
-    test('prefers Hindi dub over English original when available', () {
+    test('prefers the title original language over available dubs', () {
       expect(
         PreferredAudioLanguagePolicy.select(
-          availableLanguageLabels: ['English', 'Hindi'],
+          availableLanguageLabels: ['English', 'Hindi', 'Urdu'],
           originalLanguage: 'en',
+        ),
+        'en',
+      );
+    });
+
+    test('uses Hindi when the original-language track is unavailable', () {
+      expect(
+        PreferredAudioLanguagePolicy.select(
+          availableLanguageLabels: ['Hindi', 'English'],
+          originalLanguage: 'ja',
         ),
         'hi',
       );
@@ -20,6 +30,16 @@ void main() {
           originalLanguage: 'en',
         ),
         'ur',
+      );
+    });
+
+    test('keeps a Hindi original ahead of another dub', () {
+      expect(
+        PreferredAudioLanguagePolicy.select(
+          availableLanguageLabels: ['Hindi', 'Urdu', 'English'],
+          originalLanguage: 'hi',
+        ),
+        'hi',
       );
     });
 

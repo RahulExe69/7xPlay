@@ -1,8 +1,8 @@
 import 'language_names.dart';
 
 /// Chooses a sensible default audio track without assuming every title is
-/// English. Hindi/Urdu dubs are preferred, but a Hindi/Urdu original stays
-/// ahead of another dub.
+/// English. Prefer the title's TMDB original language whenever the source
+/// exposes it. Hindi/Urdu are fallback preferences when that original is absent.
 abstract final class PreferredAudioLanguagePolicy {
   static const List<String> _preferredDubOrder = <String>['hi', 'ur'];
 
@@ -17,9 +17,7 @@ abstract final class PreferredAudioLanguagePolicy {
     if (available.isEmpty) return null;
 
     final original = languageCodeForLabel(originalLanguage);
-    if ((original == 'hi' || original == 'ur') && available.contains(original)) {
-      return original;
-    }
+    if (original != null && available.contains(original)) return original;
 
     for (final preferred in _preferredDubOrder) {
       if (available.contains(preferred)) return preferred;
