@@ -220,6 +220,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
 
       ProviderSelection? selection;
       Future<ProviderSelection?>? backgroundProviderSelection;
+      Stream<ProviderAttempt>? backgroundProviderAttempts;
       if (widget.download) {
         final provider = selectedDownloadProvider;
         if (provider == null) return;
@@ -238,6 +239,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           );
         }
         backgroundProviderSelection = session.allSuccessful;
+        backgroundProviderAttempts = session.providerAttempts;
       }
 
       if (!mounted) return;
@@ -338,6 +340,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
               eligibleProviderCodes: eligibleProviderCodes,
               selectedAudioLanguageCode: selectedAudioLanguageCode,
               backgroundProviderSelection: backgroundProviderSelection,
+              backgroundProviderAttempts: backgroundProviderAttempts,
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               onEpisodeChange: (episodeId, episodeNumber, seasonNumber) async {
