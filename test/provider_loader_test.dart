@@ -37,7 +37,14 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(allCompleted, isFalse);
 
-    slowResult.complete(playableResult());
+    slowResult.complete(
+      ProviderLoadResult(
+        success: true,
+        videoLinks: [
+          RegularVideoLinks(url: 'https://example.com/alternative.m3u8'),
+        ],
+      ),
+    );
     final combined = await session.allSuccessful;
     expect(combined?.attempts, hasLength(2));
     expect(combined?.result.videoLinks, hasLength(2));
