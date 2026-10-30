@@ -59,6 +59,27 @@ abstract final class ProviderAudioLanguageCache {
     return Set<String>.unmodifiable(value.languages);
   }
 
+  static Future<void> invalidate({
+    required String providerCode,
+    required RegularVideoLinks link,
+  }) {
+    final fingerprint = _fingerprint(providerCode, link);
+    final operation = _writes.then((_) async {
+      final cache = await _load();
+      if (cache.remove(fingerprint) == null) return;
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(
+        _storageKey,
+        jsonEncode({
+          for (final entry in cache.entries)
+            entry.key: entry.value.toJson(),
+        }),
+      );
+    });
+    _writes = operation.catchError((Object _) {});
+    return operation;
+  }
+
   static Future<void> write({
     required String providerCode,
     required RegularVideoLinks link,
