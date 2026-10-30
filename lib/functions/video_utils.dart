@@ -168,6 +168,33 @@ class VideoUtils {
     return tokens;
   }
 
+  static Map<String, String> convertVideoAudioLanguagesToMap(
+    List<RegularVideoLinks> vids,
+  ) {
+    final languages = <String, String>{};
+    final keys = _videoSourceKeys(vids);
+    for (var index = 0; index < vids.length; index++) {
+      final language = vids[index].audioLanguage?.trim();
+      if (language != null && language.isNotEmpty) {
+        languages[keys[index]] = language;
+      }
+    }
+    return languages;
+  }
+
+  static Map<String, String> convertVideoProviderCodesToMap(
+    List<RegularVideoLinks> vids, {
+    String? defaultProviderCode,
+  }) {
+    final providers = <String, String>{};
+    final keys = _videoSourceKeys(vids);
+    for (var index = 0; index < vids.length; index++) {
+      final code = vids[index].providerCode ?? defaultProviderCode;
+      if (code != null && code.isNotEmpty) providers[keys[index]] = code;
+    }
+    return providers;
+  }
+
   /// Build stable display keys without collapsing same-quality links returned
   /// by different servers. All source metadata maps use this same key list so
   /// URLs, formats, and headers remain aligned.

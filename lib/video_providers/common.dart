@@ -7,6 +7,7 @@ class RegularVideoLinks {
   Map<String, String>? headers;
   String? sizeToken;
   String? audioLanguage;
+  String? providerCode;
 
   RegularVideoLinks({
     this.url,
@@ -17,6 +18,7 @@ class RegularVideoLinks {
     this.headers,
     this.sizeToken,
     this.audioLanguage,
+    this.providerCode,
   });
 
   RegularVideoLinks.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,7 @@ class RegularVideoLinks {
     final rawAudioLanguage =
         json['audioLanguage'] ?? json['audio_language'] ?? json['language'] ?? json['lang'];
     audioLanguage = rawAudioLanguage is String ? rawAudioLanguage : null;
+    providerCode = json['providerCode']?.toString();
     final rawHeaders = json['headers'];
     if (rawHeaders is Map) {
       headers = {
