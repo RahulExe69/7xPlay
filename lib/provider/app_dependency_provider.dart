@@ -12,6 +12,51 @@ import '../models/banner_ads_config.dart';
 import '../models/adsterra_playback_ads_config.dart';
 import '../models/vast_preroll_config.dart';
 
+/// Keeps old releases from pinning the app to retired FlixQuest scraper hosts.
+/// The current upstream v2 service is https://scraper.flix.quest.
+abstract final class ScraperEndpointConfig {
+  static const Set<String> _retiredHosts = {
+    'scraper-1.flixquest.app',
+    'scraper-2.flixquest.app',
+    'scraper-1.flix.quest',
+    'scraper-2.flix.quest',
+    'flixquest-scraper.onrender.com',
+    'flixquest-scraper-2.onrender.com',
+    'flixquest-api.vercel.app',
+  };
+
+  static String resolve(String value, {required String fallback}) {
+    final candidate = value.trim();
+    final safeFallback = fallback.trim();
+    if (candidate.isEmpty) return safeFallback;
+
+    final uri = Uri.tryParse(candidate);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        !const {'http', 'https'}.contains(uri.scheme.toLowerCase())) {
+      return safeFallback;
+    }
+
+    if (_retiredHosts.contains(uri.host.toLowerCase())) {
+      return safeFallback;
+    }
+    return candidate;
+  }
+
+  static List<String> resolveInstances(
+    Iterable<String> values, {
+    required String fallback,
+  }) {
+    final resolved = <String>{};
+    for (final value in values) {
+      final endpoint = resolve(value, fallback: fallback).trim();
+      if (endpoint.isNotEmpty) resolved.add(endpoint);
+    }
+    return List<String>.unmodifiable(resolved);
+  }
+}
+
 class AppDependencyProvider extends ChangeNotifier {
   final AppDependencies _preferences = AppDependencies();
   final math.Random _random = math.Random();
@@ -406,18 +451,36 @@ class AppDependencyProvider extends ChangeNotifier {
   }
 
   Future<void> getFQUrl() async {
-    final instances = await _preferences.getFQInstances();
-    final url = await _preferences.getFQURL();
-    _flixquestApiInstances = instances
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList(growable: false);
-    _flixquestAPIUrl = url.trim().isNotEmpty ? url.trim() : flixquestApiUrl;
+    final storedUrl = await _preferences.getFQURL();
+    final resolvedUrl = ScraperEndpointConfig.resolve(
+      storedUrl,
+      fallback: flixquestApiUrl,
+    );
+    final storedInstances = await _preferences.getFQInstances();
+    final resolvedInstances = ScraperEndpointConfig.resolveInstances(
+      storedInstances,
+      fallback: resolvedUrl,
+    );
+
+    _flixquestAPIUrl = resolvedUrl;
+    _flixquestApiInstances = resolvedInstances;
+
+    // Migrate persisted values too, otherwise a stale saved instance can keep
+    // overriding the corrected .env default after every app restart.
+    if (storedUrl.trim() != resolvedUrl) {
+      await _preferences.setFlixquestAPIUrl(resolvedUrl);
+    }
+    if (!listEquals(storedInstances, resolvedInstances)) {
+      await _preferences.setFlixquestAPIInstances(resolvedInstances);
+    }
     notifyListeners();
   }
 
   set flixquestAPIURL(String value) {
-    final normalized = value.trim().isEmpty ? flixquestApiUrl : value.trim();
+    final normalized = ScraperEndpointConfig.resolve(
+      value,
+      fallback: flixquestApiUrl,
+    );
     if (_flixquestAPIUrl == normalized) return;
     _flixquestAPIUrl = normalized;
     _preferences.setFlixquestAPIUrl(normalized);
@@ -425,10 +488,10 @@ class AppDependencyProvider extends ChangeNotifier {
   }
 
   set flixquestAPIInstances(List<String> values) {
-    final normalized = values
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList(growable: false);
+    final normalized = ScraperEndpointConfig.resolveInstances(
+      values,
+      fallback: configuredFlixquestAPIURL,
+    );
     if (listEquals(_flixquestApiInstances, normalized)) return;
     _flixquestApiInstances = normalized;
     _preferences.setFlixquestAPIInstances(normalized);
@@ -440,28 +503,27 @@ class AppDependencyProvider extends ChangeNotifier {
     String? url,
   }) {
     var changed = false;
+    final resolvedUrl = url == null
+        ? _flixquestAPIUrl
+        : ScraperEndpointConfig.resolve(url, fallback: flixquestApiUrl);
+    if (url != null && _flixquestAPIUrl != resolvedUrl) {
+      _flixquestAPIUrl = resolvedUrl;
+      _preferences.setFlixquestAPIUrl(resolvedUrl);
+      changed = true;
+    }
+
     if (instances != null) {
-      final normalizedInstances = instances
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(growable: false);
+      final normalizedInstances = ScraperEndpointConfig.resolveInstances(
+        instances,
+        fallback: resolvedUrl,
+      );
       if (!listEquals(_flixquestApiInstances, normalizedInstances)) {
         _flixquestApiInstances = normalizedInstances;
         _preferences.setFlixquestAPIInstances(normalizedInstances);
         changed = true;
       }
     }
-    if (url != null) {
-      final normalizedUrl = url.trim().isEmpty ? flixquestApiUrl : url.trim();
-      if (_flixquestAPIUrl != normalizedUrl) {
-        _flixquestAPIUrl = normalizedUrl;
-        _preferences.setFlixquestAPIUrl(normalizedUrl);
-        changed = true;
-      }
-    }
-    if (changed) {
-      notifyListeners();
-    }
+    if (changed) notifyListeners();
   }
 
   Future<void> getFlixQuestLogo() async {
