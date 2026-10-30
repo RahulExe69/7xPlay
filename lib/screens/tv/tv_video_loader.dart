@@ -158,6 +158,12 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
   Future<void> loadVideo() async {
     if (!mounted) return;
     try {
+      // Fetch non-blocking episode metadata and local watch history while
+      // the scraper provider directory is being resolved.
+      final seasonEpisodesFetch =
+          widget.download ? null : _fetchSeasonEpisodes();
+      final bookmarkedFuture = recentlyWatchedEpisodeController
+          .contain(widget.metadata.episodeId!);
       await _loadProviders();
       VideoProvider? selectedDownloadProvider;
       if (widget.download) {
@@ -183,14 +189,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           );
         });
       }
-      // The player's episode list is not needed until it opens, so fetch it
-      // alongside source loading instead of in front of it. Downloads never
-      // open the player.
-      final seasonEpisodesFetch =
-          widget.download ? null : _fetchSeasonEpisodes();
-
-      var isBookmarked = await recentlyWatchedEpisodeController
-          .contain(widget.metadata.episodeId!);
+      final isBookmarked = await bookmarkedFuture;
       int elapsed = 0;
       if (isBookmarked) {
         if (mounted) {
