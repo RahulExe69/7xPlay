@@ -3746,6 +3746,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     var languageTrackUnavailable = false;
     try {
       await _betterPlayerController.pause();
+      // A manual retry after a provider failure must request fresh links,
+      // rather than reusing the exact URL that just failed automatically.
+      if (!reload && _providerErrors.containsKey(providerCode)) {
+        _loadedProviders.remove(providerCode);
+        _providerResults.remove(providerCode);
+      }
       var source = _loadedProviders[providerCode];
       if (source == null) {
         final provider = widget.availableProviders!.firstWhere(
