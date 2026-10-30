@@ -262,6 +262,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _audioLanguageExplicitlySelected = false;
   bool _manifestAudioExplicitlySelected = false;
   bool _audioLanguageDiscoveryRunning = false;
+  // A single adaptive manifest may expose several languages. Keep the
+  // language-to-source relationship many-to-many instead of forcing one
+  // language label onto each provider URL.
+  final Map<String, Set<String>> _discoveredAudioSourceKeysByLanguage = {};
+  final Map<String, int> _audioSourceFailureCounts = {};
+  final Map<String, int> _providerFailureCounts = {};
   final Map<String, int?> _streamSizeCacheByToken = {};
   final Set<String> _loadingProviders =
       {}; // Track which providers are being loaded
@@ -716,17 +722,33 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     setState(() {
       for (final attempt in selection?.attempts ?? const <ProviderAttempt>[]) {
         final code = attempt.provider.codeName;
-        if (!_loadedProviderAttempts.any(
+        final existingAttemptIndex = _loadedProviderAttempts.indexWhere(
           (loaded) => loaded.provider.codeName == code,
-        )) {
+        );
+        if (existingAttemptIndex < 0) {
           _loadedProviderAttempts.add(attempt);
+        } else {
+          // Replace the first-response snapshot with the final expanded
+          // result. Fallback must see every recovered server and language.
+          _loadedProviderAttempts[existingAttemptIndex] = attempt;
         }
         _loadingProviders.remove(code);
         if (!attempt.hasPlayableSources) {
+          _providerFailureCounts.update(
+            code,
+            (count) => count + 1,
+            ifAbsent: () => 1,
+          );
           _providerErrors[code] = _providerFailureSummary(attempt.result);
           continue;
         }
         _providerErrors.remove(code);
+        final recoveredFailures = _providerFailureCounts[code] ?? 0;
+        if (recoveredFailures <= 1) {
+          _providerFailureCounts.remove(code);
+        } else {
+          _providerFailureCounts[code] = recoveredFailures - 1;
+        }
         // Replace the first-response snapshot with the expanded collection
         // when it arrives; retaining the old value would hide alternate audio
         // sources discovered by the background request.
@@ -767,41 +789,41 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     try {
       final discovery = await UnifiedPlaybackLanguageService.discover(
         selection.attempts,
-        candidatesPerProvider: 2,
-        concurrency: 4,
-        probeTimeout: const Duration(seconds: 5),
+        // Every server/manifest matters: the same provider may expose different
+        // languages on different servers, and one manifest may contain several
+        // audio renditions. This work is post-start and runs concurrently.
+        candidatesPerProvider: null,
+        concurrency: 8,
+        probeTimeout: const Duration(seconds: 6),
       );
       if (!mounted || _adBlockStopped) return;
 
       final links = selection.result.videoLinks ?? const <RegularVideoLinks>[];
       if (links.isEmpty) return;
-      final enrichedLinks = <RegularVideoLinks>[
-        for (final link in links)
-          RegularVideoLinks(
-            url: link.url,
-            quality: link.quality,
-            server: link.server,
-            isM3U8: link.isM3U8,
-            isDash: link.isDash,
-            headers: link.headers == null ? null : Map.of(link.headers!),
-            sizeToken: link.sizeToken,
-            audioLanguage: link.audioLanguage ??
-                (link.providerCode == null
-                    ? null
-                    : discovery.languageCodeForLink(
-                        link,
-                        link.providerCode!,
-                      )),
-            providerCode: link.providerCode,
-          ),
-      ];
-      final discoveredLanguages = VideoUtils.reverseVideoQualityMap(
-        VideoUtils.convertVideoAudioLanguagesToMap(enrichedLinks),
-      );
-      if (discoveredLanguages.isEmpty) return;
+      final sourceKeys =
+          VideoUtils.convertVideoLinksToMap(links).keys.toList(growable: false);
+      final sourceKeysByLanguage = <String, Set<String>>{};
+      for (var index = 0; index < links.length; index++) {
+        final link = links[index];
+        final providerCode = link.providerCode;
+        if (providerCode == null || index >= sourceKeys.length) continue;
+        for (final languageCode in discovery.languageCodesForLink(
+          link,
+          providerCode,
+        )) {
+          sourceKeysByLanguage
+              .putIfAbsent(languageCode, () => <String>{})
+              .add(sourceKeys[index]);
+        }
+      }
+      if (sourceKeysByLanguage.isEmpty) return;
 
       setState(() {
-        _allVideoAudioLanguages.addAll(discoveredLanguages);
+        for (final entry in sourceKeysByLanguage.entries) {
+          _discoveredAudioSourceKeysByLanguage
+              .putIfAbsent(entry.key, () => <String>{})
+              .addAll(entry.value);
+        }
       });
       _audioLanguageSheetRefresh?.call();
       _maybeAutoSwitchToPreferredAudioSource();
@@ -828,14 +850,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (!_audioLanguageExplicitlySelected) return true;
     final selected = _activeAudioLanguageCode;
     if (selected == null) return true;
+    final discoveredProviders = (_audioSourceKeysByLanguage[selected] ??
+            const <String>[])
+        .map((key) => _allVideoProviderCodes[key])
+        .whereType<String>()
+        .toSet();
+    if (discoveredProviders.contains(providerCode)) return true;
+
     final codes = (_rawVideoLinksByProvider[providerCode] ??
             const <RegularVideoLinks>[])
         .map((link) => languageCodeForLabel(link.audioLanguage))
         .whereType<String>()
         .toSet();
-    // Unlabelled sources may still expose the selected rendition in their
-    // manifest; reject only providers whose explicit labels conflict.
-    return codes.isEmpty || codes.contains(selected);
+    // Do not guess for a manually selected language. An unlabelled provider
+    // is eligible only after manifest discovery has positively mapped it to
+    // the selected language above.
+    return codes.contains(selected);
   }
 
   bool _applyPreferredAudioTrack() {
@@ -867,7 +897,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           .map((link) => languageCodeForLabel(link.audioLanguage))
           .whereType<String>()
           .toSet();
-      return knownCodes.isEmpty || knownCodes.contains(selected);
+      return knownCodes.contains(selected);
     }
     for (var index = 0; index < tracks.length; index++) {
       final track = tracks[index];
@@ -879,6 +909,21 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         return true;
       }
     }
+    final nativeTrackCodes = tracks
+        .map(
+          (track) =>
+              languageCodeForLabel(track.language) ??
+              languageCodeForLabel(track.label),
+        )
+        .whereType<String>()
+        .toSet();
+    // When the manifest exposes explicit language IDs, they take precedence
+    // over a possibly broad provider label. A manual language choice must not
+    // silently continue with a different native rendition.
+    if (nativeTrackCodes.isNotEmpty) {
+      return nativeTrackCodes.contains(selected) ||
+          !_audioLanguageExplicitlySelected;
+    }
     final providerCode = _currentProviderCode;
     final knownCodes = (providerCode == null
             ? const <RegularVideoLinks>[]
@@ -887,8 +932,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         .whereType<String>()
         .toSet();
     if (knownCodes.contains(selected)) return true;
-    // English is a best-effort startup default. Never interrupt a stream just
-    // because its default track cannot be verified as English.
+    // Unlabelled adaptive sources remain best-effort for automatic defaults,
+    // but an explicit selection is a hard constraint.
     return !_audioLanguageExplicitlySelected;
   }
 
@@ -3092,13 +3137,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Map<String, List<String>> get _audioSourceKeysByLanguage {
-    final grouped = <String, List<String>>{};
+    final grouped = <String, Set<String>>{};
     for (final entry in _allVideoAudioLanguages.entries) {
       final code = languageCodeForLabel(entry.value);
       if (code == null) continue;
-      grouped.putIfAbsent(code, () => <String>[]).add(entry.key);
+      grouped.putIfAbsent(code, () => <String>{}).add(entry.key);
     }
-    return grouped;
+    // One adaptive source may provide English, Hindi, Bengali, and other
+    // native audio renditions simultaneously. Include that same source under
+    // every language it actually advertises.
+    for (final entry in _discoveredAudioSourceKeysByLanguage.entries) {
+      grouped.putIfAbsent(entry.key, () => <String>{}).addAll(entry.value);
+    }
+    return {
+      for (final entry in grouped.entries)
+        entry.key: entry.value.toList(growable: false),
+    };
   }
 
   // The action must remain reachable even when providers omit language
@@ -3137,9 +3191,25 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (!mounted || _isSwitchingProvider) return;
     try {
       _betterPlayerController.setAudioTrack(track);
+      final currentUrl =
+          _betterPlayerController.betterPlayerDataSource?.url.trim();
+      final currentSourceKeys = currentUrl == null
+          ? const <String>[]
+          : _allVideoSources.entries
+              .where((entry) => entry.value == currentUrl)
+              .map((entry) => entry.key)
+              .toList(growable: false);
+      if (languageCode != null && currentSourceKeys.isNotEmpty) {
+        _discoveredAudioSourceKeysByLanguage
+            .putIfAbsent(languageCode, () => <String>{})
+            .addAll(currentSourceKeys);
+      }
       setState(() {
         _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
-        if (languageCode != null) _activeAudioLanguageCode = languageCode;
+        if (languageCode != null) {
+          _activeAudioLanguageCode = languageCode;
+          _audioLanguageExplicitlySelected = true;
+        }
         _manifestAudioExplicitlySelected = true;
       });
       _audioLanguageSheetRefresh?.call();
@@ -3166,8 +3236,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             if (sheetContext.mounted) setSheetState(() {});
           };
           final options = _audioSourceKeysByLanguage;
-          final manifestTracks =
+          final activeManifestTracks =
               _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+          // Once a language has been added to the cross-provider catalogue,
+          // do not show it again as a duplicate "current stream" track.
+          final manifestTracks = activeManifestTracks.where((track) {
+            final code = languageCodeForLabel(track.language) ??
+                languageCodeForLabel(track.label);
+            return code == null || !options.containsKey(code);
+          }).toList(growable: false);
           final waiting = _backgroundProviderAggregationPending ||
               _audioLanguageDiscoveryRunning;
           final showEmptyState =
@@ -3238,22 +3315,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     final code = options.keys.elementAt(sourceIndex);
                     final keys = options[code]!;
                     final selected = code == _activeAudioLanguageCode;
-                    final providerCodes = keys
-                        .map((key) => _allVideoProviderCodes[key])
-                        .whereType<String>()
-                        .toSet();
                     return PlayerChoiceCard(
                       kicker: selected ? tr('player_now_playing') : null,
                       title: languageNameForCode(code),
                       selected: selected,
+                      // Count compatible stream entries, not distinct
+                      // provider names: one provider can expose several
+                      // independent server/source choices for this language.
                       subtitle: tr(
                         'player_audio_language_source_count',
-                        namedArgs: {
-                          'count': (providerCodes.isEmpty
-                                  ? keys.length
-                                  : providerCodes.length)
-                              .toString(),
-                        },
+                        namedArgs: {'count': keys.length.toString()},
                       ),
                       trailing: selected
                           ? Icon(
@@ -3266,7 +3337,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                           : () {
                               _audioLanguageSheetRefresh = null;
                               Navigator.pop(sheetContext);
-                              unawaited(_switchToAudioLanguage(code, keys));
+                              unawaited(_switchToAudioLanguage(code, keys).then<void>((_) {}));
                             },
                     );
                   }
@@ -3293,9 +3364,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                   return const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                     child: Text(
-                      'No alternate audio tracks were detected for this stream. '
-                      'Try another provider or stream quality; some sources expose '
-                      'only one audio track.',
+                      'No labelled audio alternatives were found across the '
+                      'available providers. Some streams expose only one track.',
                     ),
                   );
                 },
@@ -3326,57 +3396,193 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (preferred == null) return;
 
     final preferredKeys = _audioSourceKeysByLanguage[preferred];
+    final currentManifestTracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    for (var index = 0; index < currentManifestTracks.length; index++) {
+      final track = currentManifestTracks[index];
+      final code = languageCodeForLabel(track.language) ??
+          languageCodeForLabel(track.label);
+      if (code == preferred) {
+        // The currently playing provider already contains the requested
+        // original-language rendition. Switch the native track in-place
+        // instead of rebuilding a perfectly healthy stream.
+        _betterPlayerController.setAudioTrack(track);
+        _activeAudioLanguageCode = preferred;
+        _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
+        return;
+      }
+    }
     if (preferredKeys == null || preferredKeys.isEmpty) return;
 
-    final preferredIsAlreadyActive = _activeVideoAudioLanguages.values.any(
-      (label) => languageCodeForLabel(label) == preferred,
-    );
+    final currentSourceUrl =
+        _betterPlayerController.betterPlayerDataSource?.url;
+    final preferredIsAlreadyActive = currentSourceUrl != null &&
+        _activeSources.entries.any(
+          (entry) =>
+              entry.value == currentSourceUrl &&
+              languageCodeForLabel(_activeVideoAudioLanguages[entry.key]) ==
+                  preferred,
+        );
     if (preferredIsAlreadyActive) {
       _activeAudioLanguageCode = preferred;
       return;
     }
-    if (_activeAudioLanguageCode == preferred) return;
+    // The preferred language may already be recorded as the current
+    // selection even though the active provider has no source for it. Do not
+    // short-circuit here; the source catalogue below decides whether a switch
+    // is still required.
 
     unawaited(
       _switchToAudioLanguage(
         preferred,
         preferredKeys,
         userInitiated: false,
-      ),
+      ).then<void>((_) {}),
     );
   }
 
-  Future<void> _switchToAudioLanguage(
+  List<String> _orderedAudioSourceKeys(List<String> sourceKeys) {
+    final candidates = sourceKeys
+        .where((key) => _allVideoSources.containsKey(key))
+        .toSet()
+        .toList(growable: false);
+    if (candidates.length < 2) return candidates;
+
+    final candidateSources = <String, String>{
+      for (final key in candidates) key: _allVideoSources[key]!,
+    };
+    final preferred = VideoUtils.preferredVideoSource(
+      candidateSources,
+      widget.settings.defaultVideoResolution,
+    )?.key;
+    final qualityOrder = <String>[
+      if (preferred != null) preferred,
+      ...candidates.where((key) => key != preferred),
+    ];
+    final qualityRank = {
+      for (var index = 0; index < qualityOrder.length; index++)
+        qualityOrder[index]: index,
+    };
+
+    // Prefer sources/providers that have not just failed in this playback
+    // session, while keeping the user's resolution preference as the tie-break.
+    qualityOrder.sort((left, right) {
+      final leftProvider = _allVideoProviderCodes[left];
+      final rightProvider = _allVideoProviderCodes[right];
+      final leftScore = (_audioSourceFailureCounts[left] ?? 0) * 100 +
+          (leftProvider == null ? 0 : (_providerFailureCounts[leftProvider] ?? 0) * 20) +
+          (qualityRank[left] ?? 0);
+      final rightScore = (_audioSourceFailureCounts[right] ?? 0) * 100 +
+          (rightProvider == null ? 0 : (_providerFailureCounts[rightProvider] ?? 0) * 20) +
+          (qualityRank[right] ?? 0);
+      return leftScore.compareTo(rightScore);
+    });
+    return qualityOrder;
+  }
+
+  void _recordAudioSourceFailure(String sourceKey, Object error) {
+    _audioSourceFailureCounts.update(
+      sourceKey,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+    final providerCode = _allVideoProviderCodes[sourceKey];
+    if (providerCode != null) {
+      _providerFailureCounts.update(
+        providerCode,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    debugPrint(
+      '[Player][AudioFailover] Source failed key=$sourceKey '
+      'provider=${providerCode ?? 'unknown'} error=$error',
+    );
+  }
+
+  void _recordAudioSourceSuccess(String sourceKey) {
+    final sourceFailures = _audioSourceFailureCounts[sourceKey] ?? 0;
+    if (sourceFailures <= 1) {
+      _audioSourceFailureCounts.remove(sourceKey);
+    } else {
+      _audioSourceFailureCounts[sourceKey] = sourceFailures - 1;
+    }
+    final providerCode = _allVideoProviderCodes[sourceKey];
+    if (providerCode != null) {
+      final providerFailures = _providerFailureCounts[providerCode] ?? 0;
+      if (providerFailures <= 1) {
+        _providerFailureCounts.remove(providerCode);
+      } else {
+        _providerFailureCounts[providerCode] = providerFailures - 1;
+      }
+    }
+  }
+
+  Future<bool> _waitForPreferredAudioTrack({
+    required String sourceKey,
+    required String languageCode,
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    final providerLanguage =
+        languageCodeForLabel(_allVideoAudioLanguages[sourceKey]);
+    do {
+      if (!mounted || _adBlockStopped) return false;
+      final tracks =
+          _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+      if (tracks.isNotEmpty && _applyPreferredAudioTrack()) return true;
+      // A source explicitly labelled with the requested language can be used
+      // when the manifest has no separate track list (e.g. progressive files).
+      // For a language learned from an adaptive manifest, keep waiting for the
+      // native track list rather than accepting the player's default track.
+      if (tracks.isEmpty && providerLanguage == languageCode) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    } while (DateTime.now().isBefore(deadline));
+    final tracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+    return providerLanguage == languageCode;
+  }
+
+  Future<bool> _waitForProviderAudioLanguage(
+    Iterable<String> declaredLanguageLabels, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final selected = _activeAudioLanguageCode;
+    if (selected == null) return _applyPreferredAudioTrack();
+
+    final deadline = DateTime.now().add(timeout);
+    do {
+      if (!mounted || _adBlockStopped) return false;
+      final tracks =
+          _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+      if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    } while (DateTime.now().isBefore(deadline));
+
+    final tracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+
+    // Progressive sources may not expose a separate native audio-track list.
+    // Trust explicit provider language metadata only after allowing adaptive
+    // manifests time to publish their real track list.
+    return declaredLanguageLabels
+        .map(languageCodeForLabel)
+        .whereType<String>()
+        .contains(selected);
+  }
+
+  Future<bool> _switchToAudioLanguage(
     String languageCode,
     List<String> sourceKeys, {
     bool userInitiated = true,
+    bool preserveExplicitSelection = false,
   }) async {
-    if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return;
-    final keySet = sourceKeys.toSet();
-    final sources = <String, String>{
-      for (final entry in _allVideoSources.entries)
-        if (keySet.contains(entry.key)) entry.key: entry.value,
-    };
-    if (sources.isEmpty) return;
-    final allFormats =
-        _allVideoFormats ?? const <String, BetterPlayerVideoFormat?>{};
-    final formats = <String, BetterPlayerVideoFormat?>{
-      for (final entry in allFormats.entries)
-        if (keySet.contains(entry.key)) entry.key: entry.value,
-    };
-    final headers = <String, Map<String, String>>{
-      for (final entry in _allVideoHeaders.entries)
-        if (keySet.contains(entry.key)) entry.key: entry.value,
-    };
-    final sizeTokens = <String, String>{
-      for (final entry in _allVideoSizeTokens.entries)
-        if (keySet.contains(entry.key)) entry.key: entry.value,
-    };
-    final preferred = VideoUtils.preferredVideoSource(
-      sources,
-      widget.settings.defaultVideoResolution,
-    );
-    if (preferred == null) return;
+    if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return false;
+    final orderedKeys = _orderedAudioSourceKeys(sourceKeys);
+    if (orderedKeys.isEmpty) return false;
+
     final position = _betterPlayerController
             .videoPlayerController?.value.position ??
         Duration.zero;
@@ -3389,80 +3595,180 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final previousManifestSelection = _manifestAudioExplicitlySelected;
     final previousManifestTrackKey = _activeManifestAudioTrackKey;
     final previousProviderCode = _currentProviderCode;
-    final providerCode = _allVideoProviderCodes[preferred.key];
+    Object? lastError;
+
     setState(() => _isSwitchingProvider = true);
-    try {
-      await _betterPlayerController.pause();
-      _activeAudioLanguageCode = languageCode;
-      _audioLanguageExplicitlySelected = userInitiated;
-      _manifestAudioExplicitlySelected = false;
-      _activeManifestAudioTrackKey = null;
-      await _betterPlayerController.setupDataSource(
-        _buildDataSource(
-          sources: sources,
-          subtitles: _activeSubtitles,
-          videoFormats: formats,
-          videoHeaders: headers,
-          audioLanguages: _allVideoAudioLanguages,
-        ),
-        initialPosition: position,
-      );
-      if (!mounted || _adBlockStopped) return;
-      _applyPreferredAdaptiveQuality();
-      if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
-        throw TimeoutException(tr('provider_playback_failed'));
+    _activeAudioLanguageCode = languageCode;
+    _audioLanguageExplicitlySelected =
+        userInitiated || preserveExplicitSelection;
+    _manifestAudioExplicitlySelected = false;
+    _activeManifestAudioTrackKey = null;
+
+    for (final key in orderedKeys) {
+      if (!mounted) return false;
+      if (_adBlockStopped) {
+        setState(() => _isSwitchingProvider = false);
+        return false;
       }
-      if (providerCode != null) _currentProviderCode = providerCode;
-      if (!_applyPreferredAudioTrack()) {
-        throw StateError(tr('provider_language_unavailable'));
-      }
-      if (!wasPlaying) await _betterPlayerController.pause();
-      setState(() {
-        _activeSources = sources;
-        _activeVideoFormats = formats;
-        _activeVideoHeaders = headers;
-        _activeVideoSizeTokens = sizeTokens;
-        _activeVideoAudioLanguages = {
-          for (final key in sourceKeys)
-            if (_allVideoAudioLanguages[key] != null)
-              key: _allVideoAudioLanguages[key]!,
-        };
-        _activeVideoProviderCodes = {
-          for (final key in sourceKeys)
+      final url = _allVideoSources[key];
+      if (url == null || url.trim().isEmpty) continue;
+
+      final format = _allVideoFormats?[key];
+      final suppliedHeaders = _allVideoHeaders[key];
+      final headers = suppliedHeaders == null
+          ? const <String, Map<String, String>>{}
+          : <String, Map<String, String>>{key: suppliedHeaders};
+      final sizes = _allVideoSizeTokens.containsKey(key)
+          ? <String, String>{key: _allVideoSizeTokens[key]!}
+          : const <String, String>{};
+      // Use the chosen language for source ranking even when the language was
+      // discovered from the manifest rather than supplied by the scraper.
+      final candidateAudioLanguages = <String, String>{
+        key: languageNameForCode(languageCode),
+      };
+      final candidateSources = <String, String>{key: url};
+      final candidateFormats = <String, BetterPlayerVideoFormat?>{
+        key: format,
+      };
+
+      try {
+        await _betterPlayerController.pause();
+        await _betterPlayerController.setupDataSource(
+          _buildDataSource(
+            sources: candidateSources,
+            subtitles: _activeSubtitles,
+            videoFormats: candidateFormats,
+            videoHeaders: headers,
+            audioLanguages: candidateAudioLanguages,
+          ),
+          initialPosition: position,
+        );
+        if (!mounted) return false;
+        if (_adBlockStopped) {
+          setState(() => _isSwitchingProvider = false);
+          return false;
+        }
+        _applyPreferredAdaptiveQuality();
+        if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
+          throw TimeoutException(tr('provider_playback_failed'));
+        }
+        _currentProviderCode = _allVideoProviderCodes[key];
+        if (!await _waitForPreferredAudioTrack(
+          sourceKey: key,
+          languageCode: languageCode,
+        )) {
+          throw StateError(tr('provider_language_unavailable'));
+        }
+        if (!wasPlaying) await _betterPlayerController.pause();
+
+        _recordAudioSourceSuccess(key);
+        final successfulProviderCode = _allVideoProviderCodes[key];
+        if (successfulProviderCode != null) {
+          _providerErrors.remove(successfulProviderCode);
+          _automaticFallbackTried.add(successfulProviderCode);
+        }
+        setState(() {
+          _activeSources = candidateSources;
+          _activeVideoFormats = candidateFormats;
+          _activeVideoHeaders = headers;
+          _activeVideoSizeTokens = sizes;
+          _activeVideoAudioLanguages = candidateAudioLanguages;
+          _activeVideoProviderCodes = {
             if (_allVideoProviderCodes[key] != null)
               key: _allVideoProviderCodes[key]!,
-        };
-        if (providerCode != null) _currentProviderCode = providerCode;
-        _isSwitchingProvider = false;
-      });
-      unawaited(_loadIntroDbTimings());
-    } catch (error) {
-      debugPrint('[Player] Audio source switch failed: $error');
+          };
+          _isSwitchingProvider = false;
+        });
+        unawaited(_loadIntroDbTimings());
+        debugPrint(
+          '[Player][AudioFailover] Selected language=$languageCode '
+          'source=$key provider=${_currentProviderCode ?? 'unknown'}',
+        );
+        return true;
+      } catch (error) {
+        lastError = error;
+        _recordAudioSourceFailure(key, error);
+        // A failed candidate must not strand the viewer on its broken URL.
+        // Restore the previously working stream before trying the next
+        // same-language source from another server/provider.
+        if (mounted && previousDataSource != null) {
+          try {
+            await _betterPlayerController.setupDataSource(
+              previousDataSource,
+              initialPosition: position,
+            );
+            if (!wasPlaying) {
+              await _betterPlayerController.pause();
+            } else {
+              await _waitForSourceReady(
+                expectPlaying: true,
+                timeout: const Duration(seconds: 6),
+              );
+            }
+          } catch (restoreError) {
+            debugPrint(
+              '[Player][AudioFailover] Previous stream restore failed: '
+              '$restoreError',
+            );
+          }
+        }
+        _currentProviderCode = previousProviderCode;
+      }
+    }
+
+    if (mounted) {
       _activeAudioLanguageCode = previousAudioLanguage;
       _audioLanguageExplicitlySelected = previousExplicitSelection;
       _manifestAudioExplicitlySelected = previousManifestSelection;
       _activeManifestAudioTrackKey = previousManifestTrackKey;
       _currentProviderCode = previousProviderCode;
-      if (mounted && previousDataSource != null) {
-        try {
-          await _betterPlayerController.setupDataSource(
-            previousDataSource,
-            initialPosition: position,
-          );
-          if (!wasPlaying) await _betterPlayerController.pause();
-        } catch (restoreError) {
-          debugPrint(
-            '[Player] Could not restore the previous audio source: $restoreError',
-          );
-        }
-      }
-      if (mounted) {
-        setState(() => _isSwitchingProvider = false);
+      setState(() => _isSwitchingProvider = false);
+      if (userInitiated) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr('provider_playback_failed'))),
+          SnackBar(
+            content: Text(
+              '${languageNameForCode(languageCode)} audio is unavailable '
+              'right now. Your previous stream has been restored.',
+            ),
+          ),
         );
       }
+      debugPrint(
+        '[Player][AudioFailover] Exhausted all sources for '
+        'language=$languageCode lastError=$lastError',
+      );
     }
+    return false;
+  }
+
+  Future<bool> _refreshFailedProviderForRecovery({
+    required String? failedProviderCode,
+    required Duration? resumeAt,
+  }) async {
+    if (failedProviderCode == null ||
+        failedProviderCode != _currentProviderCode ||
+        !(widget.availableProviders
+                ?.any((provider) => provider.codeName == failedProviderCode) ??
+            false)) {
+      return false;
+    }
+    // Re-resolve the same provider before abandoning it. The old signed link
+    // may have expired or its first lookup may have been transiently stale.
+    final refreshed = await _switchToProvider(
+      failedProviderCode,
+      reload: true,
+      automatic: true,
+      resumeAt: resumeAt,
+      refreshMenu: () {},
+      closeMenu: () {},
+    );
+    if (refreshed) {
+      _trackPlaybackEvent(
+        'automatic_provider_refresh_succeeded',
+        value: _providerDisplayName(failedProviderCode),
+      );
+    }
+    return refreshed;
   }
 
   /// The player's last automatic recovery step: provider links expire, so
@@ -3534,6 +3840,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     var languageTrackUnavailable = false;
     try {
       await _betterPlayerController.pause();
+      // A manual retry after a provider failure must request fresh links,
+      // rather than reusing the exact URL that just failed automatically.
+      if (!reload && _providerErrors.containsKey(providerCode)) {
+        _loadedProviders.remove(providerCode);
+        _providerResults.remove(providerCode);
+      }
       var source = _loadedProviders[providerCode];
       if (source == null) {
         final provider = widget.availableProviders!.firstWhere(
@@ -3545,6 +3857,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     provider: provider,
                     movieId: widget.movieMetadata!.movieId!,
                     scraperApiUrl: _resolveScraperApiUrl(),
+                    full: true,
                   )
                 : ProviderLoader.loadTVFromProvider(
                     provider: provider,
@@ -3552,8 +3865,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     seasonNumber: widget.tvMetadata!.seasonNumber!,
                     episodeNumber: widget.tvMetadata!.episodeNumber!,
                     scraperApiUrl: _resolveScraperApiUrl(),
+                    full: true,
                   );
-        final result = await resultFuture;
+        ProviderLoadResult result;
+        try {
+          result = await resultFuture.timeout(const Duration(seconds: 35));
+        } catch (error) {
+          _providerResults.remove(providerCode);
+          rethrow;
+        }
         if (!result.success || result.videoLinks?.isEmpty != false) {
           // Failed futures are not cached, allowing a later explicit retry.
           _providerResults.remove(providerCode);
@@ -3593,7 +3913,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
         throw TimeoutException(tr('provider_playback_failed'));
       }
-      if (!_applyPreferredAudioTrack()) {
+      final audioAvailable = _audioLanguageExplicitlySelected
+          ? await _waitForProviderAudioLanguage(nextAudioLanguages.values)
+          : _applyPreferredAudioTrack();
+      if (!audioAvailable) {
         languageTrackUnavailable = true;
         throw StateError(tr('provider_language_unavailable'));
       }
@@ -3604,6 +3927,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       setState(() {
         _currentProviderCode = providerCode;
         _providerErrors.remove(providerCode);
+        final priorFailures = _providerFailureCounts[providerCode] ?? 0;
+        if (priorFailures <= 1) {
+          _providerFailureCounts.remove(providerCode);
+        } else {
+          _providerFailureCounts[providerCode] = priorFailures - 1;
+        }
         _providerSourceCounts[providerCode] = nextSource.rawVideoLinks.length;
         _automaticFallbackTried.add(providerCode);
         _activeSources = Map.of(nextSource.videoSources);
@@ -3659,6 +3988,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         '${analyticsPurpose}_failed',
         value: providerName,
         error: error.toString(),
+      );
+      _providerFailureCounts.update(
+        providerCode,
+        (count) => count + 1,
+        ifAbsent: () => 1,
       );
       debugPrint(
         '[Player] Provider ${reload ? 'refresh' : 'switch'} failed for '
@@ -3780,28 +4114,93 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _mergeBackgroundProviderSelection(pendingSelection);
     }
     final selectedLanguage = _activeAudioLanguageCode;
-    final explicitlyEligibleProviders = _audioLanguageExplicitlySelected
-        ? _allVideoAudioLanguages.entries
-            .where(
-              (entry) =>
-                  languageCodeForLabel(entry.value) == selectedLanguage,
-            )
-            .map((entry) => _allVideoProviderCodes[entry.key])
-            .whereType<String>()
-            .toSet()
-        : <String>{};
-    final allowed = _audioLanguageExplicitlySelected
-        ? explicitlyEligibleProviders
-        : providers.map((provider) => provider.codeName).toSet();
-    // A manually selected source language is a hard constraint.
-    if (_audioLanguageExplicitlySelected && allowed.isEmpty) {
-      _trackPlaybackEvent(
-        'automatic_provider_fallback_blocked_no_eligible_source',
-        error: reason,
-      );
-      return false;
+    if (_audioLanguageExplicitlySelected && selectedLanguage != null) {
+      // If a viewer changed audio before cross-provider manifest inspection
+      // finished, let the catalogue complete briefly before deciding that no
+      // same-language alternatives exist. The currently selected native
+      // source was registered immediately when the track was tapped.
+      final discoveryDeadline =
+          DateTime.now().add(const Duration(seconds: 12));
+      while (_audioLanguageDiscoveryRunning &&
+          DateTime.now().isBefore(discoveryDeadline)) {
+        if (!mounted || _adBlockStopped) return false;
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+      final languageSourceKeys =
+          _audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[];
+      if (languageSourceKeys.isEmpty) {
+        _trackPlaybackEvent(
+          'automatic_provider_fallback_blocked_no_eligible_source',
+          error: reason,
+        );
+        return false;
+      }
+
+      _automaticFallbackRunning = true;
+      try {
+        if (await _refreshFailedProviderForRecovery(
+          failedProviderCode: failedProviderCode,
+          resumeAt: resumeAt,
+        )) {
+          _automaticFallbackRunning = false;
+          return true;
+        }
+      } catch (error) {
+        debugPrint('[Player] Same-provider refresh failed: $error');
+      }
+      if (failedProviderCode != null) {
+        _providerErrors[failedProviderCode] = tr('provider_playback_failed');
+        // Penalize only sources belonging to the provider that just failed;
+        // keep the other same-language providers eligible.
+        for (final key in languageSourceKeys) {
+          if (_allVideoProviderCodes[key] == failedProviderCode) {
+            _recordAudioSourceFailure(
+              key,
+              reason ?? tr('provider_playback_failed'),
+            );
+          }
+        }
+        _automaticFallbackTried.add(failedProviderCode);
+      }
+      try {
+        final switched = await _switchToAudioLanguage(
+          selectedLanguage,
+          languageSourceKeys,
+          userInitiated: false,
+          preserveExplicitSelection: true,
+        );
+        if (switched) {
+          _trackPlaybackEvent(
+            'automatic_provider_fallback_succeeded',
+            value: _analyticsProviderName ?? selectedLanguage,
+          );
+        } else {
+          _trackPlaybackEvent(
+            'automatic_provider_fallback_exhausted',
+            error: reason,
+          );
+        }
+        return switched;
+      } finally {
+        _automaticFallbackRunning = false;
+      }
     }
+
+    // The default/original-language path can move between languages only
+    // before the viewer explicitly locks a language.
+    final allowed = providers.map((provider) => provider.codeName).toSet();
     _automaticFallbackRunning = true;
+    try {
+      if (await _refreshFailedProviderForRecovery(
+        failedProviderCode: failedProviderCode,
+        resumeAt: resumeAt,
+      )) {
+        _automaticFallbackRunning = false;
+        return true;
+      }
+    } catch (error) {
+      debugPrint('[Player] Same-provider refresh failed: $error');
+    }
     if (failedProviderCode != null) {
       _providerErrors[failedProviderCode] = tr('provider_playback_failed');
       _automaticFallbackTried.add(failedProviderCode);
@@ -3809,19 +4208,43 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final attemptsForFallback = widget.backgroundProviderSelection == null
         ? widget.initialProviderAttempts
         : _loadedProviderAttempts;
-    final candidates = attemptsForFallback.isNotEmpty
+    final resolvedCandidates = attemptsForFallback.isNotEmpty
         ? ProviderLoader.fallbackCandidates(
             attempts: attemptsForFallback,
             failedProviderCode: failedProviderCode ?? _currentProviderCode,
             eligibleProviderCodes: allowed,
             alreadyTriedProviderCodes: _automaticFallbackTried,
           ).map((attempt) => attempt.provider).toList(growable: false)
-        : providers.where((provider) {
-            final code = provider.codeName;
-            return allowed.contains(code) &&
-                code != _currentProviderCode &&
-                !_automaticFallbackTried.contains(code);
-          }).toList(growable: false);
+        : <VideoProvider>[];
+    final resolvedCodes =
+        resolvedCandidates.map((provider) => provider.codeName).toSet();
+    // Do not permanently blacklist a provider just because its first
+    // concurrent lookup timed out or returned a transient error. Retry providers
+    // that remain eligible but had no usable initial result, after known-good
+    // candidates have been attempted.
+    final recoveryCandidates = providers.where((provider) {
+      final code = provider.codeName;
+      return allowed.contains(code) &&
+          code != _currentProviderCode &&
+          code != failedProviderCode &&
+          !resolvedCodes.contains(code) &&
+          !_automaticFallbackTried.contains(code);
+    }).toList(growable: false);
+    final candidates = <VideoProvider>[
+      ...resolvedCandidates,
+      ...recoveryCandidates,
+    ];
+    final configuredPriority = {
+      for (var index = 0; index < candidates.length; index++)
+        candidates[index].codeName: index,
+    };
+    candidates.sort((left, right) {
+      final reliability = (_providerFailureCounts[left.codeName] ?? 0)
+          .compareTo(_providerFailureCounts[right.codeName] ?? 0);
+      if (reliability != 0) return reliability;
+      return configuredPriority[left.codeName]!
+          .compareTo(configuredPriority[right.codeName]!);
+    });
     try {
       for (final provider in candidates) {
         final code = provider.codeName;

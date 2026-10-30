@@ -455,6 +455,41 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
         );
       },
       onResult: (index, provider, result) {
+        final providerSucceeded =
+            result.success && result.videoLinks?.isNotEmpty == true;
+        final providerIndex = videoProviders.indexWhere(
+          (candidate) => candidate.codeName == provider.codeName,
+        );
+        debugPrint(
+          '[MovieVideoLoader] Response provider=${provider.displayName} '
+          'success=${result.success}, links=${result.videoLinks?.length ?? 0}, '
+          'subtitles=${result.subtitleLinks?.length ?? 0}, error=${result.errorMessage}',
+        );
+        if (mounted &&
+            providerIndex >= 0 &&
+            providerIndex < providerStates.length) {
+          setState(() {
+            providerStates[providerIndex] =
+                providerStates[providerIndex].copyWith(
+              // A failed fast response is still being retried through
+              // full-collection resolution. Only the final callback marks it
+              // definitively failed.
+              status: providerSucceeded
+                  ? ProviderStatus.success
+                  : ProviderStatus.loading,
+              errorMessage: providerSucceeded ? null : result.errorMessage,
+            );
+            currentProviderIndex = _firstLoadingProviderIndex();
+          });
+        }
+      },
+      // Full-collection resolution runs after the initial source hand-off.
+      // Publish its result too, so transient failures can recover to Success
+      // instead of leaving the provider marked Failed.
+      onFinalResult: (index, provider, result) {
+        // Measure and report the complete fast + recovery attempt, not only
+        // the first response. A transient fast failure followed by a working
+        // full collection is a provider success in reliability analytics.
         final durationMs = _providerStopwatches
                 .remove(provider.codeName)
                 ?.elapsedMilliseconds ??
@@ -476,27 +511,23 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
         final providerIndex = videoProviders.indexWhere(
           (candidate) => candidate.codeName == provider.codeName,
         );
-        debugPrint(
-          '[MovieVideoLoader] Response provider=${provider.displayName} '
-          'success=${result.success}, links=${result.videoLinks?.length ?? 0}, '
-          'subtitles=${result.subtitleLinks?.length ?? 0}, error=${result.errorMessage}',
-        );
         if (mounted &&
             providerIndex >= 0 &&
             providerIndex < providerStates.length) {
+          final succeeded =
+              result.success && result.videoLinks?.isNotEmpty == true;
           setState(() {
             providerStates[providerIndex] =
                 providerStates[providerIndex].copyWith(
-              status: providerSucceeded
-                  ? ProviderStatus.success
-                  : ProviderStatus.failed,
+              status: succeeded ? ProviderStatus.success : ProviderStatus.failed,
               errorMessage: result.errorMessage,
             );
             currentProviderIndex = _firstLoadingProviderIndex();
           });
         }
       },
-      providerTimeout: const Duration(seconds: 12),
+      providerTimeout: const Duration(seconds: 25),
+      expansionTimeout: const Duration(seconds: 35),
     );
   }
 

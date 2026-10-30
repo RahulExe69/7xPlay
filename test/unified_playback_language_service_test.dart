@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flixquest/video_providers/common.dart';
 import 'package:flixquest/video_providers/names.dart';
@@ -67,6 +69,85 @@ void main() {
       discovery.options.where((option) => option.code == 'bn').single.label,
       'bengali',
     );
+  });
+
+  test('catalogues every labelled source returned by a provider', () async {
+    final provider = providers[0];
+    final sourceAttempt = ProviderAttempt(
+      index: 0,
+      provider: provider,
+      result: ProviderLoadResult(
+        success: true,
+        videoLinks: [
+          RegularVideoLinks(
+            url: 'https://example.com/english.mp4',
+            audioLanguage: 'English',
+          ),
+          RegularVideoLinks(
+            url: 'https://example.com/hindi.mp4',
+            audioLanguage: 'Hindi',
+          ),
+          RegularVideoLinks(
+            url: 'https://example.com/bengali.mp4',
+            audioLanguage: 'Bengali',
+          ),
+          RegularVideoLinks(
+            url: 'https://example.com/urdu.mp4',
+            audioLanguage: 'Urdu',
+          ),
+        ],
+      ),
+    );
+
+    final discovery = await UnifiedPlaybackLanguageService.discover(
+      [sourceAttempt],
+      candidatesPerProvider: null,
+    );
+
+    expect(
+      discovery.options.map((option) => option.code),
+      containsAll(['en', 'hi', 'bn', 'ur']),
+    );
+    expect(discovery.sourceKeysFor('en', provider.codeName), hasLength(1));
+    expect(discovery.sourceKeysFor('hi', provider.codeName), hasLength(1));
+    expect(discovery.sourceKeysFor('bn', provider.codeName), hasLength(1));
+    expect(discovery.sourceKeysFor('ur', provider.codeName), hasLength(1));
+  });
+
+  test('one manifest source can belong to multiple language choices', () {
+    final provider = providers[0];
+    final link = RegularVideoLinks(
+      url: 'https://example.com/master.m3u8',
+      isM3U8: true,
+    );
+    final identity =
+        UnifiedPlaybackLanguageService.sourceIdentityForLink(link);
+    final attempt = ProviderAttempt(
+      index: 0,
+      provider: provider,
+      result: ProviderLoadResult(success: true, videoLinks: [link]),
+    );
+    final discovery =
+        UnifiedPlaybackLanguageService.fromDetectedLanguages(
+      attempts: [attempt],
+      detectedByProvider: {
+        provider.codeName: {'en', 'hi', 'bn'},
+      },
+      sourceKeysByLanguage: {
+        for (final language in ['en', 'hi', 'bn'])
+          language: {
+            provider.codeName: LinkedHashSet<String>.of([identity]),
+          },
+      },
+    );
+
+    expect(
+      discovery.languageCodesForLink(link, provider.codeName),
+      ['en', 'hi', 'bn'],
+    );
+    expect(discovery.sourceKeysFor('en', provider.codeName), [identity]);
+    expect(discovery.sourceKeysFor('hi', provider.codeName), [identity]);
+    expect(discovery.sourceKeysFor('bn', provider.codeName), [identity]);
   });
 
   test('filters provider stream URLs by the selected audio language',
