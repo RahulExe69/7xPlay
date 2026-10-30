@@ -309,8 +309,9 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
               );
         }
 
-        await recommendationsFetch;
-        if (!mounted) return;
+        // Recommendations enrich the watch page but must not hold up
+        // first-frame playback. Continue loading them after route handoff.
+        unawaited(recommendationsFetch);
 
         // Navigate to player with provider list for lazy loading
         debugPrint(

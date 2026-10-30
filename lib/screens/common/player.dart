@@ -90,6 +90,7 @@ class PlayerOne extends StatefulWidget {
       this.videoSizeTokens = const {},
       this.videoAudioLanguages = const {},
       this.videoProviderCodes = const {},
+      this.backgroundProviderSelection,
       this.initialVideoLinks = const [],
       this.initialProviderAttempts = const [],
       this.eligibleProviderCodes = const [],
@@ -117,6 +118,7 @@ class PlayerOne extends StatefulWidget {
   final Map<String, String> videoSizeTokens;
   final Map<String, String> videoAudioLanguages;
   final Map<String, String> videoProviderCodes;
+  final Future<ProviderSelection?>? backgroundProviderSelection;
   final List<RegularVideoLinks> initialVideoLinks;
   final List<ProviderAttempt> initialProviderAttempts;
   final List<String> eligibleProviderCodes;
@@ -243,6 +245,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late Map<String, String> _activeVideoSizeTokens;
   late Map<String, String> _activeVideoAudioLanguages;
   late Map<String, String> _activeVideoProviderCodes;
+  late Map<String, String> _allVideoSources;
+  late Map<String, BetterPlayerVideoFormat?>? _allVideoFormats;
+  late Map<String, Map<String, String>> _allVideoHeaders;
+  late Map<String, String> _allVideoSizeTokens;
+  late Map<String, String> _allVideoAudioLanguages;
+  late Map<String, String> _allVideoProviderCodes;
+  final List<ProviderAttempt> _loadedProviderAttempts = <ProviderAttempt>[];
+  bool _backgroundProviderAggregationPending = false;
+  bool _initialPlaybackReady = false;
+  VoidCallback? _audioLanguageSheetRefresh;
   String? _activeAudioLanguageCode = 'en';
   bool _audioLanguageExplicitlySelected = false;
   final Map<String, int?> _streamSizeCacheByToken = {};
@@ -285,8 +297,18 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _activeVideoSizeTokens = Map.of(widget.videoSizeTokens);
     _activeVideoAudioLanguages = Map.of(widget.videoAudioLanguages);
     _activeVideoProviderCodes = Map.of(widget.videoProviderCodes);
+    _allVideoSources = Map.of(widget.sources);
+    _allVideoFormats =
+        widget.videoFormats == null ? null : Map.of(widget.videoFormats!);
+    _allVideoHeaders = Map.of(widget.videoHeaders);
+    _allVideoSizeTokens = Map.of(widget.videoSizeTokens);
+    _allVideoAudioLanguages = Map.of(widget.videoAudioLanguages);
+    _allVideoProviderCodes = Map.of(widget.videoProviderCodes);
+    _backgroundProviderAggregationPending =
+        widget.backgroundProviderSelection != null;
     final initialProviderCode = widget.currentProviderCode;
     for (final attempt in widget.initialProviderAttempts) {
+      _loadedProviderAttempts.add(attempt);
       final code = attempt.provider.codeName;
       if (!attempt.hasPlayableSources) {
         _providerErrors[code] = _providerFailureSummary(attempt.result);
@@ -302,6 +324,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       _providerSourceCounts[code] =
           attempt.result.videoLinks?.length ?? 0;
+    }
+    if (_backgroundProviderAggregationPending) {
+      for (final provider in widget.availableProviders ?? const <VideoProvider>[]) {
+        if (!_loadedProviderAttempts.any(
+          (attempt) => attempt.provider.codeName == provider.codeName,
+        )) {
+          _loadingProviders.add(provider.codeName);
+        }
+      }
     }
     if (initialProviderCode != null) {
       _automaticFallbackTried.add(initialProviderCode);
@@ -329,6 +360,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       widget.tvMetadata?.allSeasons ?? const <SeasonMetadata>[],
     );
     super.initState();
+    widget.backgroundProviderSelection?.then(_mergeBackgroundProviderSelection);
     _appDependencies =
         Provider.of<AppDependencyProvider>(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -491,7 +523,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     tr('player_providers'),
                     _showTvProviderMenu,
                   ),
-                if (_hasMultipleSourceAudioLanguages)
+                if (_showAudioLanguageSwitcherEntry)
                   BetterPlayerOverflowMenuItem(
                     PhosphorIcons.speakerHigh(),
                     tr('player_audio_languages'),
@@ -523,7 +555,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     tr('player_providers'),
                     _showProviderSwitcher,
                   ),
-                if (_hasMultipleSourceAudioLanguages)
+                if (_showAudioLanguageSwitcherEntry)
                   BetterPlayerOverflowMenuItem(
                     PhosphorIcons.speakerHigh(),
                     tr('player_audio_languages'),
@@ -638,6 +670,64 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       subtitles: subtitles,
       rawVideoLinks: List<RegularVideoLinks>.of(links),
     );
+  }
+
+  void _mergeBackgroundProviderSelection(ProviderSelection? selection) {
+    if (!mounted || !_backgroundProviderAggregationPending) return;
+    final links = selection?.result.videoLinks ?? const <RegularVideoLinks>[];
+    final sources = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoLinksToMap(links),
+    );
+    final formats = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoFormatsToMap(links),
+    );
+    final headers = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoHeadersToMap(links),
+    );
+    final sizeTokens = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoSizeTokensToMap(links),
+    );
+    final audioLanguages = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoAudioLanguagesToMap(links),
+    );
+    final providerCodes = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoProviderCodesToMap(links),
+    );
+
+    setState(() {
+      for (final attempt in selection?.attempts ?? const <ProviderAttempt>[]) {
+        final code = attempt.provider.codeName;
+        if (!_loadedProviderAttempts.any(
+          (loaded) => loaded.provider.codeName == code,
+        )) {
+          _loadedProviderAttempts.add(attempt);
+        }
+        _loadingProviders.remove(code);
+        if (!attempt.hasPlayableSources) {
+          _providerErrors[code] = _providerFailureSummary(attempt.result);
+          continue;
+        }
+        _providerErrors.remove(code);
+        _loadedProviders[code] ??= _providerSourceFromResult(
+          attempt.provider,
+          attempt.result,
+        );
+        _rawVideoLinksByProvider[code] = List.of(
+          attempt.result.videoLinks ?? const <RegularVideoLinks>[],
+        );
+        _providerSourceCounts[code] =
+            attempt.result.videoLinks?.length ?? 0;
+      }
+      _allVideoSources = sources;
+      _allVideoFormats = formats;
+      _allVideoHeaders = headers;
+      _allVideoSizeTokens = sizeTokens;
+      _allVideoAudioLanguages = audioLanguages;
+      _allVideoProviderCodes = providerCodes;
+      _backgroundProviderAggregationPending = false;
+    });
+    _audioLanguageSheetRefresh?.call();
+    _maybeAutoSwitchToEnglishSource();
   }
 
   String _providerFailureSummary(ProviderLoadResult result) {
@@ -799,7 +889,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         '[Player][IntroDB] initial data source ready '
         'durationSeconds=$duration preRoll=$_preRollActive',
       );
-      if (!_preRollActive) unawaited(_loadIntroDbTimings());
+      if (!_preRollActive) {
+        _initialPlaybackReady = true;
+        _maybeAutoSwitchToEnglishSource();
+        unawaited(_loadIntroDbTimings());
+      }
     } catch (error) {
       if (_adBlockStopped) return;
       _preRollActive = false;
@@ -881,7 +975,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           'preRoll=$_preRollActive afterPreRoll=$contentAfterPreRoll '
           'durationSeconds=$duration',
         );
-        if (!_preRollActive) unawaited(_loadIntroDbTimings());
+        if (!_preRollActive) {
+          _initialPlaybackReady = true;
+          _maybeAutoSwitchToEnglishSource();
+          unawaited(_loadIntroDbTimings());
+        }
         if (contentAfterPreRoll) {
           // The content behind a pre-roll is its first initialization, not a
           // provider switch or recovery.
@@ -2886,7 +2984,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   Map<String, List<String>> get _audioSourceKeysByLanguage {
     final grouped = <String, List<String>>{};
-    for (final entry in widget.videoAudioLanguages.entries) {
+    for (final entry in _allVideoAudioLanguages.entries) {
       final code = languageCodeForLabel(entry.value);
       if (code == null) continue;
       grouped.putIfAbsent(code, () => <String>[]).add(entry.key);
@@ -2897,96 +2995,154 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool get _hasMultipleSourceAudioLanguages =>
       _audioSourceKeysByLanguage.length > 1;
 
+  bool get _showAudioLanguageSwitcherEntry =>
+      _hasMultipleSourceAudioLanguages || _backgroundProviderAggregationPending;
+
   void _showAudioLanguageSwitcher() {
-    final options = _audioSourceKeysByLanguage;
-    if (options.isEmpty) return;
+    if (!_showAudioLanguageSwitcherEntry) return;
     showPlayerSheet<void>(
       context: context,
-      builder: (sheetContext) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: .58,
-        minChildSize: .38,
-        maxChildSize: .9,
-        snap: true,
-        builder: (context, scrollController) => PlayerSheetScaffold(
-          title: tr('player_audio_languages'),
-          subtitle: tr('player_audio_language_description'),
-          actions: [
-            PlayerSheetAction(
-              icon: PhosphorIcons.x(),
-              tooltip: tr('close'),
-              onPressed: () => Navigator.pop(sheetContext),
-            ),
-          ],
-          child: ListView.separated(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-            itemCount: options.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 2),
-            itemBuilder: (context, index) {
-              final code = options.keys.elementAt(index);
-              final keys = options[code]!;
-              final selected = code == _activeAudioLanguageCode;
-              final providerCodes = keys
-                  .map((key) => widget.videoProviderCodes[key])
-                  .whereType<String>()
-                  .toSet();
-              return PlayerChoiceCard(
-                kicker: selected ? tr('player_now_playing') : null,
-                title: languageNameForCode(code),
-                selected: selected,
-                subtitle: tr(
-                  'player_audio_language_source_count',
-                  namedArgs: {
-                    'count': (providerCodes.isEmpty
-                            ? keys.length
-                            : providerCodes.length)
-                        .toString(),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          _audioLanguageSheetRefresh = () {
+            if (sheetContext.mounted) setSheetState(() {});
+          };
+          final options = _audioSourceKeysByLanguage;
+          final waiting = _backgroundProviderAggregationPending;
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: .58,
+            minChildSize: .38,
+            maxChildSize: .9,
+            snap: true,
+            builder: (context, scrollController) => PlayerSheetScaffold(
+              title: tr('player_audio_languages'),
+              subtitle: tr('player_audio_language_description'),
+              actions: [
+                PlayerSheetAction(
+                  icon: PhosphorIcons.x(),
+                  tooltip: tr('close'),
+                  onPressed: () {
+                    _audioLanguageSheetRefresh = null;
+                    Navigator.pop(sheetContext);
                   },
                 ),
-                trailing: selected
-                    ? Icon(
-                        PhosphorIcons.checkCircle(),
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: selected || _isSwitchingProvider
-                    ? null
-                    : () {
-                        Navigator.pop(sheetContext);
-                        unawaited(_switchToAudioLanguage(code, keys));
+              ],
+              child: ListView.separated(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                itemCount: options.length + (waiting ? 1 : 0),
+                separatorBuilder: (_, __) => const SizedBox(height: 2),
+                itemBuilder: (context, index) {
+                  if (index >= options.length) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 20,
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(tr('loading_video_sources'))),
+                        ],
+                      ),
+                    );
+                  }
+                  final code = options.keys.elementAt(index);
+                  final keys = options[code]!;
+                  final selected = code == _activeAudioLanguageCode;
+                  final providerCodes = keys
+                      .map((key) => _allVideoProviderCodes[key])
+                      .whereType<String>()
+                      .toSet();
+                  return PlayerChoiceCard(
+                    kicker: selected ? tr('player_now_playing') : null,
+                    title: languageNameForCode(code),
+                    selected: selected,
+                    subtitle: tr(
+                      'player_audio_language_source_count',
+                      namedArgs: {
+                        'count': (providerCodes.isEmpty
+                                ? keys.length
+                                : providerCodes.length)
+                            .toString(),
                       },
-              );
-            },
-          ),
-        ),
+                    ),
+                    trailing: selected
+                        ? Icon(
+                            PhosphorIcons.checkCircle(),
+                            color: Theme.of(context).colorScheme.primary,
+                          )
+                        : null,
+                    onTap: selected || _isSwitchingProvider
+                        ? null
+                        : () {
+                            _audioLanguageSheetRefresh = null;
+                            Navigator.pop(sheetContext);
+                            unawaited(_switchToAudioLanguage(code, keys));
+                          },
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    ).whenComplete(() {
+      _audioLanguageSheetRefresh = null;
+    });
+  }
+
+  void _maybeAutoSwitchToEnglishSource() {
+    if (!_initialPlaybackReady ||
+        _audioLanguageExplicitlySelected ||
+        _isSwitchingProvider ||
+        _preRollActive) {
+      return;
+    }
+    final hasEnglishActive = _activeVideoAudioLanguages.values.any(
+      (label) => languageCodeForLabel(label) == 'en',
+    );
+    if (hasEnglishActive) return;
+    final englishKeys = _audioSourceKeysByLanguage['en'];
+    if (englishKeys == null || englishKeys.isEmpty) return;
+    unawaited(
+      _switchToAudioLanguage(
+        'en',
+        englishKeys,
+        userInitiated: false,
       ),
     );
   }
 
   Future<void> _switchToAudioLanguage(
     String languageCode,
-    List<String> sourceKeys,
-  ) async {
+    List<String> sourceKeys, {
+    bool userInitiated = true,
+  }) async {
     if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return;
     final keySet = sourceKeys.toSet();
     final sources = <String, String>{
-      for (final entry in widget.sources.entries)
+      for (final entry in _allVideoSources.entries)
         if (keySet.contains(entry.key)) entry.key: entry.value,
     };
     if (sources.isEmpty) return;
     final allFormats =
-        widget.videoFormats ?? const <String, BetterPlayerVideoFormat?>{};
+        _allVideoFormats ?? const <String, BetterPlayerVideoFormat?>{};
     final formats = <String, BetterPlayerVideoFormat?>{
       for (final entry in allFormats.entries)
         if (keySet.contains(entry.key)) entry.key: entry.value,
     };
     final headers = <String, Map<String, String>>{
-      for (final entry in widget.videoHeaders.entries)
+      for (final entry in _allVideoHeaders.entries)
         if (keySet.contains(entry.key)) entry.key: entry.value,
     };
     final sizeTokens = <String, String>{
-      for (final entry in widget.videoSizeTokens.entries)
+      for (final entry in _allVideoSizeTokens.entries)
         if (keySet.contains(entry.key)) entry.key: entry.value,
     };
     final preferred = VideoUtils.preferredVideoSource(
@@ -3003,18 +3159,20 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final previousDataSource = _betterPlayerController.betterPlayerDataSource;
     final previousAudioLanguage = _activeAudioLanguageCode;
     final previousExplicitSelection = _audioLanguageExplicitlySelected;
+    final previousProviderCode = _currentProviderCode;
+    final providerCode = _allVideoProviderCodes[preferred.key];
     setState(() => _isSwitchingProvider = true);
     try {
       await _betterPlayerController.pause();
       _activeAudioLanguageCode = languageCode;
-      _audioLanguageExplicitlySelected = true;
+      _audioLanguageExplicitlySelected = userInitiated;
       await _betterPlayerController.setupDataSource(
         _buildDataSource(
           sources: sources,
           subtitles: _activeSubtitles,
           videoFormats: formats,
           videoHeaders: headers,
-          audioLanguages: widget.videoAudioLanguages,
+          audioLanguages: _allVideoAudioLanguages,
         ),
         initialPosition: position,
       );
@@ -3023,8 +3181,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
         throw TimeoutException(tr('provider_playback_failed'));
       }
+      if (providerCode != null) _currentProviderCode = providerCode;
+      if (!_applyPreferredAudioTrack()) {
+        throw StateError(tr('provider_language_unavailable'));
+      }
       if (!wasPlaying) await _betterPlayerController.pause();
-      final providerCode = widget.videoProviderCodes[preferred.key];
       setState(() {
         _activeSources = sources;
         _activeVideoFormats = formats;
@@ -3032,13 +3193,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _activeVideoSizeTokens = sizeTokens;
         _activeVideoAudioLanguages = {
           for (final key in sourceKeys)
-            if (widget.videoAudioLanguages[key] != null)
-              key: widget.videoAudioLanguages[key]!,
+            if (_allVideoAudioLanguages[key] != null)
+              key: _allVideoAudioLanguages[key]!,
         };
         _activeVideoProviderCodes = {
           for (final key in sourceKeys)
-            if (widget.videoProviderCodes[key] != null)
-              key: widget.videoProviderCodes[key]!,
+            if (_allVideoProviderCodes[key] != null)
+              key: _allVideoProviderCodes[key]!,
         };
         if (providerCode != null) _currentProviderCode = providerCode;
         _isSwitchingProvider = false;
@@ -3048,6 +3209,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       debugPrint('[Player] Audio source switch failed: $error');
       _activeAudioLanguageCode = previousAudioLanguage;
       _audioLanguageExplicitlySelected = previousExplicitSelection;
+      _currentProviderCode = previousProviderCode;
       if (mounted && previousDataSource != null) {
         try {
           await _betterPlayerController.setupDataSource(
@@ -3378,14 +3540,20 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final providers = widget.availableProviders ?? const <VideoProvider>[];
     if (providers.isEmpty) return false;
 
+    if (_backgroundProviderAggregationPending &&
+        widget.backgroundProviderSelection != null) {
+      final pendingSelection = await widget.backgroundProviderSelection!;
+      if (!mounted || _adBlockStopped) return false;
+      _mergeBackgroundProviderSelection(pendingSelection);
+    }
     final selectedLanguage = _activeAudioLanguageCode;
     final explicitlyEligibleProviders = _audioLanguageExplicitlySelected
-        ? widget.videoAudioLanguages.entries
+        ? _allVideoAudioLanguages.entries
             .where(
               (entry) =>
                   languageCodeForLabel(entry.value) == selectedLanguage,
             )
-            .map((entry) => widget.videoProviderCodes[entry.key])
+            .map((entry) => _allVideoProviderCodes[entry.key])
             .whereType<String>()
             .toSet()
         : <String>{};
@@ -3405,9 +3573,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _providerErrors[failedProviderCode] = tr('provider_playback_failed');
       _automaticFallbackTried.add(failedProviderCode);
     }
-    final candidates = widget.initialProviderAttempts.isNotEmpty
+    final attemptsForFallback = widget.backgroundProviderSelection == null
+        ? widget.initialProviderAttempts
+        : _loadedProviderAttempts;
+    final candidates = attemptsForFallback.isNotEmpty
         ? ProviderLoader.fallbackCandidates(
-            attempts: widget.initialProviderAttempts,
+            attempts: attemptsForFallback,
             failedProviderCode: failedProviderCode ?? _currentProviderCode,
             eligibleProviderCodes: allowed,
             alreadyTriedProviderCodes: _automaticFallbackTried,
