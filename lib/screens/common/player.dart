@@ -3269,14 +3269,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                       kicker: selected ? tr('player_now_playing') : null,
                       title: languageNameForCode(code),
                       selected: selected,
+                      // Count compatible stream entries, not distinct
+                      // provider names: one provider can expose several
+                      // independent server/source choices for this language.
                       subtitle: tr(
                         'player_audio_language_source_count',
-                        namedArgs: {
-                          'count': (providerCodes.isEmpty
-                                  ? keys.length
-                                  : providerCodes.length)
-                              .toString(),
-                        },
+                        namedArgs: {'count': keys.length.toString()},
                       ),
                       trailing: selected
                           ? Icon(
