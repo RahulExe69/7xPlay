@@ -184,6 +184,13 @@ class StreamDownloadStore private constructor(context: Context) {
 
     /** Media3 reads HLS EXT-X-MEDIA, DASH adaptation sets and in-band audio. */
     fun getAudioTracks(arguments: Map<*, *>, callback: (Result<List<Map<String, Any?>>>) -> Unit) {
+        // Progressive files expose one fixed audio stream, not selectable
+        // HLS/DASH renditions. Avoid preparing a second player merely to
+        // return an empty language list.
+        if (arguments["format"]?.toString()?.lowercase() == "progressive") {
+            callback(Result.success(emptyList()))
+            return
+        }
         val helper = try {
             createHelper(
                 arguments,
@@ -247,6 +254,7 @@ class StreamDownloadStore private constructor(context: Context) {
         val mimeType = when (format.lowercase()) {
             "hls" -> MimeTypes.APPLICATION_M3U8
             "dash" -> MimeTypes.APPLICATION_MPD
+            "progressive" -> MimeTypes.VIDEO_MP4
             else -> {
                 throw IllegalArgumentException("Unsupported stream format: $format")
             }
