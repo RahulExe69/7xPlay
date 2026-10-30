@@ -3075,17 +3075,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!mounted || _adBlockStopped) return false;
       final value = _betterPlayerController.videoPlayerController?.value;
       if (value?.hasError == true) return false;
-      if (value?.isInitialized == true &&
-          (!expectPlaying ||
-              value!.isPlaying ||
-              value.position > Duration.zero)) {
+      if (value != null &&
+          value.duration > Duration.zero &&
+          (!expectPlaying || value.isPlaying || value.position > Duration.zero)) {
         return true;
       }
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }
     final value = _betterPlayerController.videoPlayerController?.value;
     return value != null &&
-        value.isInitialized &&
+        value.duration > Duration.zero &&
         !value.hasError &&
         (!expectPlaying || value.isPlaying || value.position > Duration.zero);
   }
