@@ -270,7 +270,7 @@ void main() {
       );
       expect(
         selection.result.videoLinks!.map((link) => link.providerCode),
-        ['0', '1', '1'],
+        ['scraper:0', 'scraper:1', 'scraper:1'],
       );
       expect(reported.toSet(), {'0', '1', '2'});
       expect(selection.attempts.map((attempt) => attempt.provider.apiId),
