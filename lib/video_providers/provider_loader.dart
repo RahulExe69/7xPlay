@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'common.dart';
 import 'names.dart';
 import 'scraper_api.dart';
