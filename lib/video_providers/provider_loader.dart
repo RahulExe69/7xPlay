@@ -150,6 +150,23 @@ abstract final class ProviderLoader {
     );
   }
 
+  static bool _isTransientProviderFailure(String message) {
+    final value = message.toLowerCase();
+    return value.contains('timeout') ||
+        value.contains('timed out') ||
+        value.contains('socket') ||
+        value.contains('network') ||
+        value.contains('connection') ||
+        value.contains('gateway') ||
+        value.contains('temporarily') ||
+        value.contains('http 429') ||
+        value.contains('http 500') ||
+        value.contains('http 502') ||
+        value.contains('http 503') ||
+        value.contains('http 504') ||
+        value.contains('rate limit');
+  }
+
   /// Resolves a first playable source quickly, then expands successful
   /// scraper providers in the background for alternate servers and audio
   /// languages. A failed fast request also gets one full-collection attempt,
@@ -194,14 +211,41 @@ abstract final class ProviderLoader {
       // Start expansion only after the fast response is known. This means
       // full server collection can add audio variants without holding up the
       // first stream hand-off.
-      ProviderLoadResult expandedResult;
-      try {
-        expandedResult = await loadExpanded(provider, fastResult)
-            .timeout(expansionTimeout);
-      } catch (error) {
+      ProviderLoadResult? expandedResult;
+      Object? expansionError;
+      for (var retry = 0; retry < 2; retry++) {
+        try {
+          final result = await loadExpanded(provider, fastResult)
+              .timeout(expansionTimeout);
+          expandedResult = result;
+          final transient = !result.success &&
+              _isTransientProviderFailure(result.errorMessage ?? '');
+          if (retry == 0 && transient) {
+            debugPrint(
+              '[ProviderLoader] Retrying transient expansion failure '
+              'provider=${provider.codeName}: ${result.errorMessage}',
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 450));
+            continue;
+          }
+          break;
+        } catch (error) {
+          expansionError = error;
+          if (retry == 0 && _isTransientProviderFailure(error.toString())) {
+            debugPrint(
+              '[ProviderLoader] Retrying transient expansion exception '
+              'provider=${provider.codeName}: $error',
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 450));
+            continue;
+          }
+          break;
+        }
+      }
+      if (expandedResult == null) {
         debugPrint(
           '[ProviderLoader] Background expansion failed '
-          'provider=${provider.codeName}: $error',
+          'provider=${provider.codeName}: $expansionError',
         );
         onFinalResult?.call(index, provider, fastResult);
         return fastAttempt;
