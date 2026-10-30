@@ -3398,10 +3398,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                       // Count compatible stream entries, not distinct
                       // provider names: one provider can expose several
                       // independent server/source choices for this language.
-                      subtitle: tr(
-                        'player_audio_language_source_count',
-                        namedArgs: {'count': keys.length.toString()},
-                      ),
+                      subtitle: keys.length == 1
+                          ? tr('player_audio_language_one_source')
+                          : tr(
+                              'player_audio_language_source_count',
+                              namedArgs: {'count': keys.length.toString()},
+                            ),
                       trailing: selected
                           ? Icon(
                               PhosphorIcons.checkCircle(),
