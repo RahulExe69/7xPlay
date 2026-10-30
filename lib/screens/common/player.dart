@@ -3557,7 +3557,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _activeManifestAudioTrackKey = null;
 
     for (final key in orderedKeys) {
-      if (!mounted || _adBlockStopped) return;
+      if (!mounted || _adBlockStopped) return false;
       final url = _allVideoSources[key];
       if (url == null || url.trim().isEmpty) continue;
 
@@ -3591,7 +3591,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           ),
           initialPosition: position,
         );
-        if (!mounted || _adBlockStopped) return;
+        if (!mounted || _adBlockStopped) return false;
         _applyPreferredAdaptiveQuality();
         if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
           throw TimeoutException(tr('provider_playback_failed'));
@@ -4025,23 +4025,59 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _mergeBackgroundProviderSelection(pendingSelection);
     }
     final selectedLanguage = _activeAudioLanguageCode;
-    final explicitlyEligibleProviders = _audioLanguageExplicitlySelected
-        ? (_audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[])
-            .map((key) => _allVideoProviderCodes[key])
-            .whereType<String>()
-            .toSet()
-        : <String>{};
-    final allowed = _audioLanguageExplicitlySelected
-        ? explicitlyEligibleProviders
-        : providers.map((provider) => provider.codeName).toSet();
-    // A manually selected source language is a hard constraint.
-    if (_audioLanguageExplicitlySelected && allowed.isEmpty) {
-      _trackPlaybackEvent(
-        'automatic_provider_fallback_blocked_no_eligible_source',
-        error: reason,
-      );
-      return false;
+    if (_audioLanguageExplicitlySelected && selectedLanguage != null) {
+      final languageSourceKeys =
+          _audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[];
+      if (languageSourceKeys.isEmpty) {
+        _trackPlaybackEvent(
+          'automatic_provider_fallback_blocked_no_eligible_source',
+          error: reason,
+        );
+        return false;
+      }
+
+      _automaticFallbackRunning = true;
+      if (failedProviderCode != null) {
+        _providerErrors[failedProviderCode] = tr('provider_playback_failed');
+        // Penalize only sources belonging to the provider that just failed;
+        // keep the other same-language providers eligible.
+        for (final key in languageSourceKeys) {
+          if (_allVideoProviderCodes[key] == failedProviderCode) {
+            _recordAudioSourceFailure(
+              key,
+              reason ?? tr('provider_playback_failed'),
+            );
+          }
+        }
+        _automaticFallbackTried.add(failedProviderCode);
+      }
+      try {
+        final switched = await _switchToAudioLanguage(
+          selectedLanguage,
+          languageSourceKeys,
+          userInitiated: false,
+          preserveExplicitSelection: true,
+        );
+        if (switched) {
+          _trackPlaybackEvent(
+            'automatic_provider_fallback_succeeded',
+            value: _analyticsProviderName ?? selectedLanguage,
+          );
+        } else {
+          _trackPlaybackEvent(
+            'automatic_provider_fallback_exhausted',
+            error: reason,
+          );
+        }
+        return switched;
+      } finally {
+        _automaticFallbackRunning = false;
+      }
     }
+
+    // The default/original-language path can move between languages only
+    // before the viewer explicitly locks a language.
+    final allowed = providers.map((provider) => provider.codeName).toSet();
     _automaticFallbackRunning = true;
     if (failedProviderCode != null) {
       _providerErrors[failedProviderCode] = tr('provider_playback_failed');
