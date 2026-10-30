@@ -487,10 +487,13 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           setState(() {
             providerStates[providerIndex] =
                 providerStates[providerIndex].copyWith(
+              // A failed fast response is still being retried through
+              // full-collection resolution. Only the final callback marks it
+              // definitively failed.
               status: providerSucceeded
                   ? ProviderStatus.success
-                  : ProviderStatus.failed,
-              errorMessage: result.errorMessage,
+                  : ProviderStatus.loading,
+              errorMessage: providerSucceeded ? null : result.errorMessage,
             );
             currentProviderIndex = _firstLoadingProviderIndex();
           });
