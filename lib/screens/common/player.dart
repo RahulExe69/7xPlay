@@ -6,6 +6,8 @@ import 'package:flixquest/widgets/playback_action.dart';
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import '../../data/sync/library_scope.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
