@@ -120,6 +120,39 @@ void main() {
     expect(discovery.providerCodesFor('und'), [providers[0].codeName]);
   });
 
+  test('progressive extensions override incorrect HLS and DASH flags', () {
+    expect(
+      UnifiedPlaybackLanguageService.manifestFormatForLink(
+        RegularVideoLinks(
+          url: 'https://example.com/movie.mp4?token=abc',
+          isM3U8: true,
+        ),
+      ),
+      isNull,
+    );
+    expect(
+      UnifiedPlaybackLanguageService.manifestFormatForLink(
+        RegularVideoLinks(
+          url: 'https://example.com/movie.webm',
+          isDash: true,
+        ),
+      ),
+      isNull,
+    );
+    expect(
+      UnifiedPlaybackLanguageService.manifestFormatForLink(
+        RegularVideoLinks(url: 'https://example.com/master.m3u8?token=abc'),
+      ),
+      'hls',
+    );
+    expect(
+      UnifiedPlaybackLanguageService.manifestFormatForLink(
+        RegularVideoLinks(url: 'https://example.com/manifest.mpd'),
+      ),
+      'dash',
+    );
+  });
+
   test('keeps unverified progressive links separate from verified links', () async {
     final provider = providers[0];
     final sourceAttempt = ProviderAttempt(

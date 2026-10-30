@@ -86,6 +86,40 @@ abstract final class UnifiedPlaybackLanguageService {
     );
   }
 
+  /// Identifies manifest formats conservatively. Explicit progressive file
+  /// extensions override provider flags, because providers occasionally mark
+  /// an MP4/WebM URL as HLS by mistake.
+  static String? manifestFormatForLink(RegularVideoLinks link) {
+    final rawUrl = link.url?.trim() ?? '';
+    if (rawUrl.isEmpty) return null;
+    final parsed = Uri.tryParse(rawUrl);
+    final path = (parsed?.path.isNotEmpty == true
+            ? parsed!.path
+            : rawUrl.split('?').first)
+        .toLowerCase();
+
+    const progressiveExtensions = <String>[
+      '.mp4',
+      '.m4v',
+      '.mov',
+      '.webm',
+      '.mkv',
+      '.avi',
+      '.mpg',
+      '.mpeg',
+      '.flv',
+      '.wmv',
+    ];
+    if (progressiveExtensions.any(path.endsWith)) return null;
+    if (path.endsWith('.mpd')) return 'dash';
+    if (path.endsWith('.m3u8')) return 'hls';
+
+    // Extension-less signed endpoints still rely on provider metadata.
+    if (link.isDash == true) return 'dash';
+    if (link.isM3U8 == true) return 'hls';
+    return null;
+  }
+
   static bool allowsProviderForSelectedLanguage({
     required String? selectedLanguageCode,
     required Iterable<String> eligibleProviderCodes,
@@ -142,12 +176,7 @@ abstract final class UnifiedPlaybackLanguageService {
         }
 
         final url = link.url!.trim();
-        final lowerUrl = url.toLowerCase();
-        final format = link.isDash == true || lowerUrl.contains('.mpd')
-            ? 'dash'
-            : link.isM3U8 == true || lowerUrl.contains('.m3u8')
-                ? 'hls'
-                : null;
+        final format = manifestFormatForLink(link);
 
         // Progressive files and unrecognised formats are never sent to
         // the HLS/DASH parser. Keep this individual source available as
