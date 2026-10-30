@@ -3223,8 +3223,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             if (sheetContext.mounted) setSheetState(() {});
           };
           final options = _audioSourceKeysByLanguage;
-          final manifestTracks =
+          final activeManifestTracks =
               _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+          // Once a language has been added to the cross-provider catalogue,
+          // do not show it again as a duplicate "current stream" track.
+          final manifestTracks = activeManifestTracks.where((track) {
+            final code = languageCodeForLabel(track.language) ??
+                languageCodeForLabel(track.label);
+            return code == null || !options.containsKey(code);
+          }).toList(growable: false);
           final waiting = _backgroundProviderAggregationPending ||
               _audioLanguageDiscoveryRunning;
           final showEmptyState =
@@ -3295,10 +3302,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     final code = options.keys.elementAt(sourceIndex);
                     final keys = options[code]!;
                     final selected = code == _activeAudioLanguageCode;
-                    final providerCodes = keys
-                        .map((key) => _allVideoProviderCodes[key])
-                        .whereType<String>()
-                        .toSet();
                     return PlayerChoiceCard(
                       kicker: selected ? tr('player_now_playing') : null,
                       title: languageNameForCode(code),
@@ -3348,9 +3351,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                   return const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                     child: Text(
-                      'No alternate audio tracks were detected for this stream. '
-                      'Try another provider or stream quality; some sources expose '
-                      'only one audio track.',
+                      'No labelled audio alternatives were found across the '
+                      'available providers. Some streams expose only one track.',
                     ),
                   );
                 },
