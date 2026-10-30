@@ -262,6 +262,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _audioLanguageExplicitlySelected = false;
   bool _manifestAudioExplicitlySelected = false;
   bool _audioLanguageDiscoveryRunning = false;
+  // A single adaptive manifest may expose several languages. Keep the
+  // language-to-source relationship many-to-many instead of forcing one
+  // language label onto each provider URL.
+  final Map<String, Set<String>> _discoveredAudioSourceKeysByLanguage = {};
+  final Map<String, int> _audioSourceFailureCounts = {};
+  final Map<String, int> _providerFailureCounts = {};
   final Map<String, int?> _streamSizeCacheByToken = {};
   final Set<String> _loadingProviders =
       {}; // Track which providers are being loaded
