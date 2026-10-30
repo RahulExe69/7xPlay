@@ -166,6 +166,52 @@ void main() {
     });
   });
 
+  group('offline download format detection', () {
+    test('detects HLS and DASH from their manifests', () {
+      expect(
+        OfflineDownloadService.inferFormat(
+          url: 'https://cdn.example.test/master.m3u8?token=abc',
+        ),
+        'hls',
+      );
+      expect(
+        OfflineDownloadService.inferFormat(
+          url: 'https://cdn.example.test/manifest.mpd',
+        ),
+        'dash',
+      );
+    });
+
+    test('detects progressive files even when a provider flag is wrong', () {
+      for (final extension in ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi']) {
+        expect(
+          OfflineDownloadService.inferFormat(
+            url: 'https://cdn.example.test/movie.$extension?token=abc',
+            isHls: true,
+          ),
+          'progressive',
+        );
+      }
+    });
+
+    test('uses explicit provider format flags for extensionless streams', () {
+      expect(
+        OfflineDownloadService.inferFormat(
+          url: 'https://cdn.example.test/stream?id=1',
+          isDash: true,
+        ),
+        'dash',
+      );
+      expect(
+        OfflineDownloadService.inferFormat(
+          url: 'https://cdn.example.test/stream?id=1',
+          isHls: true,
+        ),
+        'hls',
+      );
+    });
+  });
+
   test('streaming and downloads share provider header inference', () {
     expect(
       VideoUtils.inferVideoHeaders(
