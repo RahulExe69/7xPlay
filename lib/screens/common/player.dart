@@ -3671,12 +3671,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   void _catalogCurrentManifestAudioTracks() {
     final currentUrl = _betterPlayerController.betterPlayerDataSource?.url;
     if (currentUrl == null || currentUrl.isEmpty) return;
-    final sourceKeys = <String>{
-      for (final entry in _allVideoSources.entries)
-        if (entry.value == currentUrl) entry.key,
-      for (final entry in _activeSources.entries)
-        if (entry.value == currentUrl) entry.key,
-    };
+    final sourceKeys = _allVideoSources.entries
+        .where((entry) => entry.value == currentUrl)
+        .map((entry) => entry.key)
+        .toSet();
     if (sourceKeys.isEmpty) return;
     final tracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
@@ -4018,31 +4016,33 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             'nativeTracks=${nativeTrackCodes.join(",")}',
           );
         }
-        // A failed candidate must not strand the viewer on its broken URL.
-        // Restore the previously working stream before trying the next
-        // same-language source from another server/provider.
-        if (mounted && previousDataSource != null) {
-          try {
-            await _betterPlayerController.setupDataSource(
-              previousDataSource,
-              initialPosition: position,
-            );
-            if (!wasPlaying) {
-              await _betterPlayerController.pause();
-            } else {
-              await _waitForSourceReady(
-                expectPlaying: true,
-                timeout: const Duration(seconds: 6),
-              );
-            }
-          } catch (restoreError) {
-            debugPrint(
-              '[Player][AudioFailover] Previous stream restore failed: '
-              '$restoreError',
-            );
-          }
-        }
+        // Keep trying the next compatible source directly. Restoring the
+        // previous video between every failed candidate causes an extra
+        // visible reset; the previous stream is restored once, only if the
+        // entire same-language queue is exhausted.
         _currentProviderCode = previousProviderCode;
+      }
+    }
+
+    if (mounted && previousDataSource != null) {
+      try {
+        await _betterPlayerController.setupDataSource(
+          previousDataSource,
+          initialPosition: position,
+        );
+        if (!wasPlaying) {
+          await _betterPlayerController.pause();
+        } else {
+          await _waitForSourceReady(
+            expectPlaying: true,
+            timeout: const Duration(seconds: 6),
+          );
+        }
+      } catch (restoreError) {
+        debugPrint(
+          '[Player][AudioFailover] Previous stream restore failed: '
+          '$restoreError',
+        );
       }
     }
 
