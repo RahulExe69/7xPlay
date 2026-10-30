@@ -51,6 +51,39 @@ void main() {
   });
 
   test(
+    'publishes recovered provider result after the fast request fails',
+    () async {
+      final finalResults = <ProviderLoadResult>[];
+      final session = ProviderLoader.startFastThenExpand(
+        providers: providers.take(1).toList(),
+        loadFast: (_) async =>
+            const ProviderLoadResult(errorMessage: 'Gateway timeout'),
+        loadExpanded: (_, __) async => ProviderLoadResult(
+          success: true,
+          videoLinks: [
+            RegularVideoLinks(
+              url: 'https://example.com/recovered.m3u8',
+              audioLanguage: 'hi',
+            ),
+          ],
+        ),
+        onFinalResult: (_, __, result) => finalResults.add(result),
+      );
+
+      final first = await session.firstPlayable.timeout(
+        const Duration(seconds: 1),
+      );
+      final combined = await session.allSuccessful;
+
+      expect(first?.hasPlayableSources, isTrue);
+      expect(combined?.attempts.single.hasPlayableSources, isTrue);
+      expect(finalResults, hasLength(1));
+      expect(finalResults.single.success, isTrue);
+      expect(finalResults.single.videoLinks?.single.audioLanguage, 'hi');
+    },
+  );
+
+  test(
     'starts the player before waiting for background stream expansion',
     () async {
       final expansion = Completer<ProviderLoadResult>();
