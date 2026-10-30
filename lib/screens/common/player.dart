@@ -3692,6 +3692,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     provider: provider,
                     movieId: widget.movieMetadata!.movieId!,
                     scraperApiUrl: _resolveScraperApiUrl(),
+                    full: true,
                   )
                 : ProviderLoader.loadTVFromProvider(
                     provider: provider,
@@ -3699,8 +3700,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     seasonNumber: widget.tvMetadata!.seasonNumber!,
                     episodeNumber: widget.tvMetadata!.episodeNumber!,
                     scraperApiUrl: _resolveScraperApiUrl(),
+                    full: true,
                   );
-        final result = await resultFuture;
+        ProviderLoadResult result;
+        try {
+          result = await resultFuture.timeout(const Duration(seconds: 35));
+        } catch (error) {
+          _providerResults.remove(providerCode);
+          rethrow;
+        }
         if (!result.success || result.videoLinks?.isEmpty != false) {
           // Failed futures are not cached, allowing a later explicit retry.
           _providerResults.remove(providerCode);
@@ -3751,6 +3759,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       setState(() {
         _currentProviderCode = providerCode;
         _providerErrors.remove(providerCode);
+        final priorFailures = _providerFailureCounts[providerCode] ?? 0;
+        if (priorFailures <= 1) {
+          _providerFailureCounts.remove(providerCode);
+        } else {
+          _providerFailureCounts[providerCode] = priorFailures - 1;
+        }
         _providerSourceCounts[providerCode] = nextSource.rawVideoLinks.length;
         _automaticFallbackTried.add(providerCode);
         _activeSources = Map.of(nextSource.videoSources);
@@ -3806,6 +3820,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         '${analyticsPurpose}_failed',
         value: providerName,
         error: error.toString(),
+      );
+      _providerFailureCounts.update(
+        providerCode,
+        (count) => count + 1,
+        ifAbsent: () => 1,
       );
       debugPrint(
         '[Player] Provider ${reload ? 'refresh' : 'switch'} failed for '
