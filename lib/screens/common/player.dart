@@ -834,13 +834,21 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (!_audioLanguageExplicitlySelected) return true;
     final selected = _activeAudioLanguageCode;
     if (selected == null) return true;
+    final discoveredProviders = (_audioSourceKeysByLanguage[selected] ??
+            const <String>[])
+        .map((key) => _allVideoProviderCodes[key])
+        .whereType<String>()
+        .toSet();
+    if (discoveredProviders.contains(providerCode)) return true;
+
     final codes = (_rawVideoLinksByProvider[providerCode] ??
             const <RegularVideoLinks>[])
         .map((link) => languageCodeForLabel(link.audioLanguage))
         .whereType<String>()
         .toSet();
-    // Unlabelled sources may still expose the selected rendition in their
-    // manifest; reject only providers whose explicit labels conflict.
+    // An unknown label is not proof of incompatibility; a known conflicting
+    // label is. Native manifest discovery is checked above and may advertise
+    // multiple languages on the same provider URL.
     return codes.isEmpty || codes.contains(selected);
   }
 
@@ -3796,12 +3804,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     final selectedLanguage = _activeAudioLanguageCode;
     final explicitlyEligibleProviders = _audioLanguageExplicitlySelected
-        ? _allVideoAudioLanguages.entries
-            .where(
-              (entry) =>
-                  languageCodeForLabel(entry.value) == selectedLanguage,
-            )
-            .map((entry) => _allVideoProviderCodes[entry.key])
+        ? (_audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[])
+            .map((key) => _allVideoProviderCodes[key])
             .whereType<String>()
             .toSet()
         : <String>{};
