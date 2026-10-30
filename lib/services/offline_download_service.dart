@@ -66,6 +66,39 @@ class OfflineDownloadService implements OfflineDownloadGateway {
 
   static final OfflineDownloadService instance = OfflineDownloadService._();
 
+  /// Resolves stream type from explicit provider flags first, then the URL.
+  /// Unknown extensions retain the historical HLS fallback, but common
+  /// progressive files are no longer sent to the HLS/DASH download helper.
+  static String inferFormat({
+    required String url,
+    bool isHls = false,
+    bool isDash = false,
+  }) {
+    if (isDash) return 'dash';
+    if (isHls) return 'hls';
+    final uri = Uri.tryParse(url.trim());
+    final path = (uri?.path.isNotEmpty == true
+            ? uri!.path
+            : url.split('?').first)
+        .toLowerCase();
+    if (path.endsWith('.mpd')) return 'dash';
+    if (path.endsWith('.m3u8') || path.contains('/playlist/')) return 'hls';
+    const progressiveExtensions = [
+      '.mp4',
+      '.m4v',
+      '.mov',
+      '.webm',
+      '.mkv',
+      '.avi',
+      '.mpg',
+      '.mpeg',
+      '.flv',
+      '.wmv',
+    ];
+    if (progressiveExtensions.any(path.endsWith)) return 'progressive';
+    return 'hls';
+  }
+
   static const MethodChannel _methods =
       MethodChannel('dev.beamlak.flixquest/stream_downloads');
   static const EventChannel _events =
