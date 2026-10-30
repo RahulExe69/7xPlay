@@ -266,6 +266,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   // language-to-source relationship many-to-many instead of forcing one
   // language label onto each provider URL.
   final Map<String, Set<String>> _discoveredAudioSourceKeysByLanguage = {};
+  // A provider may advertise a language incorrectly. Once its manifest
+  // exposes explicit native track IDs that do not contain the selected
+  // language, suppress that source for that language for this playback
+  // session so the picker does not repeatedly offer a false positive.
+  final Map<String, Set<String>> _rejectedAudioSourceKeysByLanguage = {};
   final Map<String, int> _audioSourceFailureCounts = {};
   final Map<String, int> _providerFailureCounts = {};
   final Map<String, int?> _streamSizeCacheByToken = {};
@@ -3140,14 +3145,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final grouped = <String, Set<String>>{};
     for (final entry in _allVideoAudioLanguages.entries) {
       final code = languageCodeForLabel(entry.value);
-      if (code == null) continue;
+      if (code == null ||
+          (_rejectedAudioSourceKeysByLanguage[code]?.contains(entry.key) ??
+              false)) {
+        continue;
+      }
       grouped.putIfAbsent(code, () => <String>{}).add(entry.key);
     }
     // One adaptive source may provide English, Hindi, Bengali, and other
     // native audio renditions simultaneously. Include that same source under
     // every language it actually advertises.
     for (final entry in _discoveredAudioSourceKeysByLanguage.entries) {
-      grouped.putIfAbsent(entry.key, () => <String>{}).addAll(entry.value);
+      final rejected =
+          _rejectedAudioSourceKeysByLanguage[entry.key] ?? const <String>{};
+      grouped
+          .putIfAbsent(entry.key, () => <String>{})
+          .addAll(entry.value.where((key) => !rejected.contains(key)));
     }
     return {
       for (final entry in grouped.entries)
@@ -3203,6 +3216,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _discoveredAudioSourceKeysByLanguage
             .putIfAbsent(languageCode, () => <String>{})
             .addAll(currentSourceKeys);
+        for (final key in currentSourceKeys) {
+          _rejectedAudioSourceKeysByLanguage[languageCode]?.remove(key);
+        }
       }
       setState(() {
         _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
@@ -3688,6 +3704,32 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       } catch (error) {
         lastError = error;
         _recordAudioSourceFailure(key, error);
+        // Provider metadata can claim a language that the actual HLS/DASH
+        // manifest does not contain. If the manifest exposes a real track
+        // catalogue and the requested language is absent, stop advertising
+        // this source for that language for the remainder of this session.
+        // Network/player failures alone must never poison the language list.
+        final nativeTracks =
+            _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+        final nativeTrackCodes = nativeTracks
+            .map((track) =>
+                languageCodeForLabel(track.language) ??
+                languageCodeForLabel(track.label))
+            .whereType<String>()
+            .toSet();
+        if (error is StateError &&
+            nativeTrackCodes.isNotEmpty &&
+            !nativeTrackCodes.contains(languageCode)) {
+          _rejectedAudioSourceKeysByLanguage
+              .putIfAbsent(languageCode, () => <String>{})
+              .add(key);
+          _audioLanguageSheetRefresh?.call();
+          debugPrint(
+            '[Player][AudioFailover] Rejected false language claim '
+            'language=$languageCode source=$key '
+            'nativeTracks=${nativeTrackCodes.join(",")}',
+          );
+        }
         // A failed candidate must not strand the viewer on its broken URL.
         // Restore the previously working stream before trying the next
         // same-language source from another server/provider.
