@@ -3191,6 +3191,19 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (!mounted || _isSwitchingProvider) return;
     try {
       _betterPlayerController.setAudioTrack(track);
+      final currentUrl =
+          _betterPlayerController.betterPlayerDataSource?.url.trim();
+      final currentSourceKeys = currentUrl == null
+          ? const <String>[]
+          : _allVideoSources.entries
+              .where((entry) => entry.value == currentUrl)
+              .map((entry) => entry.key)
+              .toList(growable: false);
+      if (languageCode != null && currentSourceKeys.isNotEmpty) {
+        _discoveredAudioSourceKeysByLanguage
+            .putIfAbsent(languageCode, () => <String>{})
+            .addAll(currentSourceKeys);
+      }
       setState(() {
         _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
         if (languageCode != null) {
@@ -3401,9 +3414,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     if (preferredKeys == null || preferredKeys.isEmpty) return;
 
-    final preferredIsAlreadyActive = _activeVideoAudioLanguages.values.any(
-      (label) => languageCodeForLabel(label) == preferred,
-    );
+    final currentSourceUrl =
+        _betterPlayerController.betterPlayerDataSource?.url;
+    final preferredIsAlreadyActive = currentSourceUrl != null &&
+        _activeSources.entries.any(
+          (entry) =>
+              entry.value == currentSourceUrl &&
+              languageCodeForLabel(_activeVideoAudioLanguages[entry.key]) ==
+                  preferred,
+        );
     if (preferredIsAlreadyActive) {
       _activeAudioLanguageCode = preferred;
       return;
