@@ -81,7 +81,7 @@ internal class DownloadSourceResolver {
         val matches = (0 until links.length()).mapNotNull { links.optJSONObject(it) }.filter { link ->
             link.optString("quality", "unknown quality") == source.getString("quality") &&
                 link.optString("server") == source.optString("server") &&
-                (if (link.optBoolean("isM3U8")) "hls" else if (link.optBoolean("isDASH")) "dash" else "") == format &&
+                (if (link.optBoolean("isM3U8")) "hls" else if (link.optBoolean("isDASH")) "dash" else "progressive") == format &&
                 link.optString("url").isNotBlank()
         }.distinctBy { jsonMap(it) }
         if (matches.size != 1) {
@@ -107,7 +107,7 @@ internal class DownloadSourceResolver {
             source.optString("quality").isBlank() || metadata.optInt("contentId") <= 0 ||
             metadata.optString("cacheNamespace").isBlank() ||
             metadata.optJSONArray("selectedTracks") == null ||
-            metadata.optString("format") !in listOf("hls", "dash") ||
+            metadata.optString("format") !in listOf("hls", "dash", "progressive") ||
             metadata.optString("mediaType") !in listOf("movie", "episode")) {
             throw IOException("Download recovery metadata is incomplete.")
         }
