@@ -496,7 +496,30 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           });
         }
       },
-      providerTimeout: const Duration(seconds: 12),
+      // Full-collection resolution runs after the initial source hand-off.
+      // Publish its result too, so transient failures can recover to Success
+      // instead of leaving the provider marked Failed.
+      onFinalResult: (index, provider, result) {
+        final providerIndex = videoProviders.indexWhere(
+          (candidate) => candidate.codeName == provider.codeName,
+        );
+        if (mounted &&
+            providerIndex >= 0 &&
+            providerIndex < providerStates.length) {
+          final succeeded =
+              result.success && result.videoLinks?.isNotEmpty == true;
+          setState(() {
+            providerStates[providerIndex] =
+                providerStates[providerIndex].copyWith(
+              status: succeeded ? ProviderStatus.success : ProviderStatus.failed,
+              errorMessage: result.errorMessage,
+            );
+            currentProviderIndex = _firstLoadingProviderIndex();
+          });
+        }
+      },
+      providerTimeout: const Duration(seconds: 25),
+      expansionTimeout: const Duration(seconds: 35),
     );
   }
 
