@@ -4045,6 +4045,17 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     final selectedLanguage = _activeAudioLanguageCode;
     if (_audioLanguageExplicitlySelected && selectedLanguage != null) {
+      // If a viewer changed audio before cross-provider manifest inspection
+      // finished, let the catalogue complete briefly before deciding that no
+      // same-language alternatives exist. The currently selected native
+      // source was registered immediately when the track was tapped.
+      final discoveryDeadline =
+          DateTime.now().add(const Duration(seconds: 12));
+      while (_audioLanguageDiscoveryRunning &&
+          DateTime.now().isBefore(discoveryDeadline)) {
+        if (!mounted || _adBlockStopped) return false;
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
       final languageSourceKeys =
           _audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[];
       if (languageSourceKeys.isEmpty) {
