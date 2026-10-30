@@ -3387,30 +3387,55 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Map<String, List<String>> get _audioSourceKeysByLanguage {
-    final grouped = <String, Set<String>>{};
+    final grouped = <String, List<String>>{};
+    final sourceIdentityToKey = <String, Map<String, String>>{};
+
+    void addSource(String languageCode, String sourceKey) {
+      if (!_allVideoSources.containsKey(sourceKey)) return;
+      if (_rejectedAudioSourceKeysByLanguage[languageCode]
+              ?.contains(sourceKey) ==
+          true) {
+        return;
+      }
+      final url = _allVideoSources[sourceKey] ?? '';
+      final headers = _allVideoHeaders[sourceKey] ?? const <String, String>{};
+      final sortedHeaders = headers.entries.toList()
+        ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
+      final identity = '$url|${sortedHeaders.map((e) => '${e.key.toLowerCase()}:${e.value}').join('&')}';
+      final identities =
+          sourceIdentityToKey.putIfAbsent(languageCode, () => <String, String>{});
+      final existingKey = identities[identity];
+      if (existingKey == null) {
+        identities[identity] = sourceKey;
+        grouped.putIfAbsent(languageCode, () => <String>[]).add(sourceKey);
+        return;
+      }
+      // The original first-source map may have a key without provider
+      // metadata. Prefer the streamed provider-tagged key for diagnostics and
+      // same-language retries without counting the exact URL twice.
+      if (_allVideoProviderCodes[existingKey] == null &&
+          _allVideoProviderCodes[sourceKey] != null) {
+        final values = grouped[languageCode]!;
+        final index = values.indexOf(existingKey);
+        if (index >= 0) values[index] = sourceKey;
+        identities[identity] = sourceKey;
+      }
+    }
+
     for (final entry in _allVideoAudioLanguages.entries) {
       final code = languageCodeForLabel(entry.value);
-      if (code == null ||
-          (_rejectedAudioSourceKeysByLanguage[code]?.contains(entry.key) ??
-              false)) {
-        continue;
-      }
-      grouped.putIfAbsent(code, () => <String>{}).add(entry.key);
+      if (code != null) addSource(code, entry.key);
     }
     // One adaptive source may provide English, Hindi, Bengali, and other
-    // native audio renditions simultaneously. Include that same source under
-    // every language it actually advertises.
+    // native renditions simultaneously; its URL is counted only once per
+    // language, even when it was first received as the startup source and
+    // later again in a provider's expanded result.
     for (final entry in _discoveredAudioSourceKeysByLanguage.entries) {
-      final rejected =
-          _rejectedAudioSourceKeysByLanguage[entry.key] ?? const <String>{};
-      grouped
-          .putIfAbsent(entry.key, () => <String>{})
-          .addAll(entry.value.where((key) => !rejected.contains(key)));
+      for (final key in entry.value) {
+        addSource(entry.key, key);
+      }
     }
-    return {
-      for (final entry in grouped.entries)
-        entry.key: entry.value.toList(growable: false),
-    };
+    return grouped;
   }
 
   // The action must remain reachable even when providers omit language
