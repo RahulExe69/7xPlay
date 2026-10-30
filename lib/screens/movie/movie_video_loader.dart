@@ -612,13 +612,11 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
     }
     final url = sources[quality]!;
     final declaredFormat = videoFormats[quality];
-    final format = declaredFormat == BetterPlayerVideoFormat.dash
-        ? 'dash'
-        : declaredFormat == BetterPlayerVideoFormat.hls
-            ? 'hls'
-            : url.toLowerCase().contains('.mpd')
-                ? 'dash'
-                : 'hls';
+    final format = OfflineDownloadService.inferFormat(
+      url: url,
+      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
+      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
+    );
     final posterPath = _metadata.posterPath;
     final subtitleTrack = _preferredSubtitle(movieVideoSubs);
     try {
