@@ -773,41 +773,41 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     try {
       final discovery = await UnifiedPlaybackLanguageService.discover(
         selection.attempts,
-        candidatesPerProvider: 2,
+        // Every server/manifest matters: the same provider may expose different
+        // languages on different servers, and one manifest may contain several
+        // audio renditions. This work is post-start and runs concurrently.
+        candidatesPerProvider: null,
         concurrency: 4,
-        probeTimeout: const Duration(seconds: 5),
+        probeTimeout: const Duration(seconds: 8),
       );
       if (!mounted || _adBlockStopped) return;
 
       final links = selection.result.videoLinks ?? const <RegularVideoLinks>[];
       if (links.isEmpty) return;
-      final enrichedLinks = <RegularVideoLinks>[
-        for (final link in links)
-          RegularVideoLinks(
-            url: link.url,
-            quality: link.quality,
-            server: link.server,
-            isM3U8: link.isM3U8,
-            isDash: link.isDash,
-            headers: link.headers == null ? null : Map.of(link.headers!),
-            sizeToken: link.sizeToken,
-            audioLanguage: link.audioLanguage ??
-                (link.providerCode == null
-                    ? null
-                    : discovery.languageCodeForLink(
-                        link,
-                        link.providerCode!,
-                      )),
-            providerCode: link.providerCode,
-          ),
-      ];
-      final discoveredLanguages = VideoUtils.reverseVideoQualityMap(
-        VideoUtils.convertVideoAudioLanguagesToMap(enrichedLinks),
-      );
-      if (discoveredLanguages.isEmpty) return;
+      final sourceKeys =
+          VideoUtils.convertVideoLinksToMap(links).keys.toList(growable: false);
+      final sourceKeysByLanguage = <String, Set<String>>{};
+      for (var index = 0; index < links.length; index++) {
+        final link = links[index];
+        final providerCode = link.providerCode;
+        if (providerCode == null || index >= sourceKeys.length) continue;
+        for (final languageCode in discovery.languageCodesForLink(
+          link,
+          providerCode,
+        )) {
+          sourceKeysByLanguage
+              .putIfAbsent(languageCode, () => <String>{})
+              .add(sourceKeys[index]);
+        }
+      }
+      if (sourceKeysByLanguage.isEmpty) return;
 
       setState(() {
-        _allVideoAudioLanguages.addAll(discoveredLanguages);
+        for (final entry in sourceKeysByLanguage.entries) {
+          _discoveredAudioSourceKeysByLanguage
+              .putIfAbsent(entry.key, () => <String>{})
+              .addAll(entry.value);
+        }
       });
       _audioLanguageSheetRefresh?.call();
       _maybeAutoSwitchToPreferredAudioSource();
