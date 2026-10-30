@@ -16,6 +16,7 @@ class LanguageEntry {
 const List<LanguageEntry> appLanguages = <LanguageEntry>[
   LanguageEntry('ar', 'arabic', ['ara']),
   LanguageEntry('bg', 'bulgarian', ['bul']),
+  LanguageEntry('bn', 'bengali', ['ben']),
   LanguageEntry('zh', 'chinese', ['chi', 'zho', 'cmn', 'yue']),
   LanguageEntry('hr', 'croaitian', ['hrv', 'scr']),
   LanguageEntry('cs', 'czech', ['cze', 'ces']),
@@ -88,6 +89,42 @@ String languageDisplayName(String? label) {
   final language = _findLanguage(base);
   if (language == null) return '$base$suffix';
   return '${tr(language.translationKey)}$suffix';
+}
+
+/// Returns a canonical ISO 639-1 code only when a label can be
+/// matched confidently to one of the languages the app knows.
+String? languageCodeForLabel(String? label) {
+  final raw = label?.trim().toLowerCase() ?? '';
+  if (raw.isEmpty) return null;
+
+  final exact = _findLanguage(raw);
+  if (exact != null) return exact.code;
+
+  for (final language in appLanguages) {
+    final names = <String>[
+      language.code,
+      ...language.aliases,
+      language.translationKey,
+      tr(language.translationKey).toLowerCase(),
+    ];
+    for (final name in names) {
+      if (name.isEmpty) continue;
+      final match = RegExp(
+        '(?<![a-z])${RegExp.escape(name)}(?![a-z])',
+        caseSensitive: false,
+      ).hasMatch(raw);
+      if (match) return language.code;
+    }
+  }
+  return null;
+}
+
+String languageNameForCode(String code) {
+  if (code == 'und') return tr('player_original_audio');
+  for (final language in appLanguages) {
+    if (language.code == code) return tr(language.translationKey);
+  }
+  return code;
 }
 
 LanguageEntry? _findLanguage(String base) {

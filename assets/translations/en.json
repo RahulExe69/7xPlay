@@ -2013,5 +2013,20 @@
   "device_platform_tv": "TV",
   "device_platform_ios": "iPhone or iPad",
   "device_platform_android": "Android device",
-  "device_last_used": "Last used {date}"
+  "device_last_used": "Last used {date}",
+  "player_providers": "Providers",
+  "player_provider_diagnostics_summary": "{available} available · {failed} failed",
+  "player_choose_audio_language": "Choose audio language",
+  "player_audio_language_description": "7xPlay combines compatible sources and automatically tries another when playback fails.",
+  "player_audio_language_source_count": "{count} providers",
+  "player_original_audio": "Original audio · unverified language",
+  "provider_timeout": "Timed out",
+  "provider_request_failed": "Request failed",
+  "provider_no_sources": "No playable sources",
+  "provider_failed": "Failed",
+  "provider_available_count": "{count} available sources",
+  "provider_not_checked": "Not checked",
+  "provider_language_unavailable": "This provider does not expose the selected audio language",
+  "provider_playback_failed": "Playback failed",
+  "bengali": "Bengali"
 }

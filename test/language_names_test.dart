@@ -18,6 +18,12 @@ void main() {
       expect(languageDisplayName('ES'), 'spanish');
     });
 
+    test('recognizes Bengali and its ISO 639-2 code', () {
+      expect(languageDisplayName('bn'), 'bengali');
+      expect(languageDisplayName('ben'), 'bengali');
+      expect(languageCodeForLabel('Bengali'), 'bn');
+    });
+
     test('turns ISO 639-2 codes into names', () {
       expect(languageDisplayName('eng'), 'english');
       expect(languageDisplayName('spa'), 'spanish');

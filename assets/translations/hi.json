@@ -2013,5 +2013,20 @@
   "device_platform_tv": "टीवी",
   "device_platform_ios": "iPhone या iPad",
   "device_platform_android": "Android डिवाइस",
-  "device_last_used": "आखिरी इस्तेमाल {date}"
+  "device_last_used": "आखिरी इस्तेमाल {date}",
+  "bengali": "बंगाली",
+  "player_providers": "प्रदाता",
+  "player_provider_diagnostics_summary": "{available} उपलब्ध · {failed} विफल",
+  "player_choose_audio_language": "ऑडियो भाषा चुनें",
+  "player_audio_language_description": "7xPlay संगत स्रोतों को जोड़ता है और प्लेबैक विफल होने पर स्वचालित रूप से अगला स्रोत आज़माता है।",
+  "player_audio_language_source_count": "{count} प्रदाता",
+  "player_original_audio": "मूल ऑडियो · भाषा अप्रमाणित",
+  "provider_timeout": "समय समाप्त",
+  "provider_request_failed": "अनुरोध विफल",
+  "provider_no_sources": "कोई चलने योग्य स्रोत नहीं",
+  "provider_failed": "विफल",
+  "provider_available_count": "{count} उपलब्ध स्रोत",
+  "provider_not_checked": "जाँचा नहीं गया",
+  "provider_language_unavailable": "इस स्रोत में चुनी गई ऑडियो भाषा उपलब्ध नहीं है",
+  "provider_playback_failed": "प्लेबैक विफल"
 }

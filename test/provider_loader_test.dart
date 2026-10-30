@@ -262,8 +262,55 @@ void main() {
         ['English', 'Hindi'],
       );
       expect(reported.toSet(), {'0', '1', '2'});
+      expect(selection.attempts.map((attempt) => attempt.provider.apiId),
+          ['0', '1', '2']);
+      expect(selection.attempts[0].hasPlayableSources, isTrue);
+      expect(selection.attempts[2].hasPlayableSources, isFalse);
+      expect(selection.attempts[2].result.errorMessage, 'Offline');
     },
   );
+
+  test('fallback candidates preserve priority and selected-language eligibility',
+      () {
+    final attempts = <ProviderAttempt>[
+      ProviderAttempt(
+        index: 0,
+        provider: providers[0],
+        result: playableResult(),
+      ),
+      ProviderAttempt(
+        index: 1,
+        provider: providers[1],
+        result: playableResult(),
+      ),
+      ProviderAttempt(
+        index: 2,
+        provider: providers[2],
+        result: const ProviderLoadResult(errorMessage: 'Offline'),
+      ),
+      ProviderAttempt(
+        index: 3,
+        provider: providers[3],
+        result: playableResult(),
+      ),
+    ];
+
+    final candidates = ProviderLoader.fallbackCandidates(
+      attempts: attempts,
+      failedProviderCode: providers[0].codeName,
+      eligibleProviderCodes: [
+        providers[0].codeName,
+        providers[1].codeName,
+        providers[2].codeName,
+      ],
+      alreadyTriedProviderCodes: {providers[0].codeName},
+    );
+
+    expect(
+      candidates.map((attempt) => attempt.provider.apiId),
+      ['1'],
+    );
+  });
 
   test('does not wait forever for a stalled provider', () async {
     final neverCompletes = Completer<ProviderLoadResult>();

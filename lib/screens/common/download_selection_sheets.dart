@@ -7,6 +7,7 @@ import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../mobile/widgets/page_kit.dart';
 import '../../models/offline_download.dart';
+import '../../services/unified_playback_language_service.dart';
 import '../../video_providers/names.dart';
 import 'player/player_sheet_ui.dart';
 
@@ -27,6 +28,31 @@ abstract final class DownloadSelectionSheets {
         ? showPlayerSheet<DownloadAudioSelection>(
             context: context, builder: builder)
         : showAppSheet<DownloadAudioSelection>(context, builder: builder);
+  }
+
+  static Future<String?> showPlaybackLanguage(
+    BuildContext context, {
+    required List<UnifiedPlaybackLanguageOption> languages,
+  }) {
+    return showAppSheet<String>(
+      context,
+      builder: (context) => _ChoiceSheet<String>(
+        title: tr('player_choose_audio_language'),
+        subtitle: tr('player_audio_language_description'),
+        choices: [
+          for (final language in languages)
+            _Choice(
+              value: language.code,
+              title: language.label,
+              subtitle: tr(
+                'player_audio_language_source_count',
+                namedArgs: {'count': language.providerCodes.length.toString()},
+              ),
+              icon: PhosphorIcons.speakerHigh(),
+            ),
+        ],
+      ),
+    );
   }
 
   static Future<VideoProvider?> showProvider(
