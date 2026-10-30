@@ -437,24 +437,8 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
         );
       },
       onResult: (index, provider, result) {
-        final durationMs = _providerStopwatches
-                .remove(provider.codeName)
-                ?.elapsedMilliseconds ??
-            0;
         final providerSucceeded =
             result.success && result.videoLinks?.isNotEmpty == true;
-        settings.analytics.trackProviderAttempt(
-          mediaType: 'tv',
-          contentId: widget.metadata.tvId,
-          contentTitle: widget.metadata.seriesName,
-          provider: provider.displayName,
-          purpose: widget.download ? 'download' : 'playback',
-          success: providerSucceeded,
-          durationMs: durationMs,
-          sourceCount: result.videoLinks?.length ?? 0,
-          subtitleCount: result.subtitleLinks?.length ?? 0,
-          error: result.errorMessage,
-        );
         final providerIndex = videoProviders.indexWhere(
           (candidate) => candidate.codeName == provider.codeName,
         );
@@ -485,6 +469,27 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       // Publish its result too, so transient failures can recover to Success
       // instead of leaving the provider marked Failed.
       onFinalResult: (index, provider, result) {
+        // Measure and report the complete fast + recovery attempt, not only
+        // the first response. A transient fast failure followed by a working
+        // full collection is a provider success in reliability analytics.
+        final durationMs = _providerStopwatches
+                .remove(provider.codeName)
+                ?.elapsedMilliseconds ??
+            0;
+        final providerSucceeded =
+            result.success && result.videoLinks?.isNotEmpty == true;
+        settings.analytics.trackProviderAttempt(
+          mediaType: 'tv',
+          contentId: widget.metadata.tvId,
+          contentTitle: widget.metadata.seriesName,
+          provider: provider.displayName,
+          purpose: widget.download ? 'download' : 'playback',
+          success: providerSucceeded,
+          durationMs: durationMs,
+          sourceCount: result.videoLinks?.length ?? 0,
+          subtitleCount: result.subtitleLinks?.length ?? 0,
+          error: result.errorMessage,
+        );
         final providerIndex = videoProviders.indexWhere(
           (candidate) => candidate.codeName == provider.codeName,
         );
