@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'common.dart';
 import 'names.dart';
 import 'scraper_api.dart';
@@ -41,6 +43,18 @@ class ProviderSelection {
   final List<ProviderAttempt> attempts;
 }
 
+/// A provider batch that exposes the first usable result immediately while
+/// continuing to collect the full result for diagnostics and audio alternatives.
+class ProviderLoadSession {
+  const ProviderLoadSession({
+    required this.firstPlayable,
+    required this.allSuccessful,
+  });
+
+  final Future<ProviderAttempt?> firstPlayable;
+  final Future<ProviderSelection?> allSuccessful;
+}
+
 /// Single loading boundary for direct and API-backed stream providers.
 abstract final class ProviderLoader {
   /// Tries providers one at a time in configured order, starting the next only
@@ -75,19 +89,17 @@ abstract final class ProviderLoader {
   }
 
 
-  /// Loads every provider concurrently and combines the usable streams.
-  ///
-  /// This is intended for normal playback: one source's language or quality
-  /// catalogue must not hide streams returned by another source. The first
-  /// successful provider remains the selection identity for existing player
-  /// recovery and provider-switch controls. Each combined quality label
-  /// includes its provider name, while the upstream server remains available.
-  static Future<ProviderSelection?> loadAllSuccessful({
+  /// Starts all providers concurrently. [firstPlayable] completes as soon
+  /// as any provider returns a usable stream; [allSuccessful] completes after
+  /// the remaining providers have finished and their results are combined.
+  static ProviderLoadSession startLoadingAllSuccessful({
     required List<VideoProvider> providers,
     required Future<ProviderLoadResult> Function(VideoProvider provider) load,
     ProviderResultCallback? onResult,
     Duration providerTimeout = const Duration(seconds: 25),
-  }) async {
+  }) {
+    final firstPlayableCompleter = Completer<ProviderAttempt?>();
+
     Future<ProviderAttempt> attempt(
       int index,
       VideoProvider provider,
@@ -100,22 +112,65 @@ abstract final class ProviderLoader {
       }
 
       onResult?.call(index, provider, result);
-      return ProviderAttempt(
+      final loaded = ProviderAttempt(
         index: index,
         provider: provider,
         result: result,
       );
+      if (loaded.hasPlayableSources && !firstPlayableCompleter.isCompleted) {
+        firstPlayableCompleter.complete(loaded);
+      }
+      return loaded;
     }
 
-    // Future.wait preserves input order, while each async attempt starts as
-    // soon as it is created. Failed results are retained for diagnostics and
-    // language-aware fallback instead of disappearing during aggregation.
-    final attempts = await Future.wait<ProviderAttempt>(
+    final attemptsFuture = Future.wait<ProviderAttempt>(
       providers.asMap().entries.map(
             (entry) => attempt(entry.key, entry.value),
           ),
     );
-    final successful = attempts.where((attempt) => attempt.hasPlayableSources).toList();
+    final allSuccessful = attemptsFuture.then(_combineSuccessfulAttempts);
+    allSuccessful.then(
+      (_) {
+        if (!firstPlayableCompleter.isCompleted) {
+          firstPlayableCompleter.complete(null);
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!firstPlayableCompleter.isCompleted) {
+          firstPlayableCompleter.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    return ProviderLoadSession(
+      firstPlayable: firstPlayableCompleter.future,
+      allSuccessful: allSuccessful,
+    );
+  }
+
+  /// Waits for all providers and returns their combined usable streams.
+  /// Use [startLoadingAllSuccessful] when the player should start from the
+  /// first usable provider without waiting for slower alternatives.
+  static Future<ProviderSelection?> loadAllSuccessful({
+    required List<VideoProvider> providers,
+    required Future<ProviderLoadResult> Function(VideoProvider provider) load,
+    ProviderResultCallback? onResult,
+    Duration providerTimeout = const Duration(seconds: 25),
+  }) {
+    return startLoadingAllSuccessful(
+      providers: providers,
+      load: load,
+      onResult: onResult,
+      providerTimeout: providerTimeout,
+    ).allSuccessful;
+  }
+
+  static ProviderSelection? _combineSuccessfulAttempts(
+    List<ProviderAttempt> attempts,
+  ) {
+    final successful = attempts
+        .where((attempt) => attempt.hasPlayableSources)
+        .toList(growable: false);
     if (successful.isEmpty) return null;
 
     final links = <RegularVideoLinks>[];

@@ -16,6 +16,40 @@ void main() {
     (index) => VideoProvider.scraper(id: '$index', name: 'Provider $index'),
   );
 
+  test('starts playback from the first usable provider while alternates continue', () async {
+    final firstResult = Completer<ProviderLoadResult>();
+    final slowResult = Completer<ProviderLoadResult>();
+    final session = ProviderLoader.startLoadingAllSuccessful(
+      providers: providers.take(2).toList(),
+      load: (provider) =>
+          provider == providers.first ? firstResult.future : slowResult.future,
+    );
+
+    await Future<void>.delayed(Duration.zero);
+    firstResult.complete(playableResult());
+    final first = await session.firstPlayable.timeout(
+      const Duration(seconds: 1),
+    );
+    expect(first?.provider, providers.first);
+
+    var allCompleted = false;
+    session.allSuccessful.then((_) => allCompleted = true);
+    await Future<void>.delayed(Duration.zero);
+    expect(allCompleted, isFalse);
+
+    slowResult.complete(
+      ProviderLoadResult(
+        success: true,
+        videoLinks: [
+          RegularVideoLinks(url: 'https://example.com/alternative.m3u8'),
+        ],
+      ),
+    );
+    final combined = await session.allSuccessful;
+    expect(combined?.attempts, hasLength(2));
+    expect(combined?.result.videoLinks, hasLength(2));
+  });
+
   test('first provider success never starts backup requests', () async {
     final firstResult = Completer<ProviderLoadResult>();
     final startedProviders = <String>[];

@@ -296,8 +296,9 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
               );
         }
 
-        await seasonEpisodesFetch;
-        if (!mounted) return;
+        // The episode catalogue is needed for the player menus, not for
+        // stream startup. Load it alongside playback instead of blocking it.
+        unawaited(seasonEpisodesFetch);
 
         // Navigate to player with provider list for lazy loading
         handoffLoaderToPlayer<void>(
