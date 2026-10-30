@@ -3605,7 +3605,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _activeManifestAudioTrackKey = null;
 
     for (final key in orderedKeys) {
-      if (!mounted || _adBlockStopped) return false;
+      if (!mounted) return false;
+      if (_adBlockStopped) {
+        setState(() => _isSwitchingProvider = false);
+        return false;
+      }
       final url = _allVideoSources[key];
       if (url == null || url.trim().isEmpty) continue;
 
@@ -3639,7 +3643,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           ),
           initialPosition: position,
         );
-        if (!mounted || _adBlockStopped) return false;
+        if (!mounted) return false;
+        if (_adBlockStopped) {
+          setState(() => _isSwitchingProvider = false);
+          return false;
+        }
         _applyPreferredAdaptiveQuality();
         if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
           throw TimeoutException(tr('provider_playback_failed'));
