@@ -17,6 +17,7 @@ import 'package:flixquest/models/offline_download.dart';
 import '../../models/movie_stream_metadata.dart';
 import '../../models/provider_video_source.dart';
 import '../../video_providers/names.dart';
+import '../../video_providers/scraper_api.dart';
 import '../../video_providers/provider_loader.dart';
 import '../../video_providers/common.dart';
 import '../../functions/video_utils.dart';
@@ -278,6 +279,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       {}; // Track which providers are being loaded
   final Map<String, String> _providerErrors = {};
   final Map<String, int> _providerSourceCounts = {};
+  ProviderHealthSnapshot? _providerHealthSnapshot;
+  bool _providerHealthLoading = false;
+  VoidCallback? _providerSheetRefresh;
   final Set<String> _automaticFallbackTried = <String>{};
   bool _automaticFallbackRunning = false;
   late final DateTime _analyticsSessionStartedAt;
@@ -3036,7 +3040,39 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _refreshProviderHealth() async {
+    if (_providerHealthLoading) return;
+    _providerHealthLoading = true;
+    try {
+      final snapshot =
+          await ScraperApi(_resolveScraperApiUrl()).getProviderHealthStatus();
+      if (!mounted) return;
+      setState(() => _providerHealthSnapshot = snapshot);
+      _providerSheetRefresh?.call();
+    } catch (error) {
+      debugPrint('[Player][ProviderHealth] Refresh failed: $error');
+    } finally {
+      _providerHealthLoading = false;
+      _providerSheetRefresh?.call();
+    }
+  }
+
+  ProviderHealthResult? _healthForProvider(VideoProvider provider) {
+    final health = _providerHealthSnapshot?.providers;
+    if (health == null) return null;
+    for (final item in health) {
+      if ((provider.apiId != null &&
+              item.id.toLowerCase() == provider.apiId!.toLowerCase()) ||
+          item.alias.toLowerCase() == provider.displayName.toLowerCase() ||
+          item.originalName.toLowerCase() == provider.fullName.toLowerCase()) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   void _showProviderSwitcher() {
+    unawaited(_refreshProviderHealth());
     final providers = widget.availableProviders;
     if (providers == null || providers.isEmpty) return;
 
@@ -3044,6 +3080,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       context: context,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
+          _providerSheetRefresh = () {
+            if (sheetContext.mounted) setSheetState(() {});
+          };
           return DraggableScrollableSheet(
             expand: false,
             initialChildSize: .72,
@@ -3061,9 +3100,19 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               ),
               actions: [
                 PlayerSheetAction(
+                  icon: PhosphorIcons.arrowsClockwise(),
+                  tooltip: 'Refresh provider health',
+                  onPressed: _providerHealthLoading
+                      ? null
+                      : () => unawaited(_refreshProviderHealth()),
+                ),
+                PlayerSheetAction(
                   icon: PhosphorIcons.x(),
                   tooltip: tr('close'),
-                  onPressed: () => Navigator.pop(sheetContext),
+                  onPressed: () {
+                    _providerSheetRefresh = null;
+                    Navigator.pop(sheetContext);
+                  },
                 ),
               ],
               child: ListView.separated(
@@ -3081,13 +3130,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                       _providerSourceCounts[provider.codeName] ?? 0;
                   final eligible =
                       _providerSupportsSelectedAudio(provider.codeName);
+                  final health = _healthForProvider(provider);
                   final subtitle = loading
                       ? tr('loading_video_sources')
                       : selected
                           ? tr('player_now_playing')
-                          : error != null
-                              ? '${tr('provider_failed')}: $error'
-                              : sourceCount > 0
+                          : health != null && !health.online
+                              ? 'Temporarily offline upstream'
+                              : error != null
+                                  ? '${tr('provider_failed')}: $error'
+                                  : sourceCount > 0
                                   ? tr(
                                       'provider_available_count',
                                       namedArgs: {
