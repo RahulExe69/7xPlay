@@ -68,6 +68,64 @@ void main() {
     sharedPrefsSingleton = await SharedPreferencesSingleton.getInstance();
   });
 
+  group('ScraperEndpointConfig retired host migration', () {
+    const current = 'https://scraper.flix.quest';
+
+    test('replaces retired scraper and legacy API hosts with current endpoint',
+        () {
+      for (final retired in [
+        'https://scraper-1.flixquest.app',
+        'https://scraper-2.flixquest.app/api/v2',
+        'https://scraper-1.flix.quest',
+        'https://scraper-2.flix.quest',
+        'https://flixquest-scraper.onrender.com',
+        'https://flixquest-scraper-2.onrender.com',
+        'https://flixquest-api.vercel.app',
+      ]) {
+        expect(
+          ScraperEndpointConfig.resolve(retired, fallback: current),
+          current,
+          reason: retired,
+        );
+      }
+    });
+
+    test('preserves current and custom compatible endpoints', () {
+      expect(ScraperEndpointConfig.resolve(current, fallback: current), current);
+      expect(
+        ScraperEndpointConfig.resolve(
+          'https://custom-scraper.example.com/api/v2',
+          fallback: current,
+        ),
+        'https://custom-scraper.example.com/api/v2',
+      );
+    });
+
+    test('migrates, filters and deduplicates persisted instances', () {
+      expect(
+        ScraperEndpointConfig.resolveInstances(
+          [
+            'https://scraper-1.flixquest.app',
+            'https://scraper-2.flixquest.app',
+            'https://scraper.flix.quest',
+            '',
+            '   ',
+          ],
+          fallback: current,
+        ),
+        [current],
+      );
+    });
+
+    test('uses the current endpoint when a stored URL is empty or invalid', () {
+      expect(ScraperEndpointConfig.resolve('', fallback: current), current);
+      expect(
+        ScraperEndpointConfig.resolve('not a url', fallback: current),
+        current,
+      );
+    });
+  });
+
   group('AppRemoteConfig.parseApiInstances', () {
     test('parses object with instances array', () {
       const raw = '''

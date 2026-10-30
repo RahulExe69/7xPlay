@@ -121,7 +121,7 @@
 TMDB_API_KEY="your_tmdb_api_key"
 
 # Required: 7xPlay Scraper API v2 instance URL
-FLIXQUEST_API_URL="https://your-7xplay-api-instance.com"
+FLIXQUEST_API_URL="https://scraper.flix.quest"
 
 # Optional: Mixpanel project token for general analytics
 MIXPANEL_API_KEY="your_mixpanel_api_key"
@@ -137,7 +137,7 @@ MIXPANEL_API_KEY="your_mixpanel_api_key"
 
 ## 🕷️ 7xPlay Scraper API v2
 
-7xPlay communicates with **7xPlay Scraper API v2** for resolving streaming sources. The backend service is closed-source; please open an issue in this repository for support or API instance access.
+7xPlay communicates with the **FlixQuest Scraper API v2** at `https://scraper.flix.quest` for provider discovery and stream resolution. The app automatically migrates saved references to retired FlixQuest scraper hostnames to this current endpoint. The upstream service is maintained separately from this repository.
 
 The client-side API contract and payload schemas are documented in [`openapi.json`](openapi.json).
 
