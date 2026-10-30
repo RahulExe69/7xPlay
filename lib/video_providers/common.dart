@@ -32,8 +32,11 @@ class RegularVideoLinks {
     isM3U8 = json['isM3U8'];
     isDash = json['isDASH'];
     sizeToken = json['sizeToken']?.toString();
-    final rawAudioLanguage =
-        json['audioLanguage'] ?? json['audio_language'] ?? json['language'] ?? json['lang'];
+    final rawAudioLanguage = json['audioLanguage'] ??
+        json['audio_language'] ??
+        json['language'] ??
+        json['lang'] ??
+        json['hlsAudioLanguage'];
     audioLanguage = rawAudioLanguage is String ? rawAudioLanguage : null;
     providerCode = json['providerCode']?.toString();
     final rawHeaders = json['headers'];

@@ -142,6 +142,7 @@ void main() {
                   'quality': '1080p',
                   'isM3U8': true,
                   'isDASH': false,
+                  'audioLanguage': 'Hindi',
                   'headers': {
                     'Referer': 'https://provider.example/',
                     'Origin': 'https://provider.example',
@@ -159,6 +160,7 @@ void main() {
                   'quality': '720p',
                   'isM3U8': false,
                   'isDASH': true,
+                  'hlsAudioLanguage': 'Urdu',
                   'subtitles': [
                     {
                       'file': 'https://subs.example/en.vtt',
@@ -186,11 +188,13 @@ void main() {
       expect(result.videoLinks!.first.isM3U8, isTrue);
       expect(result.videoLinks!.first.sizeToken, 'signed-size-token-1080');
       expect(result.videoLinks!.first.server, 'ShowBox 2');
+      expect(result.videoLinks!.first.audioLanguage, 'Hindi');
       expect(result.videoLinks!.first.headers, {
         'Referer': 'https://provider.example/',
         'Origin': 'https://provider.example',
       });
       expect(result.videoLinks!.last.isDash, isTrue);
+      expect(result.videoLinks!.last.audioLanguage, 'Urdu');
       expect(result.subtitleLinks, hasLength(1));
       expect(result.subtitleLinks!.single.headers, {
         'Referer': 'https://provider.example/',
