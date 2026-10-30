@@ -272,7 +272,8 @@ class ScraperApi {
               audioLanguage: (link['audioLanguage'] ??
                       link['audio_language'] ??
                       link['language'] ??
-                      link['lang'])
+                      link['lang'] ??
+                      link['hlsAudioLanguage'])
                   ?.toString(),
             ),
           );
