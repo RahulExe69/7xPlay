@@ -535,7 +535,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             widget.useTvControls ? null : _downloadFromCurrentProvider,
         enableCrop: true,
         cropIcon: PhosphorIcons.crop(),
-        enableAudioTracks: true,
+        // Use the unified cross-provider Audio Languages sheet only. The
+        // BetterPlayer-native selector is intentionally disabled so viewers
+        // never see two competing audio menus.
+        enableAudioTracks: false,
         controlBarHeight: 56,
         watchingText: tr('watching_text'),
         playerTimeMode: settings.playerTimeDisplay,
@@ -780,7 +783,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _backgroundProviderAggregationPending = false;
     });
     _audioLanguageSheetRefresh?.call();
-    _maybeAutoSwitchToPreferredAudioSource();
+    // Provider aggregation is metadata-only. Never replace the active
+    // BetterPlayer source just because another provider finished loading.
     unawaited(_discoverProviderAudioLanguages(selection));
   }
 
@@ -809,20 +813,23 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
       final links = selection.result.videoLinks ?? const <RegularVideoLinks>[];
       if (links.isEmpty) return;
-      final sourceKeys =
-          VideoUtils.convertVideoLinksToMap(links).keys.toList(growable: false);
       final sourceKeysByLanguage = <String, Set<String>>{};
-      for (var index = 0; index < links.length; index++) {
-        final link = links[index];
+      for (final link in links) {
         final providerCode = link.providerCode;
-        if (providerCode == null || index >= sourceKeys.length) continue;
+        if (providerCode == null) continue;
+        // Map each link independently. A full-list conversion may collapse
+        // duplicate quality keys, so index-aligning its keys with the raw link
+        // list can associate a language with the wrong provider URL.
+        final sourceKeys =
+            VideoUtils.convertVideoLinksToMap([link]).keys.toList();
+        if (sourceKeys.isEmpty) continue;
         for (final languageCode in discovery.languageCodesForLink(
           link,
           providerCode,
         )) {
           sourceKeysByLanguage
               .putIfAbsent(languageCode, () => <String>{})
-              .add(sourceKeys[index]);
+              .addAll(sourceKeys);
         }
       }
       if (sourceKeysByLanguage.isEmpty) return;
@@ -835,7 +842,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         }
       });
       _audioLanguageSheetRefresh?.call();
-      _maybeAutoSwitchToPreferredAudioSource();
     } catch (error) {
       debugPrint('[Player] Background audio-language discovery failed: $error');
     } finally {
@@ -1136,6 +1142,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         // Better Player exposes manifest audio tracks after the source
         // initializes. Refresh an already-open audio sheet at that point.
         _audioLanguageSheetRefresh?.call();
+        _catalogCurrentManifestAudioTracks();
         if (!_preRollActive) {
           _initialPlaybackReady = true;
           _maybeAutoSwitchToPreferredAudioSource();
@@ -3303,6 +3310,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           _audioLanguageSheetRefresh = () {
             if (sheetContext.mounted) setSheetState(() {});
           };
+          _catalogCurrentManifestAudioTracks();
           final options = _audioSourceKeysByLanguage;
           final activeManifestTracks =
               _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
@@ -3447,66 +3455,62 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     });
   }
 
+  void _catalogCurrentManifestAudioTracks() {
+    final currentUrl = _betterPlayerController.betterPlayerDataSource?.url;
+    if (currentUrl == null || currentUrl.isEmpty) return;
+    final sourceKeys = <String>{
+      for (final entry in _allVideoSources.entries)
+        if (entry.value == currentUrl) entry.key,
+      for (final entry in _activeSources.entries)
+        if (entry.value == currentUrl) entry.key,
+    };
+    if (sourceKeys.isEmpty) return;
+    final tracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    for (final track in tracks) {
+      final code = languageCodeForLabel(track.language) ??
+          languageCodeForLabel(track.label);
+      if (code == null) continue;
+      _discoveredAudioSourceKeysByLanguage
+          .putIfAbsent(code, () => <String>{})
+          .addAll(sourceKeys);
+    }
+  }
+
   void _maybeAutoSwitchToPreferredAudioSource() {
     if (!_initialPlaybackReady ||
         _audioLanguageExplicitlySelected ||
         _isSwitchingProvider ||
-        _preRollActive) {
+        _preRollActive ||
+        _manifestAudioExplicitlySelected) {
       return;
     }
 
-    if (_manifestAudioExplicitlySelected) return;
-
+    // Startup audio preference is applied only to a track already present in
+    // the active manifest. Provider/source changes are reserved for an
+    // explicit language choice or genuine playback failure; background
+    // discovery must never soft-reset a movie that is already playing.
+    final currentManifestTracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
     final preferred = PreferredAudioLanguagePolicy.select(
-      availableLanguageLabels: _audioSourceKeysByLanguage.keys,
+      availableLanguageLabels: currentManifestTracks.expand(
+        (track) => <String>[track.language ?? '', track.label ?? ''],
+      ),
       originalLanguage: _contentOriginalLanguage,
     );
     if (preferred == null) return;
-
-    final preferredKeys = _audioSourceKeysByLanguage[preferred];
-    final currentManifestTracks =
-        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
     for (var index = 0; index < currentManifestTracks.length; index++) {
       final track = currentManifestTracks[index];
       final code = languageCodeForLabel(track.language) ??
           languageCodeForLabel(track.label);
-      if (code == preferred) {
-        // The currently playing provider already contains the requested
-        // original-language rendition. Switch the native track in-place
-        // instead of rebuilding a perfectly healthy stream.
-        _betterPlayerController.setAudioTrack(track);
-        _activeAudioLanguageCode = preferred;
-        _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
-        return;
-      }
-    }
-    if (preferredKeys == null || preferredKeys.isEmpty) return;
-
-    final currentSourceUrl =
-        _betterPlayerController.betterPlayerDataSource?.url;
-    final preferredIsAlreadyActive = currentSourceUrl != null &&
-        _activeSources.entries.any(
-          (entry) =>
-              entry.value == currentSourceUrl &&
-              languageCodeForLabel(_activeVideoAudioLanguages[entry.key]) ==
-                  preferred,
-        );
-    if (preferredIsAlreadyActive) {
+      if (code != preferred) continue;
+      _betterPlayerController.setAudioTrack(track);
       _activeAudioLanguageCode = preferred;
+      _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
+      _catalogCurrentManifestAudioTracks();
+      _audioLanguageSheetRefresh?.call();
       return;
     }
-    // The preferred language may already be recorded as the current
-    // selection even though the active provider has no source for it. Do not
-    // short-circuit here; the source catalogue below decides whether a switch
-    // is still required.
-
-    unawaited(
-      _switchToAudioLanguage(
-        preferred,
-        preferredKeys,
-        userInitiated: false,
-      ).then<void>((_) {}),
-    );
   }
 
   List<String> _orderedAudioSourceKeys(List<String> sourceKeys) {
@@ -3648,6 +3652,25 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     bool preserveExplicitSelection = false,
   }) async {
     if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return false;
+
+    // Prefer an in-place native track change when the active stream already
+    // contains the requested language. This avoids needless provider reloads
+    // and video-position resets.
+    final activeTracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    for (var index = 0; index < activeTracks.length; index++) {
+      final track = activeTracks[index];
+      final code = languageCodeForLabel(track.language) ??
+          languageCodeForLabel(track.label);
+      if (code != languageCode) continue;
+      _selectManifestAudioTrack(
+        track,
+        index: index,
+        languageCode: languageCode,
+      );
+      return true;
+    }
+
     final orderedKeys = _orderedAudioSourceKeys(sourceKeys);
     if (orderedKeys.isEmpty) return false;
 
