@@ -225,10 +225,17 @@ abstract final class UnifiedPlaybackLanguageService {
         final url = link.url!.trim();
         final format = manifestFormatForLink(link);
         if (format != null) {
-          final cachedCodes = await ProviderAudioLanguageCache.read(
-            providerCode: attempt.provider.codeName,
-            link: link,
-          );
+          Set<String>? cachedCodes;
+          try {
+            cachedCodes = await ProviderAudioLanguageCache.read(
+              providerCode: attempt.provider.codeName,
+              link: link,
+            );
+          } catch (error) {
+            // A storage failure must never block playback or manifest
+            // discovery; simply probe this source again.
+            debugPrint('[AudioLanguageCache] Read failed: $error');
+          }
           if (cachedCodes != null) {
             for (final code in cachedCodes) {
               record(attempt.provider.codeName, link, code);
