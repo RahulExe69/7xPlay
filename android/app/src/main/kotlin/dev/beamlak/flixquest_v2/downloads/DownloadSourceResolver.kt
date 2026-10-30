@@ -83,7 +83,7 @@ internal class DownloadSourceResolver {
             val streamPath = runCatching { Uri.parse(streamUrl).path.orEmpty().lowercase() }
                 .getOrDefault("")
             val progressive = listOf(".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".mpg", ".mpeg", ".flv", ".wmv")
-                .any(streamPath::endsWith)
+                .any { extension -> streamPath.endsWith(extension) }
             val linkFormat = when {
                 progressive -> "progressive"
                 link.optBoolean("isM3U8") || streamPath.endsWith(".m3u8") -> "hls"
