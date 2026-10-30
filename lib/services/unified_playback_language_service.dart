@@ -55,6 +55,25 @@ class UnifiedPlaybackLanguageDiscovery {
     return null;
   }
 
+  /// Returns every language advertised by the exact manifest. One HLS/DASH
+  /// URL can contain multiple audio renditions, so a single source may belong
+  /// to several language choices at once.
+  List<String> languageCodesForLink(
+    RegularVideoLinks link,
+    String providerCode,
+  ) {
+    final key = _sourceIdentity(link);
+    return List<String>.unmodifiable(
+      sourceKeysByLanguage.entries
+          .where(
+            (entry) =>
+                entry.key != 'und' &&
+                entry.value[providerCode]?.contains(key) == true,
+          )
+          .map((entry) => entry.key),
+    );
+  }
+
 }
 
 String _sourceIdentity(RegularVideoLinks link) {
@@ -151,7 +170,7 @@ abstract final class UnifiedPlaybackLanguageService {
 
   static Future<UnifiedPlaybackLanguageDiscovery> discover(
     List<ProviderAttempt> attempts, {
-    int candidatesPerProvider = 3,
+    int? candidatesPerProvider = 3,
     int concurrency = 4,
     Duration probeTimeout = const Duration(seconds: 8),
   }) async {
@@ -180,16 +199,17 @@ abstract final class UnifiedPlaybackLanguageService {
     }
 
     for (final attempt in successful) {
-      final links = (attempt.result.videoLinks ?? const <RegularVideoLinks>[])
-          .where((link) => link.url?.trim().isNotEmpty == true)
-          .take(candidatesPerProvider)
-          .toList(growable: false);
+      final availableLinks =
+          (attempt.result.videoLinks ?? const <RegularVideoLinks>[])
+              .where((link) => link.url?.trim().isNotEmpty == true);
+      final links = candidatesPerProvider == null
+          ? availableLinks.toList(growable: false)
+          : availableLinks.take(candidatesPerProvider).toList(growable: false);
 
       for (final link in links) {
         final explicitCode = languageCodeForLabel(link.audioLanguage);
         if (explicitCode != null) {
           record(attempt.provider.codeName, link, explicitCode);
-          continue;
         }
 
         final url = link.url!.trim();
@@ -200,7 +220,9 @@ abstract final class UnifiedPlaybackLanguageService {
         // Original / unverified, even when another link from the same
         // provider has a verified language.
         if (format == null) {
-          recordUnverified(attempt.provider.codeName, link);
+          if (explicitCode == null) {
+            recordUnverified(attempt.provider.codeName, link);
+          }
           continue;
         }
         final resolvedFormat = format;
@@ -209,7 +231,9 @@ abstract final class UnifiedPlaybackLanguageService {
           final headers = link.headers?.isNotEmpty == true
               ? Map<String, String>.of(link.headers!)
               : const <String, String>{};
-          var foundLanguage = false;
+          // A provider label is useful metadata, but keep inspecting adaptive
+          // manifests because one URL may expose several actual audio tracks.
+          var foundLanguage = explicitCode != null;
           try {
             final tracks = await OfflineDownloadService.instance
                 .getAudioTracks(
