@@ -796,7 +796,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         concurrency: 4,
         probeTimeout: const Duration(seconds: 8),
       );
-      if (!mounted || _adBlockStopped) return;
+      if (!mounted || _adBlockStopped) return false;
 
       final links = selection.result.videoLinks ?? const <RegularVideoLinks>[];
       if (links.isEmpty) return;
@@ -3324,7 +3324,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                           : () {
                               _audioLanguageSheetRefresh = null;
                               Navigator.pop(sheetContext);
-                              unawaited(_switchToAudioLanguage(code, keys));
+                              unawaited(_switchToAudioLanguage(code, keys).then<void>((_) {}));
                             },
                     );
                   }
@@ -3418,7 +3418,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         preferred,
         preferredKeys,
         userInitiated: false,
-      ),
+      ).then<void>((_) {}),
     );
   }
 
@@ -3525,14 +3525,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     return providerLanguage == languageCode;
   }
 
-  Future<void> _switchToAudioLanguage(
+  Future<bool> _switchToAudioLanguage(
     String languageCode,
     List<String> sourceKeys, {
     bool userInitiated = true,
+    bool preserveExplicitSelection = false,
   }) async {
-    if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return;
+    if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return false;
     final orderedKeys = _orderedAudioSourceKeys(sourceKeys);
-    if (orderedKeys.isEmpty) return;
+    if (orderedKeys.isEmpty) return false;
 
     final position = _betterPlayerController
             .videoPlayerController?.value.position ??
@@ -3550,7 +3551,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
     setState(() => _isSwitchingProvider = true);
     _activeAudioLanguageCode = languageCode;
-    _audioLanguageExplicitlySelected = userInitiated;
+    _audioLanguageExplicitlySelected =
+        userInitiated || preserveExplicitSelection;
     _manifestAudioExplicitlySelected = false;
     _activeManifestAudioTrackKey = null;
 
@@ -3604,6 +3606,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         if (!wasPlaying) await _betterPlayerController.pause();
 
         _recordAudioSourceSuccess(key);
+        final successfulProviderCode = _allVideoProviderCodes[key];
+        if (successfulProviderCode != null) {
+          _providerErrors.remove(successfulProviderCode);
+          _automaticFallbackTried.add(successfulProviderCode);
+        }
         setState(() {
           _activeSources = candidateSources;
           _activeVideoFormats = candidateFormats;
@@ -3621,7 +3628,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           '[Player][AudioFailover] Selected language=$languageCode '
           'source=$key provider=${_currentProviderCode ?? 'unknown'}',
         );
-        return;
+        return true;
       } catch (error) {
         lastError = error;
         _recordAudioSourceFailure(key, error);
@@ -3675,6 +3682,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         'language=$languageCode lastError=$lastError',
       );
     }
+    return false;
   }
 
   /// The player's last automatic recovery step: provider links expire, so
