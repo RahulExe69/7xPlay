@@ -793,8 +793,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         // languages on different servers, and one manifest may contain several
         // audio renditions. This work is post-start and runs concurrently.
         candidatesPerProvider: null,
-        concurrency: 4,
-        probeTimeout: const Duration(seconds: 8),
+        concurrency: 8,
+        probeTimeout: const Duration(seconds: 6),
       );
       if (!mounted || _adBlockStopped) return;
 
