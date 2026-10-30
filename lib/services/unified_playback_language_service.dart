@@ -142,7 +142,7 @@ abstract final class UnifiedPlaybackLanguageService {
         .where((attempt) => attempt.hasPlayableSources)
         .toList(growable: false);
     final labelsByProvider = <String, Set<String>>{};
-    final sourceKeysByLanguage = <String, Map<String, LinkedHashSet<String>>{};
+    final sourceKeysByLanguage = <String, Map<String, LinkedHashSet<String>>>{};
     final unverifiedSourcesByProvider =
         <String, LinkedHashSet<String>>{};
     final jobs = <Future<void> Function()>[];
