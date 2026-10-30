@@ -1,6 +1,7 @@
 class MovieStreamMetadata {
   int? movieId;
   String? movieName;
+  String? originalLanguage;
   int? releaseYear;
   String? posterPath;
   String? backdropPath;
@@ -22,6 +23,7 @@ class MovieStreamMetadata {
     required this.elapsed,
     required this.movieId,
     required this.movieName,
+    this.originalLanguage,
     required this.posterPath,
     required this.releaseYear,
     required this.isAdult,

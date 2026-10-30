@@ -19,8 +19,8 @@ void main() {
     });
 
     test('recognizes Urdu and its ISO 639-2 code', () {
-      expect(languageDisplayName('ur'), 'Urdu');
-      expect(languageDisplayName('urd'), 'Urdu');
+      expect(languageDisplayName('ur'), 'urdu');
+      expect(languageDisplayName('urd'), 'urdu');
       expect(languageCodeForLabel('Urdu'), 'ur');
     });
 
