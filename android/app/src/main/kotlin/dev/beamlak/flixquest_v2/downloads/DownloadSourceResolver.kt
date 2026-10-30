@@ -114,11 +114,13 @@ internal class DownloadSourceResolver {
     }
 
     private fun checkSource(source: JSONObject, metadata: JSONObject) {
+        val format = metadata.optString("format")
+        val needsAdaptiveTrackIdentity = format == "hls" || format == "dash"
         if (source.optInt("version") != 1 || source.optString("providerId").isBlank() ||
             source.optString("quality").isBlank() || metadata.optInt("contentId") <= 0 ||
             metadata.optString("cacheNamespace").isBlank() ||
-            metadata.optJSONArray("selectedTracks") == null ||
-            metadata.optString("format") !in listOf("hls", "dash", "progressive") ||
+            (needsAdaptiveTrackIdentity && metadata.optJSONArray("selectedTracks") == null) ||
+            format !in listOf("hls", "dash", "progressive") ||
             metadata.optString("mediaType") !in listOf("movie", "episode")) {
             throw IOException("Download recovery metadata is incomplete.")
         }
