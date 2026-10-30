@@ -594,13 +594,11 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     }
     final url = sources[quality]!;
     final declaredFormat = videoFormats[quality];
-    final format = declaredFormat == BetterPlayerVideoFormat.dash
-        ? 'dash'
-        : declaredFormat == BetterPlayerVideoFormat.hls
-            ? 'hls'
-            : url.toLowerCase().contains('.mpd')
-                ? 'dash'
-                : 'hls';
+    final format = OfflineDownloadService.inferFormat(
+      url: url,
+      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
+      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
+    );
     final posterPath = widget.metadata.posterPath;
     final season = widget.metadata.seasonNumber ?? 0;
     final episode = widget.metadata.episodeNumber ?? 0;
