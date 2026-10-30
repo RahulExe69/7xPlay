@@ -220,6 +220,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
 
       ProviderSelection? selection;
       Future<ProviderSelection?>? backgroundProviderSelection;
+      Stream<ProviderAttempt>? backgroundProviderAttempts;
       if (widget.download) {
         final provider = selectedDownloadProvider;
         if (provider == null) return;
@@ -238,6 +239,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           );
         }
         backgroundProviderSelection = session.allSuccessful;
+        backgroundProviderAttempts = session.providerAttempts;
       }
 
       if (!mounted) return;
@@ -338,6 +340,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
               eligibleProviderCodes: eligibleProviderCodes,
               selectedAudioLanguageCode: selectedAudioLanguageCode,
               backgroundProviderSelection: backgroundProviderSelection,
+              backgroundProviderAttempts: backgroundProviderAttempts,
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               onEpisodeChange: (episodeId, episodeNumber, seasonNumber) async {
@@ -594,13 +597,11 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     }
     final url = sources[quality]!;
     final declaredFormat = videoFormats[quality];
-    final format = declaredFormat == BetterPlayerVideoFormat.dash
-        ? 'dash'
-        : declaredFormat == BetterPlayerVideoFormat.hls
-            ? 'hls'
-            : url.toLowerCase().contains('.mpd')
-                ? 'dash'
-                : 'hls';
+    final format = OfflineDownloadService.inferFormat(
+      url: url,
+      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
+      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
+    );
     final posterPath = widget.metadata.posterPath;
     final season = widget.metadata.seasonNumber ?? 0;
     final episode = widget.metadata.episodeNumber ?? 0;

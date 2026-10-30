@@ -1,5 +1,9 @@
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
+
+import 'provider_audio_language_cache.dart';
+
 import '../functions/language_names.dart';
 import '../services/offline_download_service.dart';
 import '../video_providers/common.dart';
@@ -222,6 +226,28 @@ abstract final class UnifiedPlaybackLanguageService {
 
         final url = link.url!.trim();
         final format = manifestFormatForLink(link);
+        if (format != null) {
+          Set<String>? cachedCodes;
+          try {
+            cachedCodes = await ProviderAudioLanguageCache.read(
+              providerCode: attempt.provider.codeName,
+              link: link,
+            );
+          } catch (error) {
+            // A storage failure must never block playback or manifest
+            // discovery; simply probe this source again.
+            debugPrint('[AudioLanguageCache] Read failed: $error');
+          }
+          if (cachedCodes != null) {
+            for (final code in cachedCodes) {
+              record(attempt.provider.codeName, link, code);
+            }
+            // The manifest was positively parsed for this same stable source
+            // recently. Reuse the local index rather than opening another
+            // native DownloadHelper just to rediscover the same tracks.
+            continue;
+          }
+        }
 
         // Progressive files and unrecognised formats are never sent to
         // the HLS/DASH parser. Keep this individual source available as
@@ -242,7 +268,8 @@ abstract final class UnifiedPlaybackLanguageService {
               : const <String, String>{};
           // A provider label is useful metadata, but keep inspecting adaptive
           // manifests because one URL may expose several actual audio tracks.
-          var foundLanguage = explicitCode != null;
+          var foundLanguage = false;
+          final manifestLanguageCodes = <String>{};
           try {
             final tracks = await OfflineDownloadService.instance
                 .getAudioTracks(
@@ -258,17 +285,25 @@ abstract final class UnifiedPlaybackLanguageService {
                   languageCodeForLabel(track.name);
               if (code != null) {
                 foundLanguage = true;
+                manifestLanguageCodes.add(code);
                 record(attempt.provider.codeName, link, code);
               }
             }
-            if (!foundLanguage) {
+            if (manifestLanguageCodes.isNotEmpty) {
+              await ProviderAudioLanguageCache.write(
+                providerCode: attempt.provider.codeName,
+                link: link,
+                languages: manifestLanguageCodes,
+              );
+            }
+            if (!foundLanguage && explicitCode == null) {
               recordUnverified(attempt.provider.codeName, link);
             }
           } catch (_) {
             // Some providers deny manifest inspection. Preserve a source as
             // Original / unverified only when neither provider metadata nor
             // the manifest identified a language for it.
-            if (!foundLanguage) {
+            if (!foundLanguage && explicitCode == null) {
               recordUnverified(attempt.provider.codeName, link);
             }
           }

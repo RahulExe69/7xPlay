@@ -39,7 +39,7 @@ jobs:
         with:
           flutter-version: '3.41.5'
           channel: stable
-          cache: true
+          cache: false
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
@@ -68,7 +68,7 @@ jobs:
 
       - name: Test provider aggregation and fallback behavior
         working-directory: 7xPlay
-        run: flutter test test/provider_loader_test.dart test/scraper_api_test.dart test/flixquest_api_instances_test.dart test/unified_playback_language_service_test.dart test/language_names_test.dart test/unified_playback_compile_test.dart test/preferred_audio_language_policy_test.dart test/data/scraper_cache_test.dart
+        run: flutter test test/provider_loader_test.dart test/provider_audio_language_cache_test.dart test/offline_download_test.dart test/scraper_api_test.dart test/flixquest_api_instances_test.dart test/unified_playback_language_service_test.dart test/language_names_test.dart test/unified_playback_compile_test.dart test/preferred_audio_language_policy_test.dart test/data/scraper_cache_test.dart
 
   # PRs run the quick provider tests above. Avoid rebuilding all APKs on
   # every PR update; full APKs are built once after merge or on manual dispatch.
@@ -102,7 +102,7 @@ jobs:
         with:
           flutter-version: '3.41.5'
           channel: stable
-          cache: true
+          cache: false
 
       - name: Cache Gradle dependencies and build outputs
         uses: gradle/actions/setup-gradle@v6
@@ -166,7 +166,7 @@ jobs:
           fi
 
       - name: Upload ARM64 APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-arm64-v8a-release-${{ github.sha }}
           path: 7xPlay/build/artifacts/arm64-v8a/7xPlay-arm64-v8a-release.apk
@@ -174,7 +174,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ARMv7 APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-armeabi-v7a-release-${{ github.sha }}
           path: 7xPlay/build/artifacts/armeabi-v7a/7xPlay-armeabi-v7a-release.apk
@@ -182,7 +182,7 @@ jobs:
           retention-days: 30
 
       - name: Upload x86_64 APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-x86_64-release-${{ github.sha }}
           path: 7xPlay/build/artifacts/x86_64/7xPlay-x86_64-release.apk
@@ -190,7 +190,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Dart symbol files
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-symbols-${{ github.sha }}
           path: 7xPlay/build/symbols/
