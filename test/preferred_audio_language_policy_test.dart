@@ -27,7 +27,7 @@ void main() {
       expect(
         PreferredAudioLanguagePolicy.select(
           availableLanguageLabels: ['English', 'Urdu'],
-          originalLanguage: 'en',
+          originalLanguage: 'ja',
         ),
         'ur',
       );
