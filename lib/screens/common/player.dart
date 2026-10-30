@@ -5083,13 +5083,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final url = sources[resolution];
     if (url == null) return;
     final declaredFormat = formats[resolution];
-    final format = declaredFormat == BetterPlayerVideoFormat.dash
-        ? 'dash'
-        : declaredFormat == BetterPlayerVideoFormat.hls
-            ? 'hls'
-            : url.toLowerCase().contains('.mpd')
-                ? 'dash'
-                : 'hls';
+    final format = OfflineDownloadService.inferFormat(
+      url: url,
+      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
+      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
+    );
     final movie = widget.movieMetadata;
     final episode = widget.tvMetadata;
     final isMovie = widget.mediaType == MediaType.movie;
