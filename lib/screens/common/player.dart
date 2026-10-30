@@ -94,6 +94,7 @@ class PlayerOne extends StatefulWidget {
       this.videoAudioLanguages = const {},
       this.videoProviderCodes = const {},
       this.backgroundProviderSelection,
+      this.backgroundProviderAttempts,
       this.initialVideoLinks = const [],
       this.initialProviderAttempts = const [],
       this.eligibleProviderCodes = const [],
@@ -122,6 +123,7 @@ class PlayerOne extends StatefulWidget {
   final Map<String, String> videoAudioLanguages;
   final Map<String, String> videoProviderCodes;
   final Future<ProviderSelection?>? backgroundProviderSelection;
+  final Stream<ProviderAttempt>? backgroundProviderAttempts;
   final List<RegularVideoLinks> initialVideoLinks;
   final List<ProviderAttempt> initialProviderAttempts;
   final List<String> eligibleProviderCodes;
@@ -263,6 +265,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _audioLanguageExplicitlySelected = false;
   bool _manifestAudioExplicitlySelected = false;
   bool _audioLanguageDiscoveryRunning = false;
+  final Map<String, ProviderAttempt> _pendingAudioLanguageAttempts = {};
+  final Map<String, ProviderAttempt> _streamedProviderAttempts = {};
+  StreamSubscription<ProviderAttempt>? _providerAttemptsSubscription;
+  bool _providerAttemptStreamActive = false;
   // A single adaptive manifest may expose several languages. Keep the
   // language-to-source relationship many-to-many instead of forcing one
   // language label onto each provider URL.
@@ -388,6 +394,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     );
     super.initState();
     widget.backgroundProviderSelection?.then(_mergeBackgroundProviderSelection);
+    final providerAttemptStream = widget.backgroundProviderAttempts;
+    if (providerAttemptStream != null) {
+      _providerAttemptStreamActive = true;
+      _providerAttemptsSubscription =
+          providerAttemptStream.listen(_mergeStreamingProviderAttempt);
+    }
     _appDependencies =
         Provider.of<AppDependencyProvider>(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2370,6 +2382,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _providerAttemptsSubscription?.cancel();
     _streamingDnd.dispose();
     _sendAutomaticStreamReport();
     _feedbackConnection.dispose();
