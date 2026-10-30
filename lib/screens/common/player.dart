@@ -862,9 +862,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         .map((link) => languageCodeForLabel(link.audioLanguage))
         .whereType<String>()
         .toSet();
-    // An unknown label is not proof of incompatibility; a known conflicting
-    // label is. Native manifest discovery is checked above and may advertise
-    // multiple languages on the same provider URL.
+    // Do not guess for a manually selected language. An unlabelled provider
+    // is eligible only after manifest discovery has positively mapped it to
+    // the selected language above.
     return codes.contains(selected);
   }
 
@@ -3408,7 +3408,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _activeAudioLanguageCode = preferred;
       return;
     }
-    if (_activeAudioLanguageCode == preferred) return;
+    // The preferred language may already be recorded as the current
+    // selection even though the active provider has no source for it. Do not
+    // short-circuit here; the source catalogue below decides whether a switch
+    // is still required.
 
     unawaited(
       _switchToAudioLanguage(
