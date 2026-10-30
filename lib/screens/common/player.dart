@@ -3101,9 +3101,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     return grouped;
   }
 
-  bool get _hasMultipleSourceAudioLanguages =>
-      _audioSourceKeysByLanguage.length > 1;
-
   // The action must remain reachable even when providers omit language
   // metadata. The sheet can still expose native HLS/DASH tracks from the
   // active manifest, and it explains when a source reports no alternatives.
