@@ -260,9 +260,12 @@ abstract final class UnifiedPlaybackLanguageService {
               recordUnverified(attempt.provider.codeName, link);
             }
           } catch (_) {
-            // Some providers deny manifest inspection. Their individual
-            // source remains available as Original / unverified.
-            recordUnverified(attempt.provider.codeName, link);
+            // Some providers deny manifest inspection. Preserve a source as
+            // Original / unverified only when neither provider metadata nor
+            // the manifest identified a language for it.
+            if (!foundLanguage) {
+              recordUnverified(attempt.provider.codeName, link);
+            }
           }
         });
       }
