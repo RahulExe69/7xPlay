@@ -41,6 +41,7 @@ import '../../constants/api_constants.dart';
 import '../../api/endpoints.dart';
 import '../../ui_components/app_ui_components.dart';
 import '../../services/stream_intro_service.dart';
+import '../../services/unified_playback_language_service.dart';
 import '../../services/introdb_service.dart';
 import '../../services/offline_download_service.dart';
 import '../../services/playback_wake_lock.dart';
@@ -258,6 +259,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   VoidCallback? _audioLanguageSheetRefresh;
   String? _activeAudioLanguageCode;
   bool _audioLanguageExplicitlySelected = false;
+  bool _audioLanguageDiscoveryRunning = false;
   final Map<String, int?> _streamSizeCacheByToken = {};
   final Set<String> _loadingProviders =
       {}; // Track which providers are being loaded
@@ -723,7 +725,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           continue;
         }
         _providerErrors.remove(code);
-        _loadedProviders[code] ??= _providerSourceFromResult(
+        // Replace the first-response snapshot with the expanded collection
+        // when it arrives; retaining the old value would hide alternate audio
+        // sources discovered by the background request.
+        _loadedProviders[code] = _providerSourceFromResult(
           attempt.provider,
           attempt.result,
         );
@@ -743,6 +748,67 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     });
     _audioLanguageSheetRefresh?.call();
     _maybeAutoSwitchToPreferredAudioSource();
+    unawaited(_discoverProviderAudioLanguages(selection));
+  }
+
+  /// Detect language tracks from HLS/DASH manifests after the first frame is
+  /// already playing. Manifest inspection must never hold the Watch action.
+  Future<void> _discoverProviderAudioLanguages(
+    ProviderSelection? selection,
+  ) async {
+    if (selection == null ||
+        _audioLanguageDiscoveryRunning ||
+        selection.attempts.isEmpty) {
+      return;
+    }
+    _audioLanguageDiscoveryRunning = true;
+    try {
+      final discovery = await UnifiedPlaybackLanguageService.discover(
+        selection.attempts,
+        candidatesPerProvider: 2,
+        concurrency: 4,
+        probeTimeout: const Duration(seconds: 5),
+      );
+      if (!mounted || _adBlockStopped) return;
+
+      final links = selection.result.videoLinks ?? const <RegularVideoLinks>[];
+      if (links.isEmpty) return;
+      final enrichedLinks = <RegularVideoLinks>[
+        for (final link in links)
+          RegularVideoLinks(
+            url: link.url,
+            quality: link.quality,
+            server: link.server,
+            isM3U8: link.isM3U8,
+            isDash: link.isDash,
+            headers: link.headers == null ? null : Map.of(link.headers!),
+            sizeToken: link.sizeToken,
+            audioLanguage: link.audioLanguage ??
+                (link.providerCode == null
+                    ? null
+                    : discovery.languageCodeForLink(
+                        link,
+                        link.providerCode!,
+                      )),
+            providerCode: link.providerCode,
+          ),
+      ];
+      final discoveredLanguages = VideoUtils.reverseVideoQualityMap(
+        VideoUtils.convertVideoAudioLanguagesToMap(enrichedLinks),
+      );
+      if (discoveredLanguages.isEmpty) return;
+
+      setState(() {
+        _allVideoAudioLanguages.addAll(discoveredLanguages);
+      });
+      _audioLanguageSheetRefresh?.call();
+      _maybeAutoSwitchToPreferredAudioSource();
+    } catch (error) {
+      debugPrint('[Player] Background audio-language discovery failed: $error');
+    } finally {
+      _audioLanguageDiscoveryRunning = false;
+      _audioLanguageSheetRefresh?.call();
+    }
   }
 
   String _providerFailureSummary(ProviderLoadResult result) {
@@ -861,7 +927,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           adFreeContent: ContentAdScope.adFreeAt(context));
       StreamIntroConfig intro = const StreamIntroConfig.disabled();
       try {
-        intro = await _introService.fetch(_resolveScraperApiUrl());
+        // This intro is optional. Never make content playback wait for a
+        // slow configuration endpoint; a cached/nearby response still works.
+        intro = await _introService
+            .fetch(_resolveScraperApiUrl())
+            .timeout(const Duration(milliseconds: 1200));
       } catch (error) {
         debugPrint('[Player] Branded intro unavailable: $error');
       }
@@ -3026,7 +3096,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _audioSourceKeysByLanguage.length > 1;
 
   bool get _showAudioLanguageSwitcherEntry =>
-      _hasMultipleSourceAudioLanguages || _backgroundProviderAggregationPending;
+      _hasMultipleSourceAudioLanguages ||
+      _backgroundProviderAggregationPending ||
+      _audioLanguageDiscoveryRunning;
 
   void _showAudioLanguageSwitcher() {
     if (!_showAudioLanguageSwitcherEntry) return;
@@ -3038,7 +3110,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             if (sheetContext.mounted) setSheetState(() {});
           };
           final options = _audioSourceKeysByLanguage;
-          final waiting = _backgroundProviderAggregationPending;
+          final waiting = _backgroundProviderAggregationPending ||
+              _audioLanguageDiscoveryRunning;
           return DraggableScrollableSheet(
             expand: false,
             initialChildSize: .58,

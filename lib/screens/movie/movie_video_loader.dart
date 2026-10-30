@@ -175,6 +175,12 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
   Future<void> loadVideo() async {
     if (!mounted) return;
     try {
+      // Start independent local/network work together. None of it is needed
+      // before provider resolution begins.
+      final recommendationsFetch =
+          widget.download ? null : _fetchMovieRecommendations();
+      final bookmarkedFuture =
+          recentlyWatchedMoviesController.contain(_metadata.movieId!);
       await _loadProviders();
       VideoProvider? selectedDownloadProvider;
       if (widget.download) {
@@ -200,14 +206,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           );
         });
       }
-      // The player's recommendations are not needed until it opens, so fetch
-      // them alongside source loading instead of in front of it. Downloads
-      // never open the player.
-      final recommendationsFetch =
-          widget.download ? null : _fetchMovieRecommendations();
-
-      var isBookmarked =
-          await recentlyWatchedMoviesController.contain(_metadata.movieId!);
+      final isBookmarked = await bookmarkedFuture;
       int elapsed = 0;
       if (isBookmarked) {
         var rMovies =
@@ -413,9 +412,9 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
   ProviderLoadSession _startProviderSelection({
     required List<VideoProvider> providers,
   }) {
-    return ProviderLoader.startLoadingAllSuccessful(
+    return ProviderLoader.startFastThenExpand(
       providers: providers,
-      load: (provider) {
+      loadFast: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
         // Providers resolve concurrently, so each active request gets a loading state.
         if (mounted) {
@@ -438,10 +437,21 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           provider: provider,
           movieId: _metadata.movieId!,
           scraperApiUrl: _scraperApiUrl,
-          // During playback, ask for every server the provider exposes. The
-          // API falls back automatically when full collection is unsupported.
-          // Downloads keep the narrower single-provider response.
-          full: !widget.download,
+          // The first working server is enough to start playback. The full
+          // collection is requested separately after a fast source is found.
+          full: false,
+        );
+      },
+      loadExpanded: (provider, fastResult) {
+        if (widget.download ||
+            provider.type == VideoProviderType.directVixSrc) {
+          return Future<ProviderLoadResult>.value(fastResult);
+        }
+        return ProviderLoader.loadMovieFromProvider(
+          provider: provider,
+          movieId: _metadata.movieId!,
+          scraperApiUrl: _scraperApiUrl,
+          full: true,
         );
       },
       onResult: (index, provider, result) {

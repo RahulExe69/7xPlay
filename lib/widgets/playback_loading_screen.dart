@@ -508,7 +508,7 @@ class _UnifiedPlaybackProgress extends StatelessWidget {
           ),
           const SizedBox(height: AppSpace.sm),
           Text(
-            'Finding a working source and the best available audio…',
+            'Trying providers in parallel. Playback starts as soon as one works…',
             style: AppType.metadata.copyWith(color: palette.mutedText),
           ),
         ],

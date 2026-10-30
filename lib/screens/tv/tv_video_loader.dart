@@ -158,6 +158,12 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
   Future<void> loadVideo() async {
     if (!mounted) return;
     try {
+      // Fetch non-blocking episode metadata and local watch history while
+      // the scraper provider directory is being resolved.
+      final seasonEpisodesFetch =
+          widget.download ? null : _fetchSeasonEpisodes();
+      final bookmarkedFuture = recentlyWatchedEpisodeController
+          .contain(widget.metadata.episodeId!);
       await _loadProviders();
       VideoProvider? selectedDownloadProvider;
       if (widget.download) {
@@ -183,14 +189,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           );
         });
       }
-      // The player's episode list is not needed until it opens, so fetch it
-      // alongside source loading instead of in front of it. Downloads never
-      // open the player.
-      final seasonEpisodesFetch =
-          widget.download ? null : _fetchSeasonEpisodes();
-
-      var isBookmarked = await recentlyWatchedEpisodeController
-          .contain(widget.metadata.episodeId!);
+      final isBookmarked = await bookmarkedFuture;
       int elapsed = 0;
       if (isBookmarked) {
         if (mounted) {
@@ -390,9 +389,9 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
   ProviderLoadSession _startProviderSelection({
     required List<VideoProvider> providers,
   }) {
-    return ProviderLoader.startLoadingAllSuccessful(
+    return ProviderLoader.startFastThenExpand(
       providers: providers,
-      load: (provider) {
+      loadFast: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
         // Providers resolve concurrently, so each active request gets a loading state.
         if (mounted) {
@@ -418,10 +417,23 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           seasonNumber: widget.metadata.seasonNumber!,
           episodeNumber: widget.metadata.episodeNumber!,
           scraperApiUrl: _scraperApiUrl,
-          // During playback, ask for every server the provider exposes. The
-          // API falls back automatically when full collection is unsupported.
-          // Downloads keep the narrower single-provider response.
-          full: !widget.download,
+          // Start with the fastest usable server; expand the collection
+          // only after playback has already been handed to the player.
+          full: false,
+        );
+      },
+      loadExpanded: (provider, fastResult) {
+        if (widget.download ||
+            provider.type == VideoProviderType.directVixSrc) {
+          return Future<ProviderLoadResult>.value(fastResult);
+        }
+        return ProviderLoader.loadTVFromProvider(
+          provider: provider,
+          tvId: widget.metadata.tvId!,
+          seasonNumber: widget.metadata.seasonNumber!,
+          episodeNumber: widget.metadata.episodeNumber!,
+          scraperApiUrl: _scraperApiUrl,
+          full: true,
         );
       },
       onResult: (index, provider, result) {
