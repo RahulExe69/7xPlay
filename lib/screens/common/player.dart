@@ -1079,6 +1079,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           'preRoll=$_preRollActive afterPreRoll=$contentAfterPreRoll '
           'durationSeconds=$duration',
         );
+        // Better Player exposes manifest audio tracks after the source
+        // initializes. Refresh an already-open audio sheet at that point.
+        _audioLanguageSheetRefresh?.call();
         if (!_preRollActive) {
           _initialPlaybackReady = true;
           _maybeAutoSwitchToPreferredAudioSource();
