@@ -796,7 +796,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         concurrency: 4,
         probeTimeout: const Duration(seconds: 8),
       );
-      if (!mounted || _adBlockStopped) return false;
+      if (!mounted || _adBlockStopped) return;
 
       final links = selection.result.videoLinks ?? const <RegularVideoLinks>[];
       if (links.isEmpty) return;
