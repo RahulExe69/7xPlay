@@ -125,6 +125,10 @@ abstract final class UnifiedPlaybackLanguageService {
   /// Identifies manifest formats conservatively. Explicit progressive file
   /// extensions override provider flags, because providers occasionally mark
   /// an MP4/WebM URL as HLS by mistake.
+  /// Stable identity shared by discovery and the player source catalogue.
+  static String sourceIdentityForLink(RegularVideoLinks link) =>
+      _sourceIdentity(link);
+
   static String? manifestFormatForLink(RegularVideoLinks link) {
     final rawUrl = link.url?.trim() ?? '';
     if (rawUrl.isEmpty) return null;
