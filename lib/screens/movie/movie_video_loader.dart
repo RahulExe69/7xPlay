@@ -175,6 +175,12 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
   Future<void> loadVideo() async {
     if (!mounted) return;
     try {
+      // Start independent local/network work together. None of it is needed
+      // before provider resolution begins.
+      final recommendationsFetch =
+          widget.download ? null : _fetchMovieRecommendations();
+      final bookmarkedFuture =
+          recentlyWatchedMoviesController.contain(_metadata.movieId!);
       await _loadProviders();
       VideoProvider? selectedDownloadProvider;
       if (widget.download) {
@@ -200,14 +206,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           );
         });
       }
-      // The player's recommendations are not needed until it opens, so fetch
-      // them alongside source loading instead of in front of it. Downloads
-      // never open the player.
-      final recommendationsFetch =
-          widget.download ? null : _fetchMovieRecommendations();
-
-      var isBookmarked =
-          await recentlyWatchedMoviesController.contain(_metadata.movieId!);
+      final isBookmarked = await bookmarkedFuture;
       int elapsed = 0;
       if (isBookmarked) {
         var rMovies =
