@@ -74,15 +74,11 @@ class OfflineDownloadService implements OfflineDownloadGateway {
     bool isHls = false,
     bool isDash = false,
   }) {
-    if (isDash) return 'dash';
-    if (isHls) return 'hls';
     final uri = Uri.tryParse(url.trim());
     final path = (uri?.path.isNotEmpty == true
             ? uri!.path
             : url.split('?').first)
         .toLowerCase();
-    if (path.endsWith('.mpd')) return 'dash';
-    if (path.endsWith('.m3u8') || path.contains('/playlist/')) return 'hls';
     const progressiveExtensions = [
       '.mp4',
       '.m4v',
@@ -96,6 +92,10 @@ class OfflineDownloadService implements OfflineDownloadGateway {
       '.wmv',
     ];
     if (progressiveExtensions.any(path.endsWith)) return 'progressive';
+    if (isDash || path.endsWith('.mpd')) return 'dash';
+    if (isHls || path.endsWith('.m3u8') || path.contains('/playlist/')) {
+      return 'hls';
+    }
     return 'hls';
   }
 
