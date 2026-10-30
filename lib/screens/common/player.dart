@@ -3952,19 +3952,32 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final attemptsForFallback = widget.backgroundProviderSelection == null
         ? widget.initialProviderAttempts
         : _loadedProviderAttempts;
-    final candidates = attemptsForFallback.isNotEmpty
+    final resolvedCandidates = attemptsForFallback.isNotEmpty
         ? ProviderLoader.fallbackCandidates(
             attempts: attemptsForFallback,
             failedProviderCode: failedProviderCode ?? _currentProviderCode,
             eligibleProviderCodes: allowed,
             alreadyTriedProviderCodes: _automaticFallbackTried,
           ).map((attempt) => attempt.provider).toList(growable: false)
-        : providers.where((provider) {
-            final code = provider.codeName;
-            return allowed.contains(code) &&
-                code != _currentProviderCode &&
-                !_automaticFallbackTried.contains(code);
-          }).toList(growable: false);
+        : <VideoProvider>[];
+    final resolvedCodes =
+        resolvedCandidates.map((provider) => provider.codeName).toSet();
+    // Do not permanently blacklist a provider just because its first
+    // concurrent lookup timed out or returned a transient error. Retry providers
+    // that remain eligible but had no usable initial result, after known-good
+    // candidates have been attempted.
+    final recoveryCandidates = providers.where((provider) {
+      final code = provider.codeName;
+      return allowed.contains(code) &&
+          code != _currentProviderCode &&
+          code != failedProviderCode &&
+          !resolvedCodes.contains(code) &&
+          !_automaticFallbackTried.contains(code);
+    }).toList(growable: false);
+    final candidates = <VideoProvider>[
+      ...resolvedCandidates,
+      ...recoveryCandidates,
+    ];
     try {
       for (final provider in candidates) {
         final code = provider.codeName;
