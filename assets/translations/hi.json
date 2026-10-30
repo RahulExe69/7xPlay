@@ -2013,5 +2013,6 @@
   "device_platform_tv": "टीवी",
   "device_platform_ios": "iPhone या iPad",
   "device_platform_android": "Android डिवाइस",
-  "device_last_used": "आखिरी इस्तेमाल {date}"
+  "device_last_used": "आखिरी इस्तेमाल {date}",
+  "bengali": "बंगाली"
 }

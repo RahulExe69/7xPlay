@@ -3076,7 +3076,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final value = _betterPlayerController.videoPlayerController?.value;
       if (value?.hasError == true) return false;
       if (value != null &&
-          value.duration > Duration.zero &&
+          value.duration != null && value.duration! > Duration.zero &&
           (!expectPlaying || value.isPlaying || value.position > Duration.zero)) {
         return true;
       }
@@ -3084,7 +3084,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     final value = _betterPlayerController.videoPlayerController?.value;
     return value != null &&
-        value.duration > Duration.zero &&
+        value.duration != null && value.duration! > Duration.zero &&
         !value.hasError &&
         (!expectPlaying || value.isPlaying || value.position > Duration.zero);
   }

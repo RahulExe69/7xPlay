@@ -2018,7 +2018,7 @@
   "player_provider_diagnostics_summary": "{available} available · {failed} failed",
   "player_choose_audio_language": "Choose audio language",
   "player_audio_language_description": "7xPlay combines compatible sources and automatically tries another when playback fails.",
-  "player_audio_language_source_count": "{count} compatible sources",
+  "player_audio_language_source_count": "{count} providers",
   "player_original_audio": "Original audio · unverified language",
   "provider_timeout": "Timed out",
   "provider_request_failed": "Request failed",
