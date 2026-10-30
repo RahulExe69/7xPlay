@@ -79,10 +79,21 @@ internal class DownloadSourceResolver {
         val format = metadata.getString("format")
         val links = body.optJSONArray("links") ?: throw IOException("The original download source is unavailable.")
         val matches = (0 until links.length()).mapNotNull { links.optJSONObject(it) }.filter { link ->
+            val streamUrl = link.optString("url")
+            val streamPath = runCatching { Uri.parse(streamUrl).path.orEmpty().lowercase() }
+                .getOrDefault("")
+            val progressive = listOf(".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".mpg", ".mpeg", ".flv", ".wmv")
+                .any(streamPath::endsWith)
+            val linkFormat = when {
+                progressive -> "progressive"
+                link.optBoolean("isM3U8") || streamPath.endsWith(".m3u8") -> "hls"
+                link.optBoolean("isDASH") || streamPath.endsWith(".mpd") -> "dash"
+                else -> "progressive"
+            }
             link.optString("quality", "unknown quality") == source.getString("quality") &&
                 link.optString("server") == source.optString("server") &&
-                (if (link.optBoolean("isM3U8")) "hls" else if (link.optBoolean("isDASH")) "dash" else "progressive") == format &&
-                link.optString("url").isNotBlank()
+                linkFormat == format &&
+                streamUrl.isNotBlank()
         }.distinctBy { jsonMap(it) }
         if (matches.size != 1) {
             throw IOException("The original server and quality are unavailable or ambiguous. Retry later.")
