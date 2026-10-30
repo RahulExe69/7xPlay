@@ -217,7 +217,12 @@ abstract final class ProviderLoader {
         provider: provider,
         result: fastResult,
       );
-      providerAttemptsController.add(fastAttempt);
+      // Only publish a fast result when it is usable. Failed fast
+      // requests are still eligible for full-collection recovery and will be
+      // emitted once their final result is known.
+      if (fastAttempt.hasPlayableSources) {
+        providerAttemptsController.add(fastAttempt);
+      }
       if (fastAttempt.hasPlayableSources &&
           !firstPlayableCompleter.isCompleted) {
         firstPlayableCompleter.complete(fastAttempt);
