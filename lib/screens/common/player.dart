@@ -4062,6 +4062,17 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       ...resolvedCandidates,
       ...recoveryCandidates,
     ];
+    final configuredPriority = {
+      for (var index = 0; index < candidates.length; index++)
+        candidates[index].codeName: index,
+    };
+    candidates.sort((left, right) {
+      final reliability = (_providerFailureCounts[left.codeName] ?? 0)
+          .compareTo(_providerFailureCounts[right.codeName] ?? 0);
+      if (reliability != 0) return reliability;
+      return configuredPriority[left.codeName]!
+          .compareTo(configuredPriority[right.codeName]!);
+    });
     try {
       for (final provider in candidates) {
         final code = provider.codeName;
