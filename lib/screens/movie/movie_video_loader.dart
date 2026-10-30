@@ -235,6 +235,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
 
       ProviderSelection? selection;
       Future<ProviderSelection?>? backgroundProviderSelection;
+      Stream<ProviderAttempt>? backgroundProviderAttempts;
       if (widget.download) {
         final provider = selectedDownloadProvider;
         if (provider == null) return;
@@ -253,6 +254,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           );
         }
         backgroundProviderSelection = session.allSuccessful;
+        backgroundProviderAttempts = session.providerAttempts;
       }
 
       if (!mounted) return;
@@ -365,6 +367,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
               eligibleProviderCodes: eligibleProviderCodes,
               selectedAudioLanguageCode: selectedAudioLanguageCode,
               backgroundProviderSelection: backgroundProviderSelection,
+              backgroundProviderAttempts: backgroundProviderAttempts,
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               useTvControls: widget.useTvPlayer,
