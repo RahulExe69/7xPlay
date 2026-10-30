@@ -266,6 +266,14 @@ class ScraperApi {
               isDash: link['isDASH'] == true,
               headers: linkHeaders,
               sizeToken: link['sizeToken']?.toString(),
+              // Stream providers use several spellings for the audio label.
+              // Preserve it here; this endpoint builds links manually rather
+              // than going through RegularVideoLinks.fromJson().
+              audioLanguage: (link['audioLanguage'] ??
+                      link['audio_language'] ??
+                      link['language'] ??
+                      link['lang'])
+                  ?.toString(),
             ),
           );
 
