@@ -389,9 +389,9 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
   ProviderLoadSession _startProviderSelection({
     required List<VideoProvider> providers,
   }) {
-    return ProviderLoader.startLoadingAllSuccessful(
+    return ProviderLoader.startFastThenExpand(
       providers: providers,
-      load: (provider) {
+      loadFast: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
         // Providers resolve concurrently, so each active request gets a loading state.
         if (mounted) {
@@ -417,10 +417,23 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           seasonNumber: widget.metadata.seasonNumber!,
           episodeNumber: widget.metadata.episodeNumber!,
           scraperApiUrl: _scraperApiUrl,
-          // During playback, ask for every server the provider exposes. The
-          // API falls back automatically when full collection is unsupported.
-          // Downloads keep the narrower single-provider response.
-          full: !widget.download,
+          // Start with the fastest usable server; expand the collection
+          // only after playback has already been handed to the player.
+          full: false,
+        );
+      },
+      loadExpanded: (provider, fastResult) {
+        if (widget.download ||
+            provider.type == VideoProviderType.directVixSrc) {
+          return Future<ProviderLoadResult>.value(fastResult);
+        }
+        return ProviderLoader.loadTVFromProvider(
+          provider: provider,
+          tvId: widget.metadata.tvId!,
+          seasonNumber: widget.metadata.seasonNumber!,
+          episodeNumber: widget.metadata.episodeNumber!,
+          scraperApiUrl: _scraperApiUrl,
+          full: true,
         );
       },
       onResult: (index, provider, result) {
