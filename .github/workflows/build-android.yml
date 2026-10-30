@@ -39,7 +39,7 @@ jobs:
         with:
           flutter-version: '3.41.5'
           channel: stable
-          cache: true
+          cache: false
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
@@ -102,7 +102,7 @@ jobs:
         with:
           flutter-version: '3.41.5'
           channel: stable
-          cache: true
+          cache: false
 
       - name: Cache Gradle dependencies and build outputs
         uses: gradle/actions/setup-gradle@v6
@@ -166,7 +166,7 @@ jobs:
           fi
 
       - name: Upload ARM64 APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-arm64-v8a-release-${{ github.sha }}
           path: 7xPlay/build/artifacts/arm64-v8a/7xPlay-arm64-v8a-release.apk
@@ -174,7 +174,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ARMv7 APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-armeabi-v7a-release-${{ github.sha }}
           path: 7xPlay/build/artifacts/armeabi-v7a/7xPlay-armeabi-v7a-release.apk
@@ -182,7 +182,7 @@ jobs:
           retention-days: 30
 
       - name: Upload x86_64 APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-x86_64-release-${{ github.sha }}
           path: 7xPlay/build/artifacts/x86_64/7xPlay-x86_64-release.apk
@@ -190,7 +190,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Dart symbol files
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: 7xPlay-symbols-${{ github.sha }}
           path: 7xPlay/build/symbols/
