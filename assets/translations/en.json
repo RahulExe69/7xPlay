@@ -2029,5 +2029,6 @@
   "provider_not_checked": "Not checked",
   "provider_language_unavailable": "This provider does not expose the selected audio language",
   "provider_playback_failed": "Playback failed",
-  "bengali": "Bengali"
+  "bengali": "Bengali",
+  "urdu": "Urdu"
 }

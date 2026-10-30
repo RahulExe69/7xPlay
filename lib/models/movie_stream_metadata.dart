@@ -1,6 +1,7 @@
 class MovieStreamMetadata {
   int? movieId;
   String? movieName;
+  String? originalLanguage;
   int? releaseYear;
   String? posterPath;
   String? backdropPath;
@@ -22,6 +23,7 @@ class MovieStreamMetadata {
     required this.elapsed,
     required this.movieId,
     required this.movieName,
+    this.originalLanguage,
     required this.posterPath,
     required this.releaseYear,
     required this.isAdult,
@@ -44,6 +46,7 @@ class MovieRecommendation {
   final String? overview;
   final num? voteAverage;
   final String? releaseDate;
+  final String? originalLanguage;
   final List<int>? genreIds;
 
   MovieRecommendation({
@@ -54,6 +57,7 @@ class MovieRecommendation {
     this.overview,
     this.voteAverage,
     this.releaseDate,
+    this.originalLanguage,
     this.genreIds,
   });
 
@@ -66,6 +70,7 @@ class MovieRecommendation {
       overview: movie.overview,
       voteAverage: movie.voteAverage,
       releaseDate: movie.releaseDate,
+      originalLanguage: movie.originalLanguage,
       genreIds: movie.genreIds,
     );
   }

@@ -68,7 +68,7 @@ jobs:
 
       - name: Test provider aggregation and fallback behavior
         working-directory: 7xPlay
-        run: flutter test test/provider_loader_test.dart test/flixquest_api_instances_test.dart test/unified_playback_language_service_test.dart test/language_names_test.dart test/unified_playback_compile_test.dart
+        run: flutter test test/provider_loader_test.dart test/flixquest_api_instances_test.dart test/unified_playback_language_service_test.dart test/language_names_test.dart test/unified_playback_compile_test.dart test/preferred_audio_language_policy_test.dart test/data/scraper_cache_test.dart
 
   # PRs run the quick provider tests above. Avoid rebuilding all APKs on
   # every PR update; full APKs are built once after merge or on manual dispatch.

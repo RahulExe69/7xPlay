@@ -220,14 +220,25 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       }
 
       ProviderSelection? selection;
+      Future<ProviderSelection?>? backgroundProviderSelection;
       if (widget.download) {
         final provider = selectedDownloadProvider;
         if (provider == null) return;
         selection = await _fetchSelection(providers: [provider]);
       } else {
-        // Normal viewing resolves every provider and displays only verified
-        // audio languages to the viewer.
-        selection = await _fetchSelection(providers: videoProviders);
+        // Start all providers together but hand off to playback as soon as a
+        // single usable result arrives. Alternatives continue in background.
+        final session = _startProviderSelection(providers: videoProviders);
+        final firstAttempt = await session.firstPlayable;
+        if (firstAttempt != null) {
+          selection = ProviderSelection(
+            index: firstAttempt.index,
+            provider: firstAttempt.provider,
+            result: firstAttempt.result,
+            attempts: <ProviderAttempt>[firstAttempt],
+          );
+        }
+        backgroundProviderSelection = session.allSuccessful;
       }
 
       if (!mounted) return;
@@ -327,6 +338,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
               initialProviderAttempts: playerAttempts,
               eligibleProviderCodes: eligibleProviderCodes,
               selectedAudioLanguageCode: selectedAudioLanguageCode,
+              backgroundProviderSelection: backgroundProviderSelection,
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               onEpisodeChange: (episodeId, episodeNumber, seasonNumber) async {
@@ -373,11 +385,12 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     });
   }
 
-  /// Loads all [providers] concurrently and combines their playable links.
-  Future<ProviderSelection?> _fetchSelection({
+  /// Starts provider lookups in parallel. Normal playback waits only for
+  /// the first usable source; downloads can still await the full result.
+  ProviderLoadSession _startProviderSelection({
     required List<VideoProvider> providers,
   }) {
-    return ProviderLoader.loadAllSuccessful(
+    return ProviderLoader.startLoadingAllSuccessful(
       providers: providers,
       load: (provider) {
         _providerStopwatches[provider.codeName] = Stopwatch()..start();
@@ -438,7 +451,9 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           'success=${result.success}, links=${result.videoLinks?.length ?? 0}, '
           'subtitles=${result.subtitleLinks?.length ?? 0}, error=${result.errorMessage}',
         );
-        if (mounted) {
+        if (mounted &&
+            providerIndex >= 0 &&
+            providerIndex < providerStates.length) {
           setState(() {
             providerStates[providerIndex] =
                 providerStates[providerIndex].copyWith(
@@ -451,8 +466,14 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           });
         }
       },
+      providerTimeout: const Duration(seconds: 12),
     );
   }
+
+  Future<ProviderSelection?> _fetchSelection({
+    required List<VideoProvider> providers,
+  }) =>
+      _startProviderSelection(providers: providers).allSuccessful;
 
   /// Leaves the loader screen and reports the failure in a bottom sheet that
   /// can push a fresh loader when the user retries.

@@ -24,6 +24,7 @@ import '../../functions/network.dart';
 import '../../functions/player_subtitle_configuration.dart';
 import '../../functions/player_buffering_configuration.dart';
 import '../../functions/language_names.dart';
+import '../../functions/preferred_audio_language_policy.dart';
 import '../../functions/subtitle_options.dart';
 import '/constants/app_constants.dart';
 import '/widgets/common_widgets.dart';
@@ -255,7 +256,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _backgroundProviderAggregationPending = false;
   bool _initialPlaybackReady = false;
   VoidCallback? _audioLanguageSheetRefresh;
-  String? _activeAudioLanguageCode = 'en';
+  String? _activeAudioLanguageCode;
   bool _audioLanguageExplicitlySelected = false;
   final Map<String, int?> _streamSizeCacheByToken = {};
   final Set<String> _loadingProviders =
@@ -304,6 +305,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _allVideoSizeTokens = Map.of(widget.videoSizeTokens);
     _allVideoAudioLanguages = Map.of(widget.videoAudioLanguages);
     _allVideoProviderCodes = Map.of(widget.videoProviderCodes);
+    _activeAudioLanguageCode = widget.selectedAudioLanguageCode ??
+        PreferredAudioLanguagePolicy.select(
+          availableLanguageLabels: _allVideoAudioLanguages.values,
+          originalLanguage: _contentOriginalLanguage,
+        );
+    _audioLanguageExplicitlySelected =
+        widget.selectedAudioLanguageCode != null;
     _backgroundProviderAggregationPending =
         widget.backgroundProviderSelection != null;
     final initialProviderCode = widget.currentProviderCode;
@@ -637,6 +645,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // });
   }
 
+  String? get _contentOriginalLanguage {
+    if (widget.mediaType == MediaType.movie) {
+      return widget.movieMetadata?.originalLanguage;
+    }
+    return widget.tvMetadata?.originalLanguage;
+  }
+
   ProviderVideoSource _providerSourceFromResult(
     VideoProvider provider,
     ProviderLoadResult result,
@@ -727,7 +742,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _backgroundProviderAggregationPending = false;
     });
     _audioLanguageSheetRefresh?.call();
-    _maybeAutoSwitchToEnglishSource();
+    _maybeAutoSwitchToPreferredAudioSource();
   }
 
   String _providerFailureSummary(ProviderLoadResult result) {
@@ -756,9 +771,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   bool _applyPreferredAudioTrack() {
-    final selected = _activeAudioLanguageCode ?? 'en';
     final tracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    var selected = _activeAudioLanguageCode;
+    if (tracks.isNotEmpty && !_audioLanguageExplicitlySelected) {
+      final manifestPreference = PreferredAudioLanguagePolicy.select(
+        availableLanguageLabels: tracks.expand(
+          (track) => <String>[track.language ?? '', track.label ?? ''],
+        ),
+        originalLanguage: _contentOriginalLanguage,
+      );
+      if (manifestPreference != null) {
+        selected = manifestPreference;
+        _activeAudioLanguageCode = manifestPreference;
+      }
+    }
+    if (selected == null) return true;
     if (tracks.isEmpty) {
       if (!_audioLanguageExplicitlySelected) return true;
       final providerCode = _currentProviderCode;
@@ -891,7 +919,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!_preRollActive) {
         _initialPlaybackReady = true;
-        _maybeAutoSwitchToEnglishSource();
+        _maybeAutoSwitchToPreferredAudioSource();
         unawaited(_loadIntroDbTimings());
       }
     } catch (error) {
@@ -977,7 +1005,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         );
         if (!_preRollActive) {
           _initialPlaybackReady = true;
-          _maybeAutoSwitchToEnglishSource();
+          _maybeAutoSwitchToPreferredAudioSource();
           unawaited(_loadIntroDbTimings());
         }
         if (contentAfterPreRoll) {
@@ -2828,6 +2856,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           isAdult: false,
           elapsed: 0,
           genreIds: movie.genreIds,
+          originalLanguage: movie.originalLanguage,
         );
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
@@ -2867,6 +2896,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       seasonNumber: episode.seasonNumber,
       seriesName: current.seriesName,
       tvId: current.tvId,
+      originalLanguage: current.originalLanguage,
       airDate: episode.airDate,
       genres: current.genres,
       genreIds: current.genreIds,
@@ -3097,23 +3127,36 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     });
   }
 
-  void _maybeAutoSwitchToEnglishSource() {
+  void _maybeAutoSwitchToPreferredAudioSource() {
     if (!_initialPlaybackReady ||
         _audioLanguageExplicitlySelected ||
         _isSwitchingProvider ||
         _preRollActive) {
       return;
     }
-    final hasEnglishActive = _activeVideoAudioLanguages.values.any(
-      (label) => languageCodeForLabel(label) == 'en',
+
+    final preferred = PreferredAudioLanguagePolicy.select(
+      availableLanguageLabels: _audioSourceKeysByLanguage.keys,
+      originalLanguage: _contentOriginalLanguage,
     );
-    if (hasEnglishActive) return;
-    final englishKeys = _audioSourceKeysByLanguage['en'];
-    if (englishKeys == null || englishKeys.isEmpty) return;
+    if (preferred == null) return;
+
+    final preferredKeys = _audioSourceKeysByLanguage[preferred];
+    if (preferredKeys == null || preferredKeys.isEmpty) return;
+
+    final preferredIsAlreadyActive = _activeVideoAudioLanguages.values.any(
+      (label) => languageCodeForLabel(label) == preferred,
+    );
+    if (preferredIsAlreadyActive) {
+      _activeAudioLanguageCode = preferred;
+      return;
+    }
+    if (_activeAudioLanguageCode == preferred) return;
+
     unawaited(
       _switchToAudioLanguage(
-        'en',
-        englishKeys,
+        preferred,
+        preferredKeys,
         userInitiated: false,
       ),
     );
