@@ -42,6 +42,7 @@ class PlaybackLoadingScreen extends StatelessWidget {
     this.subtitle,
     this.backdropPath,
     this.posterPath,
+    this.showProviderDetails = true,
     super.key,
   });
 
@@ -49,6 +50,7 @@ class PlaybackLoadingScreen extends StatelessWidget {
   final String? subtitle;
   final String? backdropPath;
   final String? posterPath;
+  final bool showProviderDetails;
   final List<ProviderLoadState> providers;
   final int currentProviderIndex;
 
@@ -68,10 +70,12 @@ class PlaybackLoadingScreen extends StatelessWidget {
     // into the page.
     final artworkClearance =
         (viewport.width * 9 / 16 + 58).clamp(210.0, 330.0).toDouble();
-    final race = ProviderLoadingWidget(
-      providers: providers,
-      currentIndex: currentProviderIndex,
-    );
+    final race = showProviderDetails
+        ? ProviderLoadingWidget(
+            providers: providers,
+            currentIndex: currentProviderIndex,
+          )
+        : const _UnifiedPlaybackProgress();
 
     return Scaffold(
       backgroundColor: palette.page,
@@ -455,6 +459,59 @@ class _ArtworkBackButton extends StatelessWidget {
           foregroundColor: const Color(0xFFFFFFFF),
         ),
         icon: Icon(PhosphorIcons.caretLeft(), size: 23),
+      ),
+    );
+  }
+}
+
+
+class _UnifiedPlaybackProgress extends StatelessWidget {
+  const _UnifiedPlaybackProgress();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: palette.foreground,
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Text(
+                  'Finding available audio languages',
+                  style: AppType.sectionHeader.copyWith(
+                    color: palette.foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              color: palette.foreground,
+              backgroundColor: palette.idleFill,
+            ),
+          ),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            'Combining compatible sources in the background…',
+            style: AppType.metadata.copyWith(color: palette.mutedText),
+          ),
+        ],
       ),
     );
   }

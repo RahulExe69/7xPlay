@@ -36,7 +36,6 @@ import 'package:flixquest/constants/app_constants.dart' show MediaType;
 import 'package:flutter/material.dart';
 import '../../screens/common/player.dart';
 import '../../screens/common/download_selection_sheets.dart';
-import '../../screens/common/manual_source_picker.dart';
 import '../../tv/player/tv_player_screen.dart';
 
 /// Finds a movie stream and keeps the complete playback route ad-free.
@@ -235,49 +234,71 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
             tr('movie_may_not_be_available'), context);
       }
 
-      final manualPickRequired = !widget.download && !settings.autoLoadSources;
-
       ProviderSelection? selection;
-      if (manualPickRequired) {
-        // "Auto load sources" is off: let the user pick a provider and only
-        // fetch that one. Re-prompt after a failed attempt so they can simply
-        // choose another source.
-        while (true) {
-          if (!mounted) return;
-          final picked = await showPlaybackProviderPicker(
-            context: context,
-            providers: videoProviders,
-            useTvPlayer: widget.useTvPlayer,
-          );
-          if (!mounted) return;
-          if (picked == null) {
-            // Dismissed the picker: leave without playing anything.
-            Navigator.pop(context);
-            return;
-          }
-          selection = await _fetchSelection(providers: [picked]);
-          if (selection != null || !mounted) break;
-        }
+      if (widget.download) {
+        final provider = selectedDownloadProvider;
+        if (provider == null) return;
+        selection = await _fetchSelection(providers: [provider]);
       } else {
-        // Query all playback sources and combine every usable response.
-        selection = await _fetchSelection(
-          providers: selectedDownloadProvider == null
-              ? videoProviders
-              : [selectedDownloadProvider],
-        );
+        // Normal viewing resolves all providers; viewers choose a language,
+        // never a scraper name.
+        selection = await _fetchSelection(providers: videoProviders);
       }
 
-      final firstWorkingProviderCode = selection?.provider.codeName;
-      if (selection != null) {
-        _showSelectedProvider(selection.provider);
-        final result = selection.result;
+      if (!mounted) return;
+      ProviderAttempt? playbackAttempt;
+      List<ProviderAttempt> playerAttempts = const <ProviderAttempt>[];
+      String? selectedAudioLanguageCode;
+      List<String> eligibleProviderCodes = const <String>[];
+      if (!widget.download && selection != null) {
+        final discovery = await UnifiedPlaybackLanguageService.discover(
+          selection.attempts,
+        );
+        if (!mounted) return;
+        final selectedLanguage =
+            await DownloadSelectionSheets.showPlaybackLanguage(
+          context,
+          languages: discovery.options,
+        );
+        if (!mounted) return;
+        if (selectedLanguage == null) {
+          Navigator.pop(context);
+          return;
+        }
+        selectedAudioLanguageCode = selectedLanguage;
+        eligibleProviderCodes = discovery.providerCodesFor(selectedLanguage);
+        playerAttempts =
+            UnifiedPlaybackLanguageService.filterAttemptsForLanguage(
+          attempts: selection.attempts,
+          discovery: discovery,
+          languageCode: selectedLanguage,
+        );
+        for (final attempt in playerAttempts) {
+          if (attempt.hasPlayableSources &&
+              eligibleProviderCodes.contains(attempt.provider.codeName)) {
+            playbackAttempt = attempt;
+            break;
+          }
+        }
+      }
+
+      final firstWorkingProviderCode = widget.download
+          ? selection?.provider.codeName
+          : playbackAttempt?.provider.codeName;
+      final selectedResult = widget.download
+          ? selection?.result
+          : playbackAttempt?.result;
+      if (selectedResult != null && firstWorkingProviderCode != null) {
+        _showSelectedProvider(
+          widget.download ? selection!.provider : playbackAttempt!.provider,
+        );
+        final result = selectedResult;
         videos = VideoUtils.convertVideoLinksToMap(result.videoLinks!);
         movieVideoLinks = result.videoLinks;
         movieVideoSubs = result.subtitleLinks;
         _addSubtitles(result.subtitleLinks);
       }
 
-      // Check if we found a working provider
       if (firstWorkingProviderCode == null && mounted) {
         _showErrorSheet(tr('movie_vid_404'));
         return;
@@ -357,6 +378,11 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
               videoHeaders: videoHeaders,
               videoSizeTokens: videoSizeTokens,
               initialVideoLinks: movieVideoLinks ?? const [],
+              initialProviderAttempts: widget.download
+                  ? selection?.attempts ?? const []
+                  : playerAttempts,
+              eligibleProviderCodes: eligibleProviderCodes,
+              selectedAudioLanguageCode: selectedAudioLanguageCode,
               subtitleStyle:
                   Provider.of<SettingsProvider>(context).subtitleTextStyle,
               useTvControls: widget.useTvPlayer,
@@ -704,6 +730,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
       posterPath: _metadata.posterPath,
       providers: providerStates,
       currentProviderIndex: currentProviderIndex,
+      showProviderDetails: widget.download,
     );
   }
 

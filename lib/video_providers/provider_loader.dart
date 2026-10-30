@@ -10,8 +10,8 @@ typedef ProviderResultCallback = void Function(
   ProviderLoadResult result,
 );
 
-class ProviderSelection {
-  const ProviderSelection({
+class ProviderAttempt {
+  const ProviderAttempt({
     required this.index,
     required this.provider,
     required this.result,
@@ -20,6 +20,25 @@ class ProviderSelection {
   final int index;
   final VideoProvider provider;
   final ProviderLoadResult result;
+
+  bool get hasPlayableSources =>
+      result.success &&
+      result.videoLinks?.any((link) => link.url?.trim().isNotEmpty == true) ==
+          true;
+}
+
+class ProviderSelection {
+  const ProviderSelection({
+    required this.index,
+    required this.provider,
+    required this.result,
+    this.attempts = const <ProviderAttempt>[],
+  });
+
+  final int index;
+  final VideoProvider provider;
+  final ProviderLoadResult result;
+  final List<ProviderAttempt> attempts;
 }
 
 /// Single loading boundary for direct and API-backed stream providers.
@@ -46,6 +65,9 @@ abstract final class ProviderLoader {
           index: index,
           provider: provider,
           result: result,
+          attempts: <ProviderAttempt>[
+            ProviderAttempt(index: index, provider: provider, result: result),
+          ],
         );
       }
     }
@@ -66,7 +88,7 @@ abstract final class ProviderLoader {
     ProviderResultCallback? onResult,
     Duration providerTimeout = const Duration(seconds: 25),
   }) async {
-    Future<ProviderSelection?> attempt(
+    Future<ProviderAttempt> attempt(
       int index,
       VideoProvider provider,
     ) async {
@@ -78,28 +100,22 @@ abstract final class ProviderLoader {
       }
 
       onResult?.call(index, provider, result);
-      if (result.success &&
-          result.videoLinks?.any(
-                (link) => link.url?.trim().isNotEmpty == true,
-              ) ==
-              true) {
-        return ProviderSelection(
-          index: index,
-          provider: provider,
-          result: result,
-        );
-      }
-      return null;
+      return ProviderAttempt(
+        index: index,
+        provider: provider,
+        result: result,
+      );
     }
 
     // Future.wait preserves input order, while each async attempt starts as
-    // soon as it is created. One provider failing does not cancel the others.
-    final attempts = await Future.wait<ProviderSelection?>(
+    // soon as it is created. Failed results are retained for diagnostics and
+    // language-aware fallback instead of disappearing during aggregation.
+    final attempts = await Future.wait<ProviderAttempt>(
       providers.asMap().entries.map(
             (entry) => attempt(entry.key, entry.value),
           ),
     );
-    final successful = attempts.whereType<ProviderSelection>().toList();
+    final successful = attempts.where((attempt) => attempt.hasPlayableSources).toList();
     if (successful.isEmpty) return null;
 
     final links = <RegularVideoLinks>[];
@@ -160,6 +176,27 @@ abstract final class ProviderLoader {
         success: true,
         videoLinks: links,
         subtitleLinks: subtitles,
+      ),
+      attempts: List<ProviderAttempt>.unmodifiable(attempts),
+    );
+  }
+
+  /// Returns successful source attempts that are still eligible for a
+  /// language-preserving retry, keeping the original provider priority.
+  static List<ProviderAttempt> fallbackCandidates({
+    required List<ProviderAttempt> attempts,
+    required String? failedProviderCode,
+    required Iterable<String> eligibleProviderCodes,
+    required Set<String> alreadyTriedProviderCodes,
+  }) {
+    final eligible = eligibleProviderCodes.toSet();
+    return List<ProviderAttempt>.unmodifiable(
+      attempts.where(
+        (attempt) =>
+            attempt.hasPlayableSources &&
+            attempt.provider.codeName != failedProviderCode &&
+            eligible.contains(attempt.provider.codeName) &&
+            !alreadyTriedProviderCodes.contains(attempt.provider.codeName),
       ),
     );
   }

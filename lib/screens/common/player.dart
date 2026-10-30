@@ -89,6 +89,9 @@ class PlayerOne extends StatefulWidget {
       this.videoHeaders = const {},
       this.videoSizeTokens = const {},
       this.initialVideoLinks = const [],
+      this.initialProviderAttempts = const [],
+      this.eligibleProviderCodes = const [],
+      this.selectedAudioLanguageCode,
       this.useTvControls = false,
       this.onTvPlayerExit,
       super.key});
@@ -111,6 +114,9 @@ class PlayerOne extends StatefulWidget {
   final Map<String, Map<String, String>> videoHeaders;
   final Map<String, String> videoSizeTokens;
   final List<RegularVideoLinks> initialVideoLinks;
+  final List<ProviderAttempt> initialProviderAttempts;
+  final List<String> eligibleProviderCodes;
+  final String? selectedAudioLanguageCode;
   final bool useTvControls;
   final VoidCallback? onTvPlayerExit;
 
@@ -235,6 +241,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   final Set<String> _loadingProviders =
       {}; // Track which providers are being loaded
   final Map<String, String> _providerErrors = {};
+  final Map<String, int> _providerSourceCounts = {};
+  final Set<String> _automaticFallbackTried = <String>{};
+  bool _automaticFallbackRunning = false;
   late final DateTime _analyticsSessionStartedAt;
   late final String _analyticsSessionId;
   late final WellnessPlaybackTracker _wellnessTracker;
@@ -267,9 +276,30 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _activeVideoHeaders = Map.of(widget.videoHeaders);
     _activeVideoSizeTokens = Map.of(widget.videoSizeTokens);
     final initialProviderCode = widget.currentProviderCode;
-    if (initialProviderCode != null && widget.initialVideoLinks.isNotEmpty) {
-      _rawVideoLinksByProvider[initialProviderCode] =
-          List.of(widget.initialVideoLinks);
+    for (final attempt in widget.initialProviderAttempts) {
+      final code = attempt.provider.codeName;
+      if (!attempt.hasPlayableSources) {
+        _providerErrors[code] = _providerFailureSummary(attempt.result);
+        continue;
+      }
+      final source = _providerSourceFromResult(
+        attempt.provider,
+        attempt.result,
+      );
+      _loadedProviders[code] = source;
+      _rawVideoLinksByProvider[code] = List.of(
+        attempt.result.videoLinks ?? const <RegularVideoLinks>[],
+      );
+      _providerSourceCounts[code] =
+          attempt.result.videoLinks?.length ?? 0;
+    }
+    if (initialProviderCode != null) {
+      _automaticFallbackTried.add(initialProviderCode);
+      if (widget.initialVideoLinks.isNotEmpty &&
+          !_rawVideoLinksByProvider.containsKey(initialProviderCode)) {
+        _rawVideoLinksByProvider[initialProviderCode] =
+            List.of(widget.initialVideoLinks);
+      }
     }
     if (widget.mediaType == MediaType.movie) {
       final metadata = widget.movieMetadata;
@@ -442,19 +472,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         playerTimeMode: settings.playerTimeDisplay,
         // A source that won't play is fixed from the controls, not a menu
         // away: Switch Provider sits with the other playback actions.
-        quickActions: [
-          if (widget.availableProviders?.isNotEmpty == true)
-            BetterPlayerOverflowMenuItem(
-              PhosphorIcons.hardDrives(),
-              tr('switch_provider'),
-              widget.useTvControls
-                  ? _showTvProviderMenu
-                  : _showProviderSwitcher,
-            ),
-        ],
         // Add custom overflow menu item for external subtitles
         overflowMenuCustomItems: widget.useTvControls
             ? [
+                if (widget.availableProviders?.isNotEmpty == true)
+                  BetterPlayerOverflowMenuItem(
+                    PhosphorIcons.hardDrives(),
+                    tr('player_providers'),
+                    _showTvProviderMenu,
+                  ),
                 BetterPlayerOverflowMenuItem(
                   PhosphorIcons.timer(),
                   tr('subtitle_timing'),
@@ -475,6 +501,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             // Subtitle timing, searching online and uploading live in the
             // Subtitles panel.
             : [
+                if (widget.availableProviders?.isNotEmpty == true)
+                  BetterPlayerOverflowMenuItem(
+                    PhosphorIcons.hardDrives(),
+                    tr('player_providers'),
+                    _showProviderSwitcher,
+                  ),
                 BetterPlayerOverflowMenuItem(
                   PhosphorIcons.arrowSquareOut(),
                   tr('open_external'),
@@ -551,6 +583,84 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // });
   }
 
+  ProviderVideoSource _providerSourceFromResult(
+    VideoProvider provider,
+    ProviderLoadResult result,
+  ) {
+    final links = result.videoLinks ?? const <RegularVideoLinks>[];
+    final subtitles = <BetterPlayerSubtitlesSource>[
+      for (final subtitle in result.subtitleLinks ?? const [])
+        if (subtitle.url?.trim().isNotEmpty == true)
+          BetterPlayerSubtitlesSource(
+            type: BetterPlayerSubtitlesSourceType.network,
+            urls: [subtitle.url!.trim()],
+            name: subtitle.language ?? tr('not_available'),
+            headers: subtitle.headers,
+          ),
+    ];
+    return ProviderVideoSource(
+      providerCode: provider.codeName,
+      providerName: provider.displayName,
+      videoSources: VideoUtils.reverseVideoQualityMap(
+        VideoUtils.convertVideoLinksToMap(links),
+      ),
+      videoFormats: VideoUtils.reverseVideoQualityMap(
+        VideoUtils.convertVideoFormatsToMap(links),
+      ),
+      videoHeaders: VideoUtils.reverseVideoQualityMap(
+        VideoUtils.convertVideoHeadersToMap(links),
+      ),
+      videoSizeTokens: VideoUtils.reverseVideoQualityMap(
+        VideoUtils.convertVideoSizeTokensToMap(links),
+      ),
+      subtitles: subtitles,
+      rawVideoLinks: List<RegularVideoLinks>.of(links),
+    );
+  }
+
+  String _providerFailureSummary(ProviderLoadResult result) {
+    final message = result.errorMessage?.toLowerCase() ?? '';
+    if (message.contains('timeout')) return tr('provider_timeout');
+    if (message.contains('socket') ||
+        message.contains('network') ||
+        message.contains('connection')) {
+      return tr('provider_request_failed');
+    }
+    return tr('provider_no_sources');
+  }
+
+  bool _providerSupportsSelectedAudio(String providerCode) {
+    final selected = widget.selectedAudioLanguageCode;
+    if (selected == null || selected == 'und') return true;
+    final configured = widget.eligibleProviderCodes;
+    return configured.isEmpty || configured.contains(providerCode);
+  }
+
+  bool _applyPreferredAudioTrack() {
+    final selected = widget.selectedAudioLanguageCode;
+    if (selected == null || selected == 'und') return true;
+    final tracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    if (tracks.isEmpty) {
+      final providerCode = _currentProviderCode;
+      final links = providerCode == null
+          ? const <RegularVideoLinks>[]
+          : _rawVideoLinksByProvider[providerCode] ?? const [];
+      return links.any(
+        (link) => languageCodeForLabel(link.audioLanguage) == selected,
+      );
+    }
+    for (final track in tracks) {
+      final code = languageCodeForLabel(track.language) ??
+          languageCodeForLabel(track.label);
+      if (code == selected) {
+        _betterPlayerController.setAudioTrack(track);
+        return true;
+      }
+    }
+    return false;
+  }
+
   String _resolveScraperApiUrl() {
     if (widget.scraperApiUrl.trim().isNotEmpty) {
       return widget.scraperApiUrl.trim();
@@ -625,6 +735,18 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
       if (!mounted || _adBlockStopped) return;
       _applyPreferredAdaptiveQuality();
+      if (!_applyPreferredAudioTrack()) {
+        final failedCode = _currentProviderCode;
+        if (failedCode != null) {
+          _providerErrors[failedCode] = tr('provider_language_unavailable');
+          unawaited(
+            _tryAutomaticProviderFallback(
+              resumeAt: initialPosition,
+              failedProviderCode: failedCode,
+            ),
+          );
+        }
+      }
       duration = _betterPlayerController
               .videoPlayerController?.value.duration?.inSeconds ??
           0;
@@ -639,6 +761,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _prerollAd.finish('error');
       _feedbackSession.recordFailure();
       debugPrint('[Player] Initial stream setup failed: $error');
+      final failedCode = _currentProviderCode;
+      if (failedCode != null && mounted) {
+        unawaited(
+          _tryAutomaticProviderFallback(
+            resumeAt: initialPosition,
+            failedProviderCode: failedCode,
+            reason: error.toString(),
+          ),
+        );
+      }
     }
   }
 
@@ -792,6 +924,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           _lastAnalyticsError = error;
           _lastAnalyticsErrorAt = now;
           _trackPlaybackEvent('error', error: error);
+        }
+        if (!_preRollActive) {
+          unawaited(_recoverFromPlaybackFailure(error));
         }
         break;
       case BetterPlayerEventType.finished:
@@ -1463,6 +1598,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     return BetterPlayerDataSource(
       BetterPlayerDataSourceType.network,
       link,
+      useAsmsAudioTracks: true,
       resolutions: sources.length > 1 ? sources : null,
       selectedResolution: selectedSource.key,
       resolutionVideoFormats:
@@ -2318,45 +2454,48 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final providers = widget.availableProviders;
     if (providers == null || providers.isEmpty) return;
     _openTvMenu(
-      tr('select_provider'),
-      providers.map(
-        (provider) {
-          final selected = provider.codeName == _currentProviderCode;
-          final loading = _loadingProviders.contains(provider.codeName);
-          final error = _providerErrors[provider.codeName];
-          final content = provider.content?.trim();
-          return BetterPlayerTvMenuItem(
-            label: provider.displayName,
-            subtitle: loading
-                ? tr('loading_video_sources')
-                : error ??
-                    [
-                      if (selected) tr('currently_playing'),
-                      if (content?.isNotEmpty == true) content!,
-                      if (!selected && content?.isNotEmpty != true)
-                        tr('video_source'),
-                    ].join('  •  '),
-            icon: error != null
-                ? PhosphorIcons.warningCircle()
-                : selected
-                    ? PhosphorIcons.playCircle(PhosphorIconsStyle.fill)
-                    : PhosphorIcons.hardDrives(),
-            selected: selected,
-            enabled: !loading && !_isSwitchingProvider,
-            onSelected: selected
-                ? _closeTvMenu
-                : () => _switchToProvider(
-                      provider.codeName,
-                      refreshMenu: () {
-                        if (_tvMenu != null) {
-                          _showTvProviderMenu();
-                        }
-                      },
-                      closeMenu: _closeTvMenu,
-                    ),
-          );
-        },
-      ).toList(growable: false),
+      tr('player_providers'),
+      providers.map((provider) {
+        final selected = provider.codeName == _currentProviderCode;
+        final loading = _loadingProviders.contains(provider.codeName);
+        final error = _providerErrors[provider.codeName];
+        final sourceCount = _providerSourceCounts[provider.codeName] ?? 0;
+        final eligible = _providerSupportsSelectedAudio(provider.codeName);
+        final subtitle = loading
+            ? tr('loading_video_sources')
+            : selected
+                ? tr('player_now_playing')
+                : error != null
+                    ? '${tr('provider_failed')}: $error'
+                    : sourceCount > 0
+                        ? tr(
+                            'provider_available_count',
+                            namedArgs: {'count': sourceCount.toString()},
+                          )
+                        : !eligible
+                            ? tr('provider_language_unavailable')
+                            : tr('provider_not_checked');
+        return BetterPlayerTvMenuItem(
+          label: provider.displayName,
+          subtitle: subtitle,
+          icon: error != null
+              ? PhosphorIcons.warningCircle()
+              : selected
+                  ? PhosphorIcons.playCircle(PhosphorIconsStyle.fill)
+                  : PhosphorIcons.hardDrives(),
+          selected: selected,
+          enabled: !loading &&
+              !_isSwitchingProvider &&
+              (selected || eligible),
+          onSelected: selected
+              ? _closeTvMenu
+              : () => _switchToProvider(
+                    provider.codeName,
+                    refreshMenu: _showTvProviderMenu,
+                    closeMenu: _closeTvMenu,
+                  ),
+        );
+      }).toList(growable: false),
     );
   }
 
@@ -2594,8 +2733,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             maxChildSize: .96,
             snap: true,
             builder: (context, scrollController) => PlayerSheetScaffold(
-              title: tr('select_provider'),
-              subtitle: '${providers.length} ${tr('video_source')}',
+              title: tr('player_providers'),
+              subtitle: tr(
+                'player_provider_diagnostics_summary',
+                namedArgs: {
+                  'available': _loadedProviders.length.toString(),
+                  'failed': _providerErrors.length.toString(),
+                },
+              ),
               actions: [
                 PlayerSheetAction(
                   icon: PhosphorIcons.x(),
@@ -2611,31 +2756,51 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                 itemBuilder: (context, index) {
                   final provider = providers[index];
                   final selected = provider.codeName == _currentProviderCode;
-                  final loading = _loadingProviders.contains(provider.codeName);
+                  final loading =
+                      _loadingProviders.contains(provider.codeName);
                   final error = _providerErrors[provider.codeName];
-                  final content = provider.content?.trim();
+                  final sourceCount =
+                      _providerSourceCounts[provider.codeName] ?? 0;
+                  final eligible =
+                      _providerSupportsSelectedAudio(provider.codeName);
+                  final subtitle = loading
+                      ? tr('loading_video_sources')
+                      : selected
+                          ? tr('player_now_playing')
+                          : error != null
+                              ? '${tr('provider_failed')}: $error'
+                              : sourceCount > 0
+                                  ? tr(
+                                      'provider_available_count',
+                                      namedArgs: {
+                                        'count': sourceCount.toString(),
+                                      },
+                                    )
+                                  : !eligible
+                                      ? tr('provider_language_unavailable')
+                                      : tr('provider_not_checked');
                   return PlayerChoiceCard(
                     kicker: selected ? tr('player_now_playing') : null,
                     title: provider.displayName,
                     selected: selected,
-                    subtitle: loading
-                        ? tr('loading_video_sources')
-                        : error ??
-                            (content?.isNotEmpty == true
-                                ? content
-                                : tr('video_source')),
+                    subtitle: subtitle,
                     trailing: loading
                         ? const SizedBox.square(
                             dimension: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : error == null
-                            ? null
-                            : Icon(
+                        : error != null
+                            ? Icon(
                                 PhosphorIcons.warningCircle(),
                                 color: Theme.of(context).colorScheme.error,
-                              ),
-                    onTap: selected || loading || _isSwitchingProvider
+                              )
+                            : sourceCount > 0
+                                ? Icon(
+                                    PhosphorIcons.checkCircle(),
+                                    color: Theme.of(context).colorScheme.primary,
+                                  )
+                                : null,
+                    onTap: selected || loading || _isSwitchingProvider || !eligible
                         ? null
                         : () => _switchToProvider(
                               provider.codeName,
@@ -2667,12 +2832,17 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             ?.any((provider) => provider.codeName == providerCode) ==
         true;
     if (!mounted || providerCode == null || !known) return false;
-    return _switchToProvider(
+    final refreshed = await _switchToProvider(
       providerCode,
       reload: true,
       resumeAt: position,
       refreshMenu: () {},
       closeMenu: () {},
+    );
+    if (refreshed) return true;
+    return _tryAutomaticProviderFallback(
+      resumeAt: position,
+      failedProviderCode: providerCode,
     );
   }
 
@@ -2683,6 +2853,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     required VoidCallback refreshMenu,
     required VoidCallback closeMenu,
     bool reload = false,
+    bool automatic = false,
     Duration? resumeAt,
   }) async {
     if (_adBlockStopped ||
@@ -2716,6 +2887,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final previousDataSource = _betterPlayerController.betterPlayerDataSource;
     var replacementStarted = false;
     var switched = false;
+    var languageTrackUnavailable = false;
     try {
       await _betterPlayerController.pause();
       var source = _loadedProviders[providerCode];
@@ -2744,33 +2916,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           throw Exception(result.errorMessage ?? tr('movie_vid_404'));
         }
 
-        final subtitles = <BetterPlayerSubtitlesSource>[
-          for (final subtitle in result.subtitleLinks ?? const [])
-            BetterPlayerSubtitlesSource(
-              type: BetterPlayerSubtitlesSourceType.network,
-              urls: [subtitle.url ?? ''],
-              name: subtitle.language ?? tr('not_available'),
-              headers: subtitle.headers,
-            ),
-        ];
-        source = ProviderVideoSource(
-          providerCode: providerCode,
-          providerName: provider.displayName,
-          videoSources: VideoUtils.reverseVideoQualityMap(
-            VideoUtils.convertVideoLinksToMap(result.videoLinks!),
-          ),
-          videoFormats: VideoUtils.reverseVideoQualityMap(
-            VideoUtils.convertVideoFormatsToMap(result.videoLinks!),
-          ),
-          videoHeaders: VideoUtils.reverseVideoQualityMap(
-            VideoUtils.convertVideoHeadersToMap(result.videoLinks!),
-          ),
-          videoSizeTokens: VideoUtils.reverseVideoQualityMap(
-            VideoUtils.convertVideoSizeTokensToMap(result.videoLinks!),
-          ),
-          subtitles: subtitles,
-          rawVideoLinks: result.videoLinks!,
-        );
+        source = _providerSourceFromResult(provider, result);
         _loadedProviders[providerCode] = source;
         _rawVideoLinksByProvider[providerCode] = List.of(result.videoLinks!);
       }
@@ -2790,12 +2936,19 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!mounted || _adBlockStopped) return false;
       _applyPreferredAdaptiveQuality();
+      if (!_applyPreferredAudioTrack()) {
+        languageTrackUnavailable = true;
+        throw StateError(tr('provider_language_unavailable'));
+      }
       if (!wasPlaying) await _betterPlayerController.pause();
       unawaited(_loadIntroDbTimings());
 
       if (!mounted) return false;
       setState(() {
         _currentProviderCode = providerCode;
+        _providerErrors.remove(providerCode);
+        _providerSourceCounts[providerCode] = nextSource.rawVideoLinks.length;
+        _automaticFallbackTried.add(providerCode);
         _activeSources = Map.of(nextSource.videoSources);
         _activeSubtitles = List.of(nextSource.subtitles);
         _activeVideoFormats = Map.of(nextSource.videoFormats);
@@ -2855,7 +3008,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!mounted || _adBlockStopped) return false;
       // A refresh has nothing to restore: the previous source is the one
       // that failed.
-      if (!reload && replacementStarted && previousDataSource != null) {
+      if (!reload && !automatic && replacementStarted && previousDataSource != null) {
         try {
           await _betterPlayerController.setupDataSource(
             previousDataSource,
@@ -2876,9 +3029,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // Provider errors are intentionally kept in debug logs only. Scraper and
       // platform exceptions can contain URLs, native class names, and complete
       // stack traces that should never be rendered in either player UI.
-      setState(
-        () => _providerErrors[providerCode] = tr('switch_provider_error'),
-      );
+      setState(() {
+        _providerErrors[providerCode] = automatic
+            ? languageTrackUnavailable
+                ? tr('provider_language_unavailable')
+                : tr('provider_playback_failed')
+            : tr('switch_provider_error');
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -2899,6 +3056,93 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
     }
     return switched;
+  }
+
+  Future<void> _recoverFromPlaybackFailure(String reason) async {
+    if (_automaticFallbackRunning || !mounted || _adBlockStopped) return;
+    // Let the controller's own short retry/network recovery run first.
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (!mounted || _adBlockStopped || _automaticFallbackRunning) return;
+    final value = _betterPlayerController.videoPlayerController?.value;
+    if (value == null ||
+        !value.hasError ||
+        value.isBuffering ||
+        !value.isNetworkAvailable) {
+      return;
+    }
+    await _tryAutomaticProviderFallback(
+      resumeAt: value.position,
+      failedProviderCode: _currentProviderCode,
+      reason: reason,
+    );
+  }
+
+  Future<bool> _tryAutomaticProviderFallback({
+    Duration? resumeAt,
+    String? failedProviderCode,
+    String? reason,
+  }) async {
+    if (_automaticFallbackRunning ||
+        _isSwitchingProvider ||
+        !mounted ||
+        _adBlockStopped) {
+      return false;
+    }
+    final providers = widget.availableProviders ?? const <VideoProvider>[];
+    if (providers.isEmpty) return false;
+
+    final allowed = widget.eligibleProviderCodes.isEmpty
+        ? providers.map((provider) => provider.codeName).toSet()
+        : widget.eligibleProviderCodes.toSet();
+    _automaticFallbackRunning = true;
+    if (failedProviderCode != null) {
+      _providerErrors[failedProviderCode] = tr('provider_playback_failed');
+      _automaticFallbackTried.add(failedProviderCode);
+    }
+    final candidates = widget.initialProviderAttempts.isNotEmpty
+        ? ProviderLoader.fallbackCandidates(
+            attempts: widget.initialProviderAttempts,
+            failedProviderCode: failedProviderCode ?? _currentProviderCode,
+            eligibleProviderCodes: allowed,
+            alreadyTriedProviderCodes: _automaticFallbackTried,
+          ).map((attempt) => attempt.provider).toList(growable: false)
+        : providers.where((provider) {
+            final code = provider.codeName;
+            return allowed.contains(code) &&
+                code != _currentProviderCode &&
+                !_automaticFallbackTried.contains(code);
+          }).toList(growable: false);
+    try {
+      for (final provider in candidates) {
+        final code = provider.codeName;
+        if (code == _currentProviderCode ||
+            _automaticFallbackTried.contains(code)) {
+          continue;
+        }
+        _automaticFallbackTried.add(code);
+        final switched = await _switchToProvider(
+          code,
+          automatic: true,
+          resumeAt: resumeAt,
+          refreshMenu: () {},
+          closeMenu: () {},
+        );
+        if (switched) {
+          _trackPlaybackEvent(
+            'automatic_provider_fallback_succeeded',
+            value: provider.displayName,
+          );
+          return true;
+        }
+      }
+      _trackPlaybackEvent(
+        'automatic_provider_fallback_exhausted',
+        error: reason,
+      );
+      return false;
+    } finally {
+      _automaticFallbackRunning = false;
+    }
   }
 
   @override
