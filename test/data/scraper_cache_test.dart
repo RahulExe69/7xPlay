@@ -35,6 +35,7 @@ void main() {
     });
     expect((await api.getProviders()).single.apiId, 'vixsrc');
     expect((await api.getProviders()).single.apiId, 'vixsrc');
+    expect(adapter.requests.first.receiveTimeout, const Duration(seconds: 6));
     adapter.enqueueJson({
       'success': true,
       'summary': {'total': 1, 'online': 1},
