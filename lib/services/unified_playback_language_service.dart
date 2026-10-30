@@ -209,6 +209,10 @@ abstract final class UnifiedPlaybackLanguageService {
       final links = candidatesPerProvider == null
           ? availableLinks.toList(growable: false)
           : availableLinks.take(candidatesPerProvider).toList(growable: false);
+      // Different quality labels can point at the exact same signed manifest.
+      // Probe that manifest once per provider; its language result is keyed by
+      // URL+headers and will automatically apply to every duplicate entry.
+      final probedManifestIdentities = <String>{};
 
       for (final link in links) {
         final explicitCode = languageCodeForLabel(link.audioLanguage);
@@ -230,6 +234,7 @@ abstract final class UnifiedPlaybackLanguageService {
           continue;
         }
         final resolvedFormat = format;
+        if (!probedManifestIdentities.add(_sourceIdentity(link))) continue;
 
         jobs.add(() async {
           final headers = link.headers?.isNotEmpty == true
