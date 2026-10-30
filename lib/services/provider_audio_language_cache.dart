@@ -49,8 +49,13 @@ abstract final class ProviderAudioLanguageCache {
     required RegularVideoLinks link,
   }) async {
     final cache = await _load();
-    final value = cache[_fingerprint(providerCode, link)];
+    final fingerprint = _fingerprint(providerCode, link);
+    final value = cache[fingerprint];
     if (value == null || value.languages.isEmpty) return null;
+    if (DateTime.now().difference(value.savedAt) > _ttl) {
+      cache.remove(fingerprint);
+      return null;
+    }
     return Set<String>.unmodifiable(value.languages);
   }
 
