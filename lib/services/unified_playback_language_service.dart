@@ -38,6 +38,23 @@ class UnifiedPlaybackLanguageDiscovery {
   List<String> sourceKeysFor(String languageCode, String providerCode) =>
       sourceKeysByLanguage[languageCode]?[providerCode] ?? const <String>[];
 
+  /// Returns the detected language for one exact provider link.
+  /// URL and headers are part of its identity so two differently protected
+  /// streams are never accidentally treated as the same source.
+  String? languageCodeForLink(
+    RegularVideoLinks link,
+    String providerCode,
+  ) {
+    final key = _sourceIdentity(link);
+    for (final entry in sourceKeysByLanguage.entries) {
+      if (entry.key == 'und') continue;
+      if (entry.value[providerCode]?.contains(key) == true) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
 }
 
 String _sourceIdentity(RegularVideoLinks link) {
