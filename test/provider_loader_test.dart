@@ -51,6 +51,60 @@ void main() {
   });
 
   test(
+    'streams each usable fast provider result before full aggregation ends',
+    () async {
+      final fast = Completer<ProviderLoadResult>();
+      final expansion = Completer<ProviderLoadResult>();
+      final session = ProviderLoader.startFastThenExpand(
+        providers: providers.take(1).toList(),
+        loadFast: (_) => fast.future,
+        loadExpanded: (_, __) => expansion.future,
+      );
+      final eventsFuture = session.providerAttempts!.toList();
+
+      fast.complete(
+        ProviderLoadResult(
+          success: true,
+          videoLinks: [
+            RegularVideoLinks(
+              url: 'https://example.com/fast.m3u8',
+              audioLanguage: 'en',
+            ),
+          ],
+        ),
+      );
+      final first = await session.firstPlayable.timeout(
+        const Duration(seconds: 1),
+      );
+      expect(first?.hasPlayableSources, isTrue);
+
+      expansion.complete(
+        ProviderLoadResult(
+          success: true,
+          videoLinks: [
+            RegularVideoLinks(
+              url: 'https://example.com/expanded-hindi.m3u8',
+              audioLanguage: 'hi',
+            ),
+            RegularVideoLinks(
+              url: 'https://example.com/fast.m3u8',
+              audioLanguage: 'en',
+            ),
+          ],
+        ),
+      );
+      await session.allSuccessful;
+      final events = await eventsFuture;
+
+      expect(events, hasLength(2));
+      expect(events.first.result.videoLinks?.single.url,
+          'https://example.com/fast.m3u8');
+      expect(events.last.result.videoLinks, hasLength(2));
+      expect(events.last.result.videoLinks!.first.audioLanguage, 'hi');
+    },
+  );
+
+  test(
     'publishes recovered provider result after the fast request fails',
     () async {
       final finalResults = <ProviderLoadResult>[];
