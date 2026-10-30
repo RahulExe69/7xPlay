@@ -44,6 +44,7 @@ class MovieRecommendation {
   final String? overview;
   final num? voteAverage;
   final String? releaseDate;
+  final String? originalLanguage;
   final List<int>? genreIds;
 
   MovieRecommendation({
@@ -54,6 +55,7 @@ class MovieRecommendation {
     this.overview,
     this.voteAverage,
     this.releaseDate,
+    this.originalLanguage,
     this.genreIds,
   });
 
@@ -66,6 +68,7 @@ class MovieRecommendation {
       overview: movie.overview,
       voteAverage: movie.voteAverage,
       releaseDate: movie.releaseDate,
+      originalLanguage: movie.originalLanguage,
       genreIds: movie.genreIds,
     );
   }

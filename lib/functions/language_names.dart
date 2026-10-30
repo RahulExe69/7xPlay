@@ -51,6 +51,7 @@ const List<LanguageEntry> appLanguages = <LanguageEntry>[
   LanguageEntry('th', 'thai', ['tha']),
   LanguageEntry('tr', 'turkish', ['tur']),
   LanguageEntry('uk', 'ukrainian', ['ukr']),
+  LanguageEntry('ur', 'urdu', ['urd']),
 ];
 
 /// The markers providers append to a track's language: a sequence number and a

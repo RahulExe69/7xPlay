@@ -136,6 +136,7 @@ abstract final class MobilePlayback {
       isAdult: movie?.adult,
       releaseDate: item.releaseDate ?? movie?.releaseDate,
       genreIds: item.genreIds,
+      originalLanguage: movie?.originalLanguage,
     );
     return Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -193,6 +194,7 @@ abstract final class MobilePlayback {
               tvId: item.id,
               airDate: episode.airDate,
               genreIds: item.genreIds,
+              originalLanguage: item.series?.originalLanguage,
               seasonEpisodes: choice.seasonEpisodes
                   .where((episode) => episode.episodeId != null)
                   .map(EpisodeMetadata.fromEpisodeList)

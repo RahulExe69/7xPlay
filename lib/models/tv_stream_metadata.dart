@@ -1,6 +1,7 @@
 class TVStreamMetadata {
   int? episodeId;
   String? seriesName;
+  String? originalLanguage;
   String? episodeName;
   int? episodeNumber;
   int? seasonNumber;
@@ -30,6 +31,7 @@ class TVStreamMetadata {
     required this.posterPath,
     required this.seasonNumber,
     required this.seriesName,
+    this.originalLanguage,
     required this.tvId,
     required this.airDate,
     this.genres = const <String>[],

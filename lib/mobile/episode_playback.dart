@@ -49,6 +49,7 @@ Future<bool> playEpisode(
           airDate: episode.airDate,
           genres: insights?.genres ?? const <String>[],
           genreIds: series.genreIds,
+          originalLanguage: series.series?.originalLanguage,
           languages: insights?.languages ?? const <String>[],
           countries: insights?.countries ?? const <String>[],
           seasonEpisodes: seasonEpisodes
