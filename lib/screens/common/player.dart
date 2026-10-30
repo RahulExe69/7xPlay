@@ -849,7 +849,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // An unknown label is not proof of incompatibility; a known conflicting
     // label is. Native manifest discovery is checked above and may advertise
     // multiple languages on the same provider URL.
-    return codes.isEmpty || codes.contains(selected);
+    return codes.contains(selected);
   }
 
   bool _applyPreferredAudioTrack() {
@@ -881,7 +881,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           .map((link) => languageCodeForLabel(link.audioLanguage))
           .whereType<String>()
           .toSet();
-      return knownCodes.isEmpty || knownCodes.contains(selected);
+      return knownCodes.contains(selected);
     }
     for (var index = 0; index < tracks.length; index++) {
       final track = tracks[index];
@@ -3474,12 +3474,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!mounted || _adBlockStopped) return false;
       final tracks =
           _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-      if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+      if (tracks.isNotEmpty && _applyPreferredAudioTrack()) return true;
       // A source explicitly labelled with the requested language can be used
       // when the manifest has no separate track list (e.g. progressive files).
       // For a language learned from an adaptive manifest, keep waiting for the
       // native track list rather than accepting the player's default track.
-      if (providerLanguage == languageCode) return true;
+      if (tracks.isEmpty && providerLanguage == languageCode) return true;
       await Future<void>.delayed(const Duration(milliseconds: 150));
     } while (DateTime.now().isBefore(deadline));
     final tracks =
@@ -3532,9 +3532,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           : const <String, String>{};
       // Use the chosen language for source ranking even when the language was
       // discovered from the manifest rather than supplied by the scraper.
-      final audioLabel =
-          _allVideoAudioLanguages[key] ?? languageNameForCode(languageCode);
-      final candidateAudioLanguages = <String, String>{key: audioLabel};
+      final candidateAudioLanguages = <String, String>{
+        key: languageNameForCode(languageCode),
+      };
       final candidateSources = <String, String>{key: url};
       final candidateFormats = <String, BetterPlayerVideoFormat?>{
         key: format,
