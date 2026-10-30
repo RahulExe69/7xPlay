@@ -721,6 +721,131 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     );
   }
 
+  ProviderAttempt _tagProviderAttempt(ProviderAttempt attempt) {
+    final providerName = attempt.provider.displayName;
+    final links = (attempt.result.videoLinks ?? const <RegularVideoLinks>[])
+        .map(
+          (link) => RegularVideoLinks(
+            url: link.url,
+            quality: '${link.quality?.trim().isNotEmpty == true ? link.quality!.trim() : 'unknown quality'} · $providerName',
+            server: link.server,
+            isM3U8: link.isM3U8,
+            isDash: link.isDash,
+            headers: link.headers == null ? null : Map.of(link.headers!),
+            sizeToken: link.sizeToken,
+            audioLanguage: link.audioLanguage,
+            providerCode: attempt.provider.codeName,
+          ),
+        )
+        .toList(growable: false);
+    return ProviderAttempt(
+      index: attempt.index,
+      provider: attempt.provider,
+      result: ProviderLoadResult(
+        success: attempt.result.success,
+        videoLinks: links,
+        subtitleLinks: attempt.result.subtitleLinks,
+        errorMessage: attempt.result.errorMessage,
+      ),
+    );
+  }
+
+  void _mergeStreamingProviderAttempt(ProviderAttempt incoming) {
+    if (!mounted || _adBlockStopped) return;
+    final attempt = _tagProviderAttempt(incoming);
+    final providerCode = attempt.provider.codeName;
+    _streamedProviderAttempts[providerCode] = attempt;
+
+    if (!attempt.hasPlayableSources) {
+      setState(() {
+        final index = _loadedProviderAttempts.indexWhere(
+          (loaded) => loaded.provider.codeName == providerCode,
+        );
+        if (index < 0) {
+          _loadedProviderAttempts.add(attempt);
+        } else {
+          _loadedProviderAttempts[index] = attempt;
+        }
+        _loadingProviders.remove(providerCode);
+        _providerErrors[providerCode] =
+            _providerFailureSummary(attempt.result);
+        _providerFailureCounts.update(
+          providerCode,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+      });
+      _audioLanguageSheetRefresh?.call();
+      return;
+    }
+
+    final links = attempt.result.videoLinks!;
+    final sources = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoLinksToMap(links),
+    );
+    final formats = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoFormatsToMap(links),
+    );
+    final headers = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoHeadersToMap(links),
+    );
+    final sizeTokens = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoSizeTokensToMap(links),
+    );
+    final audioLanguages = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoAudioLanguagesToMap(links),
+    );
+    final providerCodes = VideoUtils.reverseVideoQualityMap(
+      VideoUtils.convertVideoProviderCodesToMap(
+        links,
+        defaultProviderCode: providerCode,
+      ),
+    );
+
+    setState(() {
+      final index = _loadedProviderAttempts.indexWhere(
+        (loaded) => loaded.provider.codeName == providerCode,
+      );
+      if (index < 0) {
+        _loadedProviderAttempts.add(attempt);
+      } else {
+        _loadedProviderAttempts[index] = attempt;
+      }
+      _loadingProviders.remove(providerCode);
+      _providerErrors.remove(providerCode);
+      _providerSourceCounts[providerCode] = links.length;
+      _loadedProviders[providerCode] =
+          _providerSourceFromResult(attempt.provider, attempt.result);
+      _rawVideoLinksByProvider[providerCode] = links;
+      _allVideoSources = {..._allVideoSources, ...sources};
+      _allVideoFormats = {...?_allVideoFormats, ...formats};
+      _allVideoHeaders = {..._allVideoHeaders, ...headers};
+      _allVideoSizeTokens = {..._allVideoSizeTokens, ...sizeTokens};
+      _allVideoAudioLanguages = {
+        ..._allVideoAudioLanguages,
+        ...audioLanguages,
+      };
+      _allVideoProviderCodes = {
+        ..._allVideoProviderCodes,
+        ...providerCodes,
+      };
+    });
+    _audioLanguageSheetRefresh?.call();
+
+    // Manifest inspection runs for this provider as soon as its usable fast
+    // or expanded result arrives. It is bounded by one shared worker pool.
+    unawaited(
+      _discoverProviderAudioLanguages(
+        ProviderSelection(
+          index: attempt.index,
+          provider: attempt.provider,
+          result: attempt.result,
+          attempts: [attempt],
+        ),
+      ),
+    );
+  }
+
   void _mergeBackgroundProviderSelection(ProviderSelection? selection) {
     if (!mounted || !_backgroundProviderAggregationPending) return;
     final links = selection?.result.videoLinks ?? const <RegularVideoLinks>[];
@@ -795,71 +920,119 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _backgroundProviderAggregationPending = false;
     });
     _audioLanguageSheetRefresh?.call();
-    // Provider aggregation is metadata-only. Never replace the active
-    // BetterPlayer source just because another provider finished loading.
-    unawaited(_discoverProviderAudioLanguages(selection));
+    // Every usable fast/final provider result has already been catalogued by
+    // the result stream. Older callers without that stream retain this
+    // aggregate fallback.
+    if (!_providerAttemptStreamActive) {
+      unawaited(_discoverProviderAudioLanguages(selection));
+    }
   }
 
-  /// Detect language tracks from HLS/DASH manifests after the first frame is
-  /// already playing. Manifest inspection must never hold the Watch action.
+  /// Queues all newly available provider attempts and scans them through one
+  /// bounded worker pool. A slow provider cannot block language choices from
+  /// providers that have already completed.
   Future<void> _discoverProviderAudioLanguages(
     ProviderSelection? selection,
   ) async {
-    if (selection == null ||
-        _audioLanguageDiscoveryRunning ||
-        selection.attempts.isEmpty) {
+    if (selection == null || _adBlockStopped) return;
+    for (final attempt in selection.attempts) {
+      if (attempt.hasPlayableSources) {
+        _pendingAudioLanguageAttempts[attempt.provider.codeName] = attempt;
+      }
+    }
+    if (_audioLanguageDiscoveryRunning || _pendingAudioLanguageAttempts.isEmpty) {
+      _audioLanguageSheetRefresh?.call();
       return;
     }
+
     _audioLanguageDiscoveryRunning = true;
     try {
-      final discovery = await UnifiedPlaybackLanguageService.discover(
-        selection.attempts,
-        // Every server/manifest matters: the same provider may expose different
-        // languages on different servers, and one manifest may contain several
-        // audio renditions. This work is post-start and runs concurrently.
-        candidatesPerProvider: null,
-        concurrency: 8,
-        probeTimeout: const Duration(seconds: 6),
-      );
-      if (!mounted || _adBlockStopped) return;
+      while (mounted &&
+          !_adBlockStopped &&
+          _pendingAudioLanguageAttempts.isNotEmpty) {
+        final batch = _pendingAudioLanguageAttempts.values.toList();
+        _pendingAudioLanguageAttempts.clear();
+        final discovery = await UnifiedPlaybackLanguageService.discover(
+          batch,
+          candidatesPerProvider: null,
+          concurrency: 4,
+          probeTimeout: const Duration(seconds: 6),
+        );
+        if (!mounted || _adBlockStopped) return;
 
-      final links = selection.result.videoLinks ?? const <RegularVideoLinks>[];
-      if (links.isEmpty) return;
-      final sourceKeysByLanguage = <String, Set<String>>{};
-      for (final link in links) {
-        final providerCode = link.providerCode;
-        if (providerCode == null) continue;
-        // Map each link independently. A full-list conversion may collapse
-        // duplicate quality keys, so index-aligning its keys with the raw link
-        // list can associate a language with the wrong provider URL.
-        final sourceKeys =
-            VideoUtils.convertVideoLinksToMap([link]).keys.toList();
-        if (sourceKeys.isEmpty) continue;
-        for (final languageCode in discovery.languageCodesForLink(
-          link,
-          providerCode,
-        )) {
-          sourceKeysByLanguage
-              .putIfAbsent(languageCode, () => <String>{})
-              .addAll(sourceKeys);
+        final sourceKeysByLanguage = <String, Set<String>>{};
+        for (final attempt in batch) {
+          final providerCode = attempt.provider.codeName;
+          for (final link
+              in attempt.result.videoLinks ?? const <RegularVideoLinks>[]) {
+            // Use the exact provider+URL+headers mapping built when this
+            // provider result arrived. This also handles duplicate quality
+            // names without relying on list indexes.
+            final sourceKeys = _allVideoSources.entries
+                .where(
+                  (entry) =>
+                      entry.value == link.url &&
+                      _allVideoProviderCodes[entry.key] == providerCode &&
+                      mapEquals(
+                        _allVideoHeaders[entry.key] ?? const <String, String>{},
+                        link.headers ?? const <String, String>{},
+                      ),
+                )
+                .map((entry) => entry.key)
+                .toList(growable: false);
+            if (sourceKeys.isEmpty) continue;
+            for (final languageCode in discovery.languageCodesForLink(
+              link,
+              providerCode,
+            )) {
+              sourceKeysByLanguage
+                  .putIfAbsent(languageCode, () => <String>{})
+                  .addAll(sourceKeys);
+            }
+          }
+        }
+
+        if (sourceKeysByLanguage.isNotEmpty) {
+          setState(() {
+            for (final entry in sourceKeysByLanguage.entries) {
+              _discoveredAudioSourceKeysByLanguage
+                  .putIfAbsent(entry.key, () => <String>{})
+                  .addAll(entry.value);
+            }
+          });
+          _audioLanguageSheetRefresh?.call();
         }
       }
-      if (sourceKeysByLanguage.isEmpty) return;
-
-      setState(() {
-        for (final entry in sourceKeysByLanguage.entries) {
-          _discoveredAudioSourceKeysByLanguage
-              .putIfAbsent(entry.key, () => <String>{})
-              .addAll(entry.value);
-        }
-      });
-      _audioLanguageSheetRefresh?.call();
     } catch (error) {
       debugPrint('[Player] Background audio-language discovery failed: $error');
     } finally {
       _audioLanguageDiscoveryRunning = false;
       _audioLanguageSheetRefresh?.call();
+      if (mounted &&
+          !_adBlockStopped &&
+          _pendingAudioLanguageAttempts.isNotEmpty) {
+        unawaited(_drainAudioLanguageDiscovery());
+      }
     }
+  }
+
+  Future<void> _drainAudioLanguageDiscovery() async {
+    if (_audioLanguageDiscoveryRunning ||
+        _pendingAudioLanguageAttempts.isEmpty ||
+        !mounted ||
+        _adBlockStopped) {
+      return;
+    }
+    final attempts = _pendingAudioLanguageAttempts.values.toList();
+    _pendingAudioLanguageAttempts.clear();
+    await _discoverProviderAudioLanguages(
+      ProviderSelection(
+        index: attempts.first.index,
+        provider: attempts.first.provider,
+        result: attempts.first.result,
+        attempts: attempts,
+      ),
+    );
   }
 
   String _providerFailureSummary(ProviderLoadResult result) {
