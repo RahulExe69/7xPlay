@@ -265,6 +265,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   String? _activeManifestAudioTrackKey;
   bool _audioLanguageExplicitlySelected = false;
   bool _manifestAudioExplicitlySelected = false;
+  bool _automaticPreferredLanguageAttempted = false;
   bool _audioLanguageDiscoveryRunning = false;
   final Map<String, ProviderAttempt> _pendingAudioLanguageAttempts = {};
   StreamSubscription<ProviderAttempt>? _providerAttemptsSubscription;
@@ -1006,6 +1007,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             }
           });
           _audioLanguageSheetRefresh?.call();
+          _maybeAutoSwitchToPreferredAudioSource();
         }
       }
     } catch (error) {
@@ -3695,6 +3697,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   void _maybeAutoSwitchToPreferredAudioSource() {
     if (!_initialPlaybackReady ||
+        _automaticPreferredLanguageAttempted ||
         _audioLanguageExplicitlySelected ||
         _isSwitchingProvider ||
         _preRollActive ||
@@ -3702,24 +3705,25 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       return;
     }
 
-    // Startup audio preference is applied only to a track already present in
-    // the active manifest. Provider/source changes are reserved for an
-    // explicit language choice or genuine playback failure; background
-    // discovery must never soft-reset a movie that is already playing.
     final currentManifestTracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
     final preferred = PreferredAudioLanguagePolicy.select(
-      availableLanguageLabels: currentManifestTracks.expand(
-        (track) => <String>[track.language ?? '', track.label ?? ''],
-      ),
+      availableLanguageLabels: {
+        ..._audioSourceKeysByLanguage.keys,
+        ...currentManifestTracks.expand(
+          (track) => <String>[track.language ?? '', track.label ?? ''],
+        ),
+      },
       originalLanguage: _contentOriginalLanguage,
     );
     if (preferred == null) return;
+
     for (var index = 0; index < currentManifestTracks.length; index++) {
       final track = currentManifestTracks[index];
       final code = languageCodeForLabel(track.language) ??
           languageCodeForLabel(track.label);
       if (code != preferred) continue;
+      _automaticPreferredLanguageAttempted = true;
       _betterPlayerController.setAudioTrack(track);
       _activeAudioLanguageCode = preferred;
       _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
@@ -3727,6 +3731,24 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _audioLanguageSheetRefresh?.call();
       return;
     }
+
+    // Do not switch to a provider based only on its scraper blurb. Wait until
+    // a real HLS/DASH manifest has positively exposed the preferred track.
+    final verifiedKeys =
+        _discoveredAudioSourceKeysByLanguage[preferred]?.toList() ??
+            const <String>[];
+    if (verifiedKeys.isEmpty) return;
+
+    // One controlled original-language hand-off is allowed after discovery.
+    // Background provider completions never re-run the active source setup.
+    _automaticPreferredLanguageAttempted = true;
+    unawaited(
+      _switchToAudioLanguage(
+        preferred,
+        verifiedKeys,
+        userInitiated: false,
+      ).then<void>((_) {}),
+    );
   }
 
   List<String> _orderedAudioSourceKeys(List<String> sourceKeys) {
