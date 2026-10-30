@@ -50,6 +50,65 @@ void main() {
     expect(combined?.result.videoLinks, hasLength(2));
   });
 
+  test(
+    'starts the player before waiting for background stream expansion',
+    () async {
+      final expansion = Completer<ProviderLoadResult>();
+      final session = ProviderLoader.startFastThenExpand(
+        providers: providers.take(1).toList(),
+        loadFast: (_) async => playableResult(),
+        loadExpanded: (_, __) => expansion.future,
+        providerTimeout: const Duration(seconds: 1),
+        expansionTimeout: const Duration(seconds: 1),
+      );
+
+      final first = await session.firstPlayable.timeout(
+        const Duration(milliseconds: 100),
+      );
+      expect(first?.hasPlayableSources, isTrue);
+
+      var backgroundFinished = false;
+      session.allSuccessful.then((_) => backgroundFinished = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(backgroundFinished, isFalse);
+
+      expansion.complete(
+        ProviderLoadResult(
+          success: true,
+          videoLinks: [
+            RegularVideoLinks(
+              url: 'https://example.com/expanded-hindi.m3u8',
+              audioLanguage: 'hi',
+            ),
+          ],
+        ),
+      );
+      final combined = await session.allSuccessful;
+      expect(combined?.result.videoLinks, hasLength(1));
+      expect(
+        combined?.result.videoLinks?.single.audioLanguage,
+        'hi',
+      );
+    },
+  );
+
+  test(
+    'keeps the fast playable source when background expansion fails',
+    () async {
+      final session = ProviderLoader.startFastThenExpand(
+        providers: providers.take(1).toList(),
+        loadFast: (_) async => playableResult(),
+        loadExpanded: (_, __) => Future.error(StateError('Expansion failed')),
+      );
+
+      final first = await session.firstPlayable;
+      final combined = await session.allSuccessful;
+      expect(first?.hasPlayableSources, isTrue);
+      expect(combined?.result.videoLinks?.single.url,
+          'https://example.com/video.m3u8');
+    },
+  );
+
   test('first provider success never starts backup requests', () async {
     final firstResult = Completer<ProviderLoadResult>();
     final startedProviders = <String>[];
