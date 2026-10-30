@@ -3098,13 +3098,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Map<String, List<String>> get _audioSourceKeysByLanguage {
-    final grouped = <String, List<String>>{};
+    final grouped = <String, Set<String>>{};
     for (final entry in _allVideoAudioLanguages.entries) {
       final code = languageCodeForLabel(entry.value);
       if (code == null) continue;
-      grouped.putIfAbsent(code, () => <String>[]).add(entry.key);
+      grouped.putIfAbsent(code, () => <String>{}).add(entry.key);
     }
-    return grouped;
+    // One adaptive source may provide English, Hindi, Bengali, and other
+    // native audio renditions simultaneously. Include that same source under
+    // every language it actually advertises.
+    for (final entry in _discoveredAudioSourceKeysByLanguage.entries) {
+      grouped.putIfAbsent(entry.key, () => <String>{}).addAll(entry.value);
+    }
+    return {
+      for (final entry in grouped.entries)
+        entry.key: entry.value.toList(growable: false),
+    };
   }
 
   // The action must remain reachable even when providers omit language
