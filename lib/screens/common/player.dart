@@ -4102,6 +4102,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           failedProviderCode: failedProviderCode,
           resumeAt: resumeAt,
         )) {
+          _automaticFallbackRunning = false;
           return true;
         }
       } catch (error) {
@@ -4154,6 +4155,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         failedProviderCode: failedProviderCode,
         resumeAt: resumeAt,
       )) {
+        _automaticFallbackRunning = false;
         return true;
       }
     } catch (error) {
