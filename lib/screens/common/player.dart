@@ -43,6 +43,7 @@ import '../../api/endpoints.dart';
 import '../../ui_components/app_ui_components.dart';
 import '../../services/stream_intro_service.dart';
 import '../../services/unified_playback_language_service.dart';
+import '../../services/provider_audio_language_cache.dart';
 import '../../services/introdb_service.dart';
 import '../../services/offline_download_service.dart';
 import '../../services/playback_wake_lock.dart';
@@ -266,7 +267,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _manifestAudioExplicitlySelected = false;
   bool _audioLanguageDiscoveryRunning = false;
   final Map<String, ProviderAttempt> _pendingAudioLanguageAttempts = {};
-  final Map<String, ProviderAttempt> _streamedProviderAttempts = {};
   StreamSubscription<ProviderAttempt>? _providerAttemptsSubscription;
   bool _providerAttemptStreamActive = false;
   // A single adaptive manifest may expose several languages. Keep the
@@ -754,7 +754,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (!mounted || _adBlockStopped) return;
     final attempt = _tagProviderAttempt(incoming);
     final providerCode = attempt.provider.codeName;
-    _streamedProviderAttempts[providerCode] = attempt;
 
     if (!attempt.hasPlayableSources) {
       setState(() {
@@ -4010,6 +4009,26 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               .putIfAbsent(languageCode, () => <String>{})
               .add(key);
           _audioLanguageSheetRefresh?.call();
+          final providerCode = _allVideoProviderCodes[key];
+          final rawLink = providerCode == null
+              ? null
+              : (_rawVideoLinksByProvider[providerCode] ??
+                      const <RegularVideoLinks>[])
+                  .where((link) => link.url == url)
+                  .firstOrNull;
+          if (providerCode != null && rawLink != null) {
+            try {
+              await ProviderAudioLanguageCache.invalidate(
+                providerCode: providerCode,
+                link: rawLink,
+              );
+            } catch (cacheError) {
+              debugPrint(
+                '[Player][AudioFailover] Could not invalidate stale '
+                'language cache: $cacheError',
+              );
+            }
+          }
           debugPrint(
             '[Player][AudioFailover] Rejected false language claim '
             'language=$languageCode source=$key '
