@@ -893,6 +893,21 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         return true;
       }
     }
+    final nativeTrackCodes = tracks
+        .map(
+          (track) =>
+              languageCodeForLabel(track.language) ??
+              languageCodeForLabel(track.label),
+        )
+        .whereType<String>()
+        .toSet();
+    // When the manifest exposes explicit language IDs, they take precedence
+    // over a possibly broad provider label. A manual language choice must not
+    // silently continue with a different native rendition.
+    if (nativeTrackCodes.isNotEmpty) {
+      return nativeTrackCodes.contains(selected) ||
+          !_audioLanguageExplicitlySelected;
+    }
     final providerCode = _currentProviderCode;
     final knownCodes = (providerCode == null
             ? const <RegularVideoLinks>[]
@@ -901,8 +916,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         .whereType<String>()
         .toSet();
     if (knownCodes.contains(selected)) return true;
-    // English is a best-effort startup default. Never interrupt a stream just
-    // because its default track cannot be verified as English.
+    // Unlabelled adaptive sources remain best-effort for automatic defaults,
+    // but an explicit selection is a hard constraint.
     return !_audioLanguageExplicitlySelected;
   }
 
@@ -3162,7 +3177,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       _betterPlayerController.setAudioTrack(track);
       setState(() {
         _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
-        if (languageCode != null) _activeAudioLanguageCode = languageCode;
+        if (languageCode != null) {
+          _activeAudioLanguageCode = languageCode;
+          _audioLanguageExplicitlySelected = true;
+        }
         _manifestAudioExplicitlySelected = true;
       });
       _audioLanguageSheetRefresh?.call();
@@ -3367,10 +3385,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     );
   }
 
-  List<String> _orderedAudioSourceKeys(
-    String languageCode,
-    List<String> sourceKeys,
-  ) {
+  List<String> _orderedAudioSourceKeys(List<String> sourceKeys) {
     final candidates = sourceKeys
         .where((key) => _allVideoSources.containsKey(key))
         .toSet()
@@ -3448,15 +3463,29 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<bool> _waitForPreferredAudioTrack({
+    required String sourceKey,
+    required String languageCode,
     Duration timeout = const Duration(seconds: 3),
   }) async {
     final deadline = DateTime.now().add(timeout);
+    final providerLanguage =
+        languageCodeForLabel(_allVideoAudioLanguages[sourceKey]);
     do {
       if (!mounted || _adBlockStopped) return false;
-      if (_applyPreferredAudioTrack()) return true;
+      final tracks =
+          _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+      if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+      // A source explicitly labelled with the requested language can be used
+      // when the manifest has no separate track list (e.g. progressive files).
+      // For a language learned from an adaptive manifest, keep waiting for the
+      // native track list rather than accepting the player's default track.
+      if (providerLanguage == languageCode) return true;
       await Future<void>.delayed(const Duration(milliseconds: 150));
     } while (DateTime.now().isBefore(deadline));
-    return _applyPreferredAudioTrack();
+    final tracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+    return providerLanguage == languageCode;
   }
 
   Future<void> _switchToAudioLanguage(
@@ -3465,7 +3494,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     bool userInitiated = true,
   }) async {
     if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return;
-    final orderedKeys = _orderedAudioSourceKeys(languageCode, sourceKeys);
+    final orderedKeys = _orderedAudioSourceKeys(sourceKeys);
     if (orderedKeys.isEmpty) return;
 
     final position = _betterPlayerController
@@ -3480,7 +3509,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final previousManifestSelection = _manifestAudioExplicitlySelected;
     final previousManifestTrackKey = _activeManifestAudioTrackKey;
     final previousProviderCode = _currentProviderCode;
-    var selectedSourceKey = '';
     Object? lastError;
 
     setState(() => _isSwitchingProvider = true);
@@ -3530,12 +3558,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           throw TimeoutException(tr('provider_playback_failed'));
         }
         _currentProviderCode = _allVideoProviderCodes[key];
-        if (!await _waitForPreferredAudioTrack()) {
+        if (!await _waitForPreferredAudioTrack(
+          sourceKey: key,
+          languageCode: languageCode,
+        )) {
           throw StateError(tr('provider_language_unavailable'));
         }
         if (!wasPlaying) await _betterPlayerController.pause();
 
-        selectedSourceKey = key;
         _recordAudioSourceSuccess(key);
         setState(() {
           _activeSources = candidateSources;
