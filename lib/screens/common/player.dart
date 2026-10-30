@@ -3544,6 +3544,35 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     return providerLanguage == languageCode;
   }
 
+  Future<bool> _waitForProviderAudioLanguage(
+    Iterable<String> declaredLanguageLabels, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final selected = _activeAudioLanguageCode;
+    if (selected == null) return _applyPreferredAudioTrack();
+
+    final deadline = DateTime.now().add(timeout);
+    do {
+      if (!mounted || _adBlockStopped) return false;
+      final tracks =
+          _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+      if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    } while (DateTime.now().isBefore(deadline));
+
+    final tracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+
+    // Progressive sources may not expose a separate native audio-track list.
+    // Trust explicit provider language metadata only after allowing adaptive
+    // manifests time to publish their real track list.
+    return declaredLanguageLabels
+        .map(languageCodeForLabel)
+        .whereType<String>()
+        .contains(selected);
+  }
+
   Future<bool> _switchToAudioLanguage(
     String languageCode,
     List<String> sourceKeys, {
@@ -3876,7 +3905,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
         throw TimeoutException(tr('provider_playback_failed'));
       }
-      if (!_applyPreferredAudioTrack()) {
+      final audioAvailable = _audioLanguageExplicitlySelected
+          ? await _waitForProviderAudioLanguage(nextAudioLanguages.values)
+          : _applyPreferredAudioTrack();
+      if (!audioAvailable) {
         languageTrackUnavailable = true;
         throw StateError(tr('provider_language_unavailable'));
       }
