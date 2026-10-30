@@ -145,6 +145,8 @@ abstract final class ProviderLoader {
             isDash: link.isDash,
             headers: link.headers == null ? null : Map.of(link.headers!),
             sizeToken: link.sizeToken,
+            audioLanguage: link.audioLanguage,
+            providerCode: selection.provider.codeName,
           ),
         );
       }

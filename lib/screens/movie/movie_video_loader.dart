@@ -16,7 +16,6 @@ import 'package:flixquest/services/globle_method.dart';
 import 'package:flixquest/services/offline_download_service.dart';
 import 'package:flixquest/widgets/playback_loading_screen.dart';
 import 'package:flixquest/services/stream_size_estimator.dart';
-import 'package:flixquest/services/unified_playback_language_service.dart';
 import 'package:flixquest/video_providers/provider_loader.dart';
 import 'package:flixquest/video_providers/scraper_api.dart';
 import '../../controllers/recently_watched_database_controller.dart';
@@ -247,52 +246,16 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
       }
 
       if (!mounted) return;
-      ProviderAttempt? playbackAttempt;
-      List<ProviderAttempt> playerAttempts = const <ProviderAttempt>[];
-      String? selectedAudioLanguageCode;
-      List<String> eligibleProviderCodes = const <String>[];
-      if (!widget.download && selection != null) {
-        final discovery = await UnifiedPlaybackLanguageService.discover(
-          selection.attempts,
-        );
-        if (!mounted) return;
-        final selectedLanguage =
-            await DownloadSelectionSheets.showPlaybackLanguage(
-          context,
-          languages: discovery.options,
-        );
-        if (!mounted) return;
-        if (selectedLanguage == null) {
-          Navigator.pop(context);
-          return;
-        }
-        selectedAudioLanguageCode = selectedLanguage;
-        eligibleProviderCodes = discovery.providerCodesFor(selectedLanguage);
-        playerAttempts =
-            UnifiedPlaybackLanguageService.filterAttemptsForLanguage(
-          attempts: selection.attempts,
-          discovery: discovery,
-          languageCode: selectedLanguage,
-        );
-        for (final attempt in playerAttempts) {
-          if (attempt.hasPlayableSources &&
-              eligibleProviderCodes.contains(attempt.provider.codeName)) {
-            playbackAttempt = attempt;
-            break;
-          }
-        }
-      }
-
-      final firstWorkingProviderCode = widget.download
-          ? selection?.provider.codeName
-          : playbackAttempt?.provider.codeName;
-      final selectedResult = widget.download
-          ? selection?.result
-          : playbackAttempt?.result;
+      // Hand the unified provider result to the player immediately.
+      // Manifest language scans and pre-playback language dialogs are not
+      // part of the normal Watch path.
+      final playerAttempts = selection?.attempts ?? const <ProviderAttempt>[];
+      final firstWorkingProviderCode = selection?.provider.codeName;
+      final selectedResult = selection?.result;
+      const eligibleProviderCodes = <String>[];
+      const String? selectedAudioLanguageCode = null;
       if (selectedResult != null && firstWorkingProviderCode != null) {
-        _showSelectedProvider(
-          widget.download ? selection!.provider : playbackAttempt!.provider,
-        );
+        _showSelectedProvider(selection!.provider);
         final result = selectedResult;
         videos = VideoUtils.convertVideoLinksToMap(result.videoLinks!);
         movieVideoLinks = result.videoLinks;
@@ -316,6 +279,12 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
       );
       final videoSizeTokens = VideoUtils.reverseVideoQualityMap(
         VideoUtils.convertVideoSizeTokensToMap(movieVideoLinks ?? const []),
+      );
+      final videoAudioLanguages = VideoUtils.reverseVideoQualityMap(
+        VideoUtils.convertVideoAudioLanguagesToMap(movieVideoLinks ?? const []),
+      );
+      final videoProviderCodes = VideoUtils.reverseVideoQualityMap(
+        VideoUtils.convertVideoProviderCodesToMap(movieVideoLinks ?? const []),
       );
 
       if (firstWorkingProviderCode != null && mounted) {
@@ -378,10 +347,10 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
               videoFormats: videoFormats,
               videoHeaders: videoHeaders,
               videoSizeTokens: videoSizeTokens,
+              videoAudioLanguages: videoAudioLanguages,
+              videoProviderCodes: videoProviderCodes,
               initialVideoLinks: movieVideoLinks ?? const [],
-              initialProviderAttempts: widget.download
-                  ? selection?.attempts ?? const []
-                  : playerAttempts,
+              initialProviderAttempts: playerAttempts,
               eligibleProviderCodes: eligibleProviderCodes,
               selectedAudioLanguageCode: selectedAudioLanguageCode,
               subtitleStyle:

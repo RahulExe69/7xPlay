@@ -172,6 +172,7 @@ void main() {
                 'Referer': 'https://provider0.example/',
                 'Origin': 'https://provider0.example',
               },
+              audioLanguage: 'en',
             ),
           ],
           subtitleLinks: [
@@ -204,10 +205,12 @@ void main() {
               quality: '1080p',
               server: 'Alternative',
               headers: {'Referer': 'https://provider1.example/'},
+              audioLanguage: 'hi',
             ),
             RegularVideoLinks(
               url: 'https://example.com/hindi.m3u8',
               quality: '720p',
+              audioLanguage: 'bn',
             ),
           ],
           subtitleLinks: [
@@ -260,6 +263,14 @@ void main() {
       expect(
         selection.result.subtitleLinks!.map((subtitle) => subtitle.language),
         ['English', 'Hindi'],
+      );
+      expect(
+        selection.result.videoLinks!.map((link) => link.audioLanguage),
+        ['en', 'hi', 'bn'],
+      );
+      expect(
+        selection.result.videoLinks!.map((link) => link.providerCode),
+        ['0', '1', '1'],
       );
       expect(reported.toSet(), {'0', '1', '2'});
       expect(selection.attempts.map((attempt) => attempt.provider.apiId),

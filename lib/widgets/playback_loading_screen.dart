@@ -489,7 +489,7 @@ class _UnifiedPlaybackProgress extends StatelessWidget {
               const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Text(
-                  'Finding available audio languages',
+                  'Preparing your stream',
                   style: AppType.sectionHeader.copyWith(
                     color: palette.foreground,
                   ),
@@ -508,7 +508,7 @@ class _UnifiedPlaybackProgress extends StatelessWidget {
           ),
           const SizedBox(height: AppSpace.sm),
           Text(
-            'Combining compatible sources in the background…',
+            'Starting with English audio when available…',
             style: AppType.metadata.copyWith(color: palette.mutedText),
           ),
         ],
