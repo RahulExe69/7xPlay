@@ -134,7 +134,8 @@ class StreamDownloadStore private constructor(context: Context) {
                             }) { "The selected audio track could not be selected for download." }
                         }
                     }
-                    if (metadata.optJSONObject("source") != null) {
+                    if (metadata.optJSONObject("source") != null &&
+                        arguments["format"]?.toString()?.lowercase() != "progressive") {
                         check(tracksInfoAvailable) { "The original download tracks are unavailable." }
                         val expected = metadata.optJSONArray("selectedTracks")
                         if (expected != null) DownloadTrackIdentity.restore(helper, expected, trackParameters(arguments))
