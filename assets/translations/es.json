@@ -2014,5 +2014,19 @@
   "device_platform_ios": "iPhone o iPad",
   "device_platform_android": "Dispositivo Android",
   "device_last_used": "Último uso: {date}",
-  "bengali": "Bengalí"
+  "bengali": "Bengalí",
+  "player_providers": "Proveedores",
+  "player_provider_diagnostics_summary": "{available} disponibles · {failed} fallidos",
+  "player_choose_audio_language": "Elegir idioma de audio",
+  "player_audio_language_description": "7xPlay combina fuentes compatibles y prueba automáticamente otra cuando falla la reproducción.",
+  "player_audio_language_source_count": "{count} proveedores",
+  "player_original_audio": "Audio original · idioma sin verificar",
+  "provider_timeout": "Tiempo de espera agotado",
+  "provider_request_failed": "Error de solicitud",
+  "provider_no_sources": "No hay fuentes reproducibles",
+  "provider_failed": "Fallido",
+  "provider_available_count": "{count} fuentes disponibles",
+  "provider_not_checked": "Sin comprobar",
+  "provider_language_unavailable": "Este proveedor no ofrece el idioma de audio seleccionado",
+  "provider_playback_failed": "Error de reproducción"
 }

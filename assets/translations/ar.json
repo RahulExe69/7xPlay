@@ -2085,5 +2085,19 @@
   "device_platform_ios": "iPhone أو iPad",
   "device_platform_android": "جهاز Android",
   "device_last_used": "آخر استخدام {date}",
-  "bengali": "البنغالية"
+  "bengali": "البنغالية",
+  "player_providers": "المزوّدون",
+  "player_provider_diagnostics_summary": "{available} متاح · {failed} فشل",
+  "player_choose_audio_language": "اختر لغة الصوت",
+  "player_audio_language_description": "يجمع 7xPlay المصادر المتوافقة وينتقل تلقائيًا إلى مصدر آخر عند فشل التشغيل.",
+  "player_audio_language_source_count": "{count} مزوّدين",
+  "player_original_audio": "الصوت الأصلي · اللغة غير مؤكدة",
+  "provider_timeout": "انتهت المهلة",
+  "provider_request_failed": "فشل الطلب",
+  "provider_no_sources": "لا توجد مصادر قابلة للتشغيل",
+  "provider_failed": "فشل",
+  "provider_available_count": "{count} مصادر متاحة",
+  "provider_not_checked": "لم يتم التحقق",
+  "provider_language_unavailable": "هذا المزوّد لا يوفّر لغة الصوت المحددة",
+  "provider_playback_failed": "فشل التشغيل"
 }
