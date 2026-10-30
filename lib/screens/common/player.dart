@@ -3383,6 +3383,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     if (preferred == null) return;
 
     final preferredKeys = _audioSourceKeysByLanguage[preferred];
+    final currentManifestTracks =
+        _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+    for (var index = 0; index < currentManifestTracks.length; index++) {
+      final track = currentManifestTracks[index];
+      final code = languageCodeForLabel(track.language) ??
+          languageCodeForLabel(track.label);
+      if (code == preferred) {
+        // The currently playing provider already contains the requested
+        // original-language rendition. Switch the native track in-place
+        // instead of rebuilding a perfectly healthy stream.
+        _betterPlayerController.setAudioTrack(track);
+        _activeAudioLanguageCode = preferred;
+        _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
+        return;
+      }
+    }
     if (preferredKeys == null || preferredKeys.isEmpty) return;
 
     final preferredIsAlreadyActive = _activeVideoAudioLanguages.values.any(
