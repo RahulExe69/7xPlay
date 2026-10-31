@@ -68,7 +68,9 @@ class ChoicePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final selected = spec.selected;
-    final foreground = selected ? palette.onFocus : palette.foreground;
+    final foreground = selected
+        ? Theme.of(context).colorScheme.onPrimary
+        : palette.foreground;
     final icon = spec.icon;
     return Semantics(
       button: true,
@@ -86,8 +88,21 @@ class ChoicePill extends StatelessWidget {
             child: SizedBox(
               height: FilterChips.pillHeight,
               child: Material(
-                color: selected ? palette.focusFill : palette.idleFill,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : palette.surface,
                 borderRadius: BorderRadius.circular(AppRadii.chip),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.chip),
+                  side: BorderSide(
+                    color: selected
+                        ? Theme.of(context).colorScheme.primary
+                        : palette.dark
+                            ? const Color(0x40FF482E)
+                            : palette.hairline,
+                    width: selected ? 0 : .7,
+                  ),
+                ),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: _tap,

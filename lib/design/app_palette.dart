@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 /// right on the phone and the TV alike.
 ///
 /// Every colour is a role, not a shade: in Light the text is dark, and the
-/// focus pill that is white on a dark page turns near-black. The accent stays
-/// out of it; it is the theme's own `primary`.
+/// focus pill that is white on a dark page turns near-black. The product
+/// accent comes from the theme's `primary` and is kept legible on the page.
 ///
 /// Anything drawn over artwork or video (poster badges, logo plates, the
 /// player) keeps its own fixed colours, since the picture under it is the
@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 class AppPalette {
   const AppPalette._({
     required this.dark,
+    required this.accent,
     required this.page,
     required this.surface,
     required this.raisedSurface,
@@ -35,10 +36,12 @@ class AppPalette {
     final dark = theme.colorScheme.brightness == Brightness.dark;
     final page = theme.scaffoldBackgroundColor;
     final ink = dark ? const Color(0xfff7f7f7) : const Color(0xff141516);
+    final accent = _accessibleAccent(theme.colorScheme.primary, page, ink);
     Color lift(double alpha) =>
         Color.alphaBlend(ink.withValues(alpha: alpha), page);
     return AppPalette._(
       dark: dark,
+      accent: accent,
       page: page,
       surface: lift(dark ? 0.045 : 0.035),
       raisedSurface: lift(dark ? 0.085 : 0.07),
@@ -65,6 +68,26 @@ class AppPalette {
   }
 
   final bool dark;
+
+  /// The product accent, adjusted when needed to remain legible on [page].
+  final Color accent;
+
+  static Color _accessibleAccent(Color accent, Color page, Color ink) {
+    if (_contrast(accent, page) >= 4.5) return accent;
+    for (var step = 1; step <= 20; step++) {
+      final candidate = Color.lerp(accent, ink, step / 20)!;
+      if (_contrast(candidate, page) >= 4.5) return candidate;
+    }
+    return ink;
+  }
+
+  static double _contrast(Color foreground, Color background) {
+    final first = foreground.computeLuminance();
+    final second = background.computeLuminance();
+    final lighter = first > second ? first : second;
+    final darker = first > second ? second : first;
+    return (lighter + 0.05) / (darker + 0.05);
+  }
 
   /// The screen behind everything, and the colour artwork fades into.
   final Color page;

@@ -87,6 +87,11 @@ void main() {
         reason: '$mode muted text',
       );
       expect(
+        _contrast(palette.accent, palette.page),
+        greaterThanOrEqualTo(4.5),
+        reason: '$mode brand accent',
+      );
+      expect(
         _contrast(palette.mutedText, palette.raisedSurface),
         greaterThan(4.5),
         reason: '$mode muted text on a raised panel',

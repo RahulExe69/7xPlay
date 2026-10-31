@@ -119,7 +119,12 @@ class PosterCard extends StatelessWidget {
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
-                  border: Border.all(color: palette.hairline, width: .5),
+                  border: Border.all(
+                    color: palette.dark
+                        ? const Color(0x30FFB91D)
+                        : palette.hairline,
+                    width: .7,
+                  ),
                   borderRadius: BorderRadius.circular(AppRadii.card),
                 ),
               ),

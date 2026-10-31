@@ -33,6 +33,7 @@ class MobileNavBar extends StatelessWidget {
     final bar = DecoratedBox(
       decoration: BoxDecoration(
         color: solid ? palette.page : palette.scrim(0.94),
+        border: Border(top: BorderSide(color: palette.hairline)),
       ),
       child: Padding(
         padding: EdgeInsets.only(bottom: media.padding.bottom),
@@ -185,7 +186,8 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final (icon, selectedIcon, labelKey) = _look;
-    final color = selected ? palette.foreground : palette.mutedText;
+    final color = selected ? palette.accent : palette.mutedText;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
     return Semantics(
       button: true,
       selected: selected,
@@ -200,6 +202,20 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            SizedBox(
+              width: 18,
+              height: 2,
+              child: AnimatedContainer(
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                decoration: BoxDecoration(
+                  color: selected ? palette.accent : Colors.transparent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 5),
             Icon(selected ? selectedIcon : icon, size: 24, color: color),
             const SizedBox(height: 3),
             Text(
