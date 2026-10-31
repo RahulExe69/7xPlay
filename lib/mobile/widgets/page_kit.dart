@@ -9,7 +9,6 @@ import '../../design/app_tokens.dart';
 import '../../design/skeleton.dart';
 import 'pill_button.dart';
 
-
 /// A small 7X colour signature for page headings. It is intentionally thin
 /// and short: a brand cue, not a glowing divider across the whole screen.
 class BrandAccentRule extends StatelessWidget {
@@ -44,7 +43,7 @@ class BrandAccentRule extends StatelessWidget {
 
 /// The parts every pushed page is built from, in the TV's language: the
 /// page colour behind everything, ink for what's chosen, muted text for
-/// what's secondary, and never the accent.
+/// what's secondary, and restrained 7X accents for visual orientation.
 
 /// A pushed page's bar: the page colour, the title in heavy type with an
 /// optional kicker above it, and whatever sits beneath (a switch, chips).

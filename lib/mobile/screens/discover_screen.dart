@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import '../../catalog/catalog_controller.dart';
 import '../../catalog/discover_query.dart';
 import '../../catalog/media_item.dart';
-import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../provider/app_dependency_provider.dart';

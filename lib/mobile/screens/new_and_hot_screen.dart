@@ -175,8 +175,18 @@ class _NewAndHotScreenState extends State<NewAndHotScreen> {
                 gutter, AppSpace.lg, gutter, AppSpace.lg),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
-              child: Text(tr('new_and_hot'),
-                  style: AppType.pageTitle.copyWith(color: palette.foreground)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    tr('new_and_hot'),
+                    style: AppType.pageTitle.copyWith(color: palette.foreground),
+                  ),
+                  const SizedBox(height: 5),
+                  const BrandAccentRule(width: 36),
+                ],
+              ),
             ),
           ),
         ),
