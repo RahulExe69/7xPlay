@@ -159,8 +159,14 @@ class SearchPill extends StatelessWidget {
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: palette.idleFill,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(AppRadii.hero),
+        border: Border.all(
+          color: palette.dark
+              ? AppBrand.ember.withValues(alpha: .22)
+              : palette.hairline,
+          width: .7,
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -274,8 +280,14 @@ class SegmentSwitch<T> extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: palette.idleFill,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(AppRadii.chip),
+        border: Border.all(
+          color: palette.dark
+              ? AppBrand.ember.withValues(alpha: .20)
+              : palette.hairline,
+          width: .7,
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -298,14 +310,14 @@ class SegmentSwitch<T> extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     decoration: BoxDecoration(
                       color: segment.value == selected
-                          ? palette.focusFill
+                          ? Theme.of(context).colorScheme.primary
                           : const Color(0x00000000),
                       borderRadius: BorderRadius.circular(AppRadii.chip - 2),
                     ),
                     child: _SegmentLabel(
                       segment: segment,
                       color: segment.value == selected
-                          ? palette.onFocus
+                          ? Theme.of(context).colorScheme.onPrimary
                           : palette.secondaryText,
                     ),
                   ),
@@ -368,7 +380,8 @@ class TogglePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    final foreground = selected ? palette.onFocus : palette.foreground;
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = selected ? scheme.onPrimary : palette.foreground;
     final marked = selected && check;
     void tap() {
       HapticFeedback.selectionClick();
@@ -389,8 +402,18 @@ class TogglePill extends StatelessWidget {
           child: Center(
             widthFactor: 1,
             child: Material(
-              color: selected ? palette.focusFill : palette.idleFill,
-              borderRadius: BorderRadius.circular(AppRadii.chip),
+              color: selected ? scheme.primary : palette.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.chip),
+                side: BorderSide(
+                  color: selected
+                      ? scheme.primary
+                      : palette.dark
+                          ? AppBrand.ember.withValues(alpha: .20)
+                          : palette.hairline,
+                  width: selected ? 0 : .7,
+                ),
+              ),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: tap,
