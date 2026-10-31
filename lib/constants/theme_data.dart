@@ -59,11 +59,11 @@ ThemeData darkThemeData(
                 : Color(0xFFece0da),
         contentTextStyle: TextStyle(
             color: isM3Enabled
-                ? darkDynamicColor?.surface ?? Color(0xFF201a17)
+                ? darkDynamicColor?.surface ?? AppBrand.wineSurface
                 : useUserColor
                     ? color.cs.surface
-                    : Color(0xFF201a17))),
-    scaffoldBackgroundColor: Color(0xFF161716),
+                    : AppBrand.wineSurface)),
+    scaffoldBackgroundColor: AppBrand.wine,
     radioTheme: RadioThemeData(
         fillColor: WidgetStatePropertyAll(isM3Enabled
             ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
@@ -178,20 +178,20 @@ ThemeData darkThemeData(
               ? color.cs.primaryContainer
               : AppBrand.cinemaGoldContainerDark,
       secondary: isM3Enabled
-          ? darkDynamicColor?.secondary ?? Color(0xFFe4bfa8)
+          ? darkDynamicColor?.secondary ?? AppBrand.ember
           : useUserColor
               ? color.cs.secondary
-              : Color(0xFFe4bfa8),
+              : AppBrand.ember,
       secondaryContainer: isM3Enabled
-          ? darkDynamicColor?.secondaryContainer ?? Color(0xFF5b4130)
+          ? darkDynamicColor?.secondaryContainer ?? AppBrand.wineContainerDark
           : useUserColor
               ? color.cs.secondaryContainer
-              : Color(0xFF5b4130),
+              : AppBrand.wineContainerDark,
       surface: isM3Enabled
-          ? darkDynamicColor?.surface ?? Color(0xFF201a17)
+          ? darkDynamicColor?.surface ?? AppBrand.wineSurface
           : useUserColor
               ? color.cs.surface
-              : Color(0xFF201a17),
+              : AppBrand.wineSurface,
       error: isM3Enabled
           ? darkDynamicColor?.error ?? Color(0xFFffb4ab)
           : useUserColor
@@ -203,7 +203,7 @@ ThemeData darkThemeData(
               ? color.cs.onPrimary
               : AppBrand.cinemaOnGold,
       onSecondary: isM3Enabled
-          ? darkDynamicColor?.onSecondary ?? Color(0xFF422b1b)
+          ? darkDynamicColor?.onSecondary ?? AppBrand.cinemaOnGold
           : useUserColor
               ? color.cs.onSecondary
               : AppBrand.cinemaOnGold,
@@ -238,47 +238,47 @@ ThemeData darkThemeData(
               ? color.cs.onSecondaryContainer
               : AppBrand.cinemaOnGoldContainerDark,
       onSurfaceVariant: isM3Enabled
-          ? darkDynamicColor?.onSurfaceVariant ?? Color(0xFFd7c3b7)
+          ? darkDynamicColor?.onSurfaceVariant ?? Color(0xFFFFE1D9)
           : useUserColor
               ? color.cs.onSurfaceVariant
-              : Color(0xFFd7c3b7),
+              : Color(0xFFFFE1D9),
       onTertiary: isM3Enabled
           ? darkDynamicColor?.onTertiary ?? Color(0xFF31320a)
           : useUserColor
               ? color.cs.onTertiary
               : Color(0xFF31320a),
       onTertiaryContainer: isM3Enabled
-          ? darkDynamicColor?.onTertiaryContainer ?? Color(0xFFe5e6ae)
+          ? darkDynamicColor?.onTertiaryContainer ?? AppBrand.onWineContainerDark
           : useUserColor
               ? color.cs.onTertiaryContainer
-              : Color(0xFFe5e6ae),
+              : AppBrand.onWineContainerDark,
       outline: isM3Enabled
           ? darkDynamicColor?.outline ?? Color(0xFF9f8d83)
           : useUserColor
               ? color.cs.outline
               : Color(0xFF9f8d83),
       tertiary: isM3Enabled
-          ? darkDynamicColor?.tertiary ?? Color(0xFFc9ca94)
+          ? darkDynamicColor?.tertiary ?? AppBrand.magenta
           : useUserColor
               ? color.cs.tertiary
-              : Color(0xFFc9ca94),
+              : AppBrand.magenta,
       tertiaryContainer: isM3Enabled
-          ? darkDynamicColor?.tertiaryContainer ?? Color(0xFF48491f)
+          ? darkDynamicColor?.tertiaryContainer ?? AppBrand.wineContainerDark
           : useUserColor
               ? color.cs.tertiaryContainer
-              : Color(0xFF48491f),
+              : AppBrand.wineContainerDark,
       surfaceContainerHighest: isM3Enabled
-          ? darkDynamicColor?.surfaceContainerHighest ?? Color(0xFF52443c)
+          ? darkDynamicColor?.surfaceContainerHighest ?? AppBrand.wineRaised
           : useUserColor
               ? color.cs.surfaceContainerHighest
-              : Color(0xFF52443c),
+              : AppBrand.wineRaised,
       brightness: Brightness.dark,
     ).copyWith(
         surface: isM3Enabled
-            ? darkDynamicColor?.surface ?? Color(0xFF201a17)
+            ? darkDynamicColor?.surface ?? AppBrand.wineSurface
             : useUserColor
                 ? color.cs.surface
-                : Color(0xFF201a17)),
+                : AppBrand.wineSurface),
   );
 }
 
@@ -329,17 +329,17 @@ ThemeData lightThemeData(
     chipTheme: ChipThemeData(),
     snackBarTheme: SnackBarThemeData(
         backgroundColor: isM3Enabled
-            ? lightDynamicColor?.onSurface ?? Color(0xFF201a17)
+            ? lightDynamicColor?.onSurface ?? AppBrand.wineSurface
             : useUserColor
                 ? color.cs.onSurface
-                : Color(0xFF201a17),
+                : AppBrand.wineSurface,
         contentTextStyle: TextStyle(
             color: isM3Enabled
                 ? lightDynamicColor?.surface ?? Color(0xFFfffbff)
                 : useUserColor
                     ? color.cs.surface
                     : Color(0xFFfffbff))),
-    scaffoldBackgroundColor: Color(0xFFf5f5f5),
+    scaffoldBackgroundColor: Color(0xFFFFFAF8),
     radioTheme: RadioThemeData(
         fillColor: WidgetStatePropertyAll(isM3Enabled
             ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
@@ -453,10 +453,10 @@ ThemeData lightThemeData(
               ? color.cs.primaryContainer
               : AppBrand.cinemaGoldContainerLight,
       secondary: isM3Enabled
-          ? lightDynamicColor?.secondary ?? Color(0xFF755846)
+          ? lightDynamicColor?.secondary ?? AppBrand.emberDeep
           : useUserColor
               ? color.cs.secondary
-              : Color(0xFF755846),
+              : AppBrand.emberDeep,
       secondaryContainer: isM3Enabled
           ? lightDynamicColor?.secondaryContainer ??
               AppBrand.cinemaSecondaryContainerLight
@@ -484,10 +484,10 @@ ThemeData lightThemeData(
               ? color.cs.onSecondary
               : Color(0xFFffffff),
       onSurface: isM3Enabled
-          ? lightDynamicColor?.onSurface ?? Color(0xFF201a17)
+          ? lightDynamicColor?.onSurface ?? AppBrand.wineSurface
           : useUserColor
               ? color.cs.onSurface
-              : Color(0xFF201a17),
+              : AppBrand.wineSurface,
       onError: isM3Enabled
           ? lightDynamicColor?.onError ?? Color(0xFFffffff)
           : useUserColor
@@ -515,40 +515,40 @@ ThemeData lightThemeData(
               ? color.cs.onSecondaryContainer
               : AppBrand.cinemaOnGoldContainerLight,
       onSurfaceVariant: isM3Enabled
-          ? lightDynamicColor?.onSurfaceVariant ?? Color(0xFF52443c)
+          ? lightDynamicColor?.onSurfaceVariant ?? AppBrand.wineRaised
           : useUserColor
               ? color.cs.onSurfaceVariant
-              : Color(0xFF52443c),
+              : AppBrand.wineRaised,
       onTertiary: isM3Enabled
           ? lightDynamicColor?.onTertiary ?? Color(0xFFffffff)
           : useUserColor
               ? color.cs.onTertiary
               : Color(0xFFffffff),
       onTertiaryContainer: isM3Enabled
-          ? lightDynamicColor?.onTertiaryContainer ?? Color(0xFF1c1d00)
+          ? lightDynamicColor?.onTertiaryContainer ?? AppBrand.onWineContainerLight
           : useUserColor
               ? color.cs.onTertiaryContainer
-              : Color(0xFF1c1d00),
+              : AppBrand.onWineContainerLight,
       outline: isM3Enabled
           ? lightDynamicColor?.outline ?? Color(0xFF84746a)
           : useUserColor
               ? color.cs.outline
               : Color(0xFF84746a),
       tertiary: isM3Enabled
-          ? lightDynamicColor?.tertiary ?? Color(0xFF5f6134)
+          ? lightDynamicColor?.tertiary ?? AppBrand.magentaDeep
           : useUserColor
               ? color.cs.tertiary
-              : Color(0xFF5f6134),
+              : AppBrand.magentaDeep,
       tertiaryContainer: isM3Enabled
-          ? lightDynamicColor?.tertiaryContainer ?? Color(0xFFe5e6ae)
+          ? lightDynamicColor?.tertiaryContainer ?? AppBrand.onWineContainerDark
           : useUserColor
               ? color.cs.tertiaryContainer
-              : Color(0xFFe5e6ae),
+              : AppBrand.onWineContainerDark,
       surfaceContainerHighest: isM3Enabled
-          ? lightDynamicColor?.surfaceContainerHighest ?? Color(0xFFf4ded3)
+          ? lightDynamicColor?.surfaceContainerHighest ?? AppBrand.wineContainerLight
           : useUserColor
               ? color.cs.surfaceContainerHighest
-              : Color(0xFFf4ded3),
+              : AppBrand.wineContainerLight,
       brightness: Brightness.light,
     ).copyWith(
         surface: isM3Enabled
@@ -618,10 +618,10 @@ ThemeData lightsOutThemeData(
                 : Color(0xFFece0da),
         contentTextStyle: TextStyle(
           color: isM3Enabled
-              ? darkDynamicColor?.surface ?? Color(0xFF201a17)
+              ? darkDynamicColor?.surface ?? AppBrand.wineSurface
               : useUserColor
                   ? color.cs.surface
-                  : Color(0xFF201a17),
+                  : AppBrand.wineSurface,
         )),
     scaffoldBackgroundColor: Colors.black,
     radioTheme: RadioThemeData(
@@ -736,17 +736,17 @@ ThemeData lightsOutThemeData(
               ? color.cs.primaryContainer
               : AppBrand.cinemaGoldContainerDark,
       secondary: isM3Enabled
-          ? darkDynamicColor?.secondary ?? Color(0xFFe4bfa8)
+          ? darkDynamicColor?.secondary ?? AppBrand.ember
           : useUserColor
               ? color.cs.secondary
-              : Color(0xFFe4bfa8),
+              : AppBrand.ember,
       secondaryContainer: isM3Enabled
-          ? darkDynamicColor?.secondaryContainer ?? Color(0xFF5b4130)
+          ? darkDynamicColor?.secondaryContainer ?? AppBrand.wineContainerDark
           : useUserColor
               ? color.cs.secondaryContainer
-              : Color(0xFF5b4130),
+              : AppBrand.wineContainerDark,
       surface: isM3Enabled
-          ? darkDynamicColor?.surface ?? Color(0xFF201a17)
+          ? darkDynamicColor?.surface ?? AppBrand.wineSurface
           : useUserColor
               ? color.cs.surface
               : Colors.black,
@@ -761,7 +761,7 @@ ThemeData lightsOutThemeData(
               ? color.cs.onPrimary
               : AppBrand.cinemaOnGold,
       onSecondary: isM3Enabled
-          ? darkDynamicColor?.onSecondary ?? Color(0xFF422b1b)
+          ? darkDynamicColor?.onSecondary ?? AppBrand.cinemaOnGold
           : useUserColor
               ? color.cs.onSecondary
               : AppBrand.cinemaOnGold,
@@ -796,47 +796,47 @@ ThemeData lightsOutThemeData(
               ? color.cs.onSecondaryContainer
               : AppBrand.cinemaOnGoldContainerDark,
       onSurfaceVariant: isM3Enabled
-          ? darkDynamicColor?.onSurfaceVariant ?? Color(0xFFd7c3b7)
+          ? darkDynamicColor?.onSurfaceVariant ?? Color(0xFFFFE1D9)
           : useUserColor
               ? color.cs.onSurfaceVariant
-              : Color(0xFFd7c3b7),
+              : Color(0xFFFFE1D9),
       onTertiary: isM3Enabled
           ? darkDynamicColor?.onTertiary ?? Color(0xFF31320a)
           : useUserColor
               ? color.cs.onTertiary
               : Color(0xFF31320a),
       onTertiaryContainer: isM3Enabled
-          ? darkDynamicColor?.onTertiaryContainer ?? Color(0xFFe5e6ae)
+          ? darkDynamicColor?.onTertiaryContainer ?? AppBrand.onWineContainerDark
           : useUserColor
               ? color.cs.onTertiaryContainer
-              : Color(0xFFe5e6ae),
+              : AppBrand.onWineContainerDark,
       outline: isM3Enabled
           ? darkDynamicColor?.outline ?? Color(0xFF9f8d83)
           : useUserColor
               ? color.cs.outline
               : Color(0xFF9f8d83),
       tertiary: isM3Enabled
-          ? darkDynamicColor?.tertiary ?? Color(0xFFc9ca94)
+          ? darkDynamicColor?.tertiary ?? AppBrand.magenta
           : useUserColor
               ? color.cs.tertiary
-              : Color(0xFFc9ca94),
+              : AppBrand.magenta,
       tertiaryContainer: isM3Enabled
-          ? darkDynamicColor?.tertiaryContainer ?? Color(0xFF48491f)
+          ? darkDynamicColor?.tertiaryContainer ?? AppBrand.wineContainerDark
           : useUserColor
               ? color.cs.tertiaryContainer
-              : Color(0xFF48491f),
+              : AppBrand.wineContainerDark,
       surfaceContainerHighest: isM3Enabled
-          ? darkDynamicColor?.surfaceContainerHighest ?? Color(0xFF52443c)
+          ? darkDynamicColor?.surfaceContainerHighest ?? AppBrand.wineRaised
           : useUserColor
               ? color.cs.surfaceContainerHighest
-              : Color(0xFF52443c),
+              : AppBrand.wineRaised,
       brightness: Brightness.dark,
     ).copyWith(
         surface: isM3Enabled
-            ? darkDynamicColor?.surface ?? Color(0xFF201a17)
+            ? darkDynamicColor?.surface ?? AppBrand.wineSurface
             : useUserColor
                 ? color.cs.surface
-                : Color(0xFF201a17)),
+                : AppBrand.wineSurface),
   );
 }
 

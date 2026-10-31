@@ -116,7 +116,6 @@ class _HeroCardState extends State<HeroCard> {
     final artworkWidth = media.width - edgeInset * 2;
     final height = HeroCard.heightFor(context);
     final art = HeroCard.artworkFor(context, item);
-    final accent = Theme.of(context).colorScheme.primary;
     final saved = MyList.contains(context, item);
     // What FlixQuest's hero always said: the year, the rating, and now the
     // genres too.
@@ -207,7 +206,7 @@ class _HeroCardState extends State<HeroCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: <Widget>[
-                            _HeroKicker(label: kicker, accent: accent),
+                            _HeroKicker(label: kicker),
                             const SizedBox(height: AppSpace.md),
                             SizedBox(
                               height: 76,
@@ -291,10 +290,9 @@ class _HeroCardState extends State<HeroCard> {
 /// A small editorial label for the featured title. The short gold rule
 /// replaces the old FlixQuest symbol and keeps the artwork in charge.
 class _HeroKicker extends StatelessWidget {
-  const _HeroKicker({required this.label, required this.accent});
+  const _HeroKicker({required this.label});
 
   final String label;
-  final Color accent;
 
   @override
   Widget build(BuildContext context) {

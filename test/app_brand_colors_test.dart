@@ -14,7 +14,7 @@ double _contrast(Color a, Color b) {
 }
 
 void main() {
-  test('default theme modes use the 7xCinema gold with readable ink', () {
+  test('default theme modes use the 7xPlay amber with readable ink', () {
     final colors = AppColorsList();
     final themes = <ThemeData>[
       darkThemeData(true, null, colors.appColors(true).first),
