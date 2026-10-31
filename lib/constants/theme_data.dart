@@ -1,4 +1,5 @@
 // ignore_for_file: unnecessary_const, prefer_const_constructors
+import 'package:flixquest/design/app_brand.dart';
 import 'package:flixquest/models/app_colors.dart';
 import 'package:flixquest/models/occasional_theme.dart';
 import 'package:flutter/material.dart';
@@ -15,10 +16,10 @@ ThemeData darkThemeData(
         BottomSheetThemeData(backgroundColor: Colors.grey.shade900),
     appBarTheme: AppBarTheme(
       backgroundColor: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       iconTheme: IconThemeData(
         color: isM3Enabled
             ? darkDynamicColor?.onPrimary ?? Colors.black
@@ -37,16 +38,16 @@ ThemeData darkThemeData(
     ),
     dialogTheme: DialogThemeData(backgroundColor: Color(0xFF171717)),
     primaryColor: isM3Enabled
-        ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+        ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
         : useUserColor
             ? color.cs.primary
-            : Color(0xFFF57C00),
+            : AppBrand.cinemaGold,
     iconTheme: IconThemeData(
       color: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     bannerTheme: MaterialBannerThemeData(),
     chipTheme: ChipThemeData(),
@@ -65,18 +66,18 @@ ThemeData darkThemeData(
     scaffoldBackgroundColor: Color(0xFF161716),
     radioTheme: RadioThemeData(
         fillColor: WidgetStatePropertyAll(isM3Enabled
-            ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+            ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
             : useUserColor
                 ? color.cs.primary
-                : Color(0xFFF57C00))),
+                : AppBrand.cinemaGold)),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ButtonStyle(
         backgroundColor: WidgetStatePropertyAll(
           isM3Enabled
-              ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+              ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
               : useUserColor
                   ? color.cs.primary
-                  : Color(0xFFF57C00),
+                  : AppBrand.cinemaGold,
         ),
         foregroundColor: WidgetStatePropertyAll(
           isM3Enabled
@@ -92,10 +93,10 @@ ThemeData darkThemeData(
           backgroundColor: WidgetStateProperty.all(
             isM3Enabled
                 ? darkDynamicColor?.primary.withValues(alpha: 0.1) ??
-                    Color(0xFFF57C00).withValues(alpha: 0.1)
+                    AppBrand.cinemaGold.withValues(alpha: 0.1)
                 : useUserColor
                     ? color.cs.primary.withValues(alpha: 0.1)
-                    : Color(0xFFF57C00).withValues(alpha: 0.1),
+                    : AppBrand.cinemaGold.withValues(alpha: 0.1),
           ),
           maximumSize: WidgetStateProperty.all(const Size(200, 60)),
           shape: WidgetStateProperty.all<RoundedRectangleBorder>(
@@ -103,10 +104,10 @@ ThemeData darkThemeData(
                   borderRadius: BorderRadius.circular(5.0),
                   side: BorderSide(
                     color: isM3Enabled
-                        ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+                        ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
                         : useUserColor
                             ? color.cs.primary
-                            : Color(0xFFF57C00),
+                            : AppBrand.cinemaGold,
                   )))),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(
@@ -116,17 +117,17 @@ ThemeData darkThemeData(
               ? color.cs.onPrimary
               : Colors.black,
       color: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       selectionHandleColor: const Color(0xFFFFFFFF),
       selectionColor: Colors.white12,
     ),
@@ -144,38 +145,38 @@ ThemeData darkThemeData(
       unselectedLabelStyle:
           const TextStyle(fontFamily: 'FigtreeSB', fontWeight: FontWeight.w500),
       indicatorColor: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStatePropertyAll(
         isM3Enabled
-            ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+            ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
             : useUserColor
                 ? color.cs.primary
-                : Color(0xFFF57C00),
+                : AppBrand.cinemaGold,
       ),
       trackColor: WidgetStatePropertyAll(
         isM3Enabled
-            ? darkDynamicColor?.primaryContainer ?? Color(0xFF994d02)
+            ? darkDynamicColor?.primaryContainer ?? AppBrand.cinemaGoldContainerDark
             : useUserColor
                 ? color.cs.primaryContainer
-                : Color(0xFF994d02),
+                : AppBrand.cinemaGoldContainerDark,
       ),
     ),
     colorScheme: ColorScheme(
       primary: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       primaryContainer: isM3Enabled
-          ? darkDynamicColor?.primaryContainer ?? Color(0xFF723600)
+          ? darkDynamicColor?.primaryContainer ?? AppBrand.cinemaGoldContainerDark
           : useUserColor
               ? color.cs.primaryContainer
-              : Color(0xFF723600),
+              : AppBrand.cinemaGoldContainerDark,
       secondary: isM3Enabled
           ? darkDynamicColor?.secondary ?? Color(0xFFe4bfa8)
           : useUserColor
@@ -197,15 +198,15 @@ ThemeData darkThemeData(
               ? color.cs.error
               : Color(0xFFffb4ab),
       onPrimary: isM3Enabled
-          ? darkDynamicColor?.onPrimary ?? Color(0xFF502400)
+          ? darkDynamicColor?.onPrimary ?? AppBrand.cinemaOnGold
           : useUserColor
               ? color.cs.onPrimary
-              : Color(0xFF502400),
+              : AppBrand.cinemaOnGold,
       onSecondary: isM3Enabled
           ? darkDynamicColor?.onSecondary ?? Color(0xFF422b1b)
           : useUserColor
               ? color.cs.onSecondary
-              : Color(0xFF502400),
+              : AppBrand.cinemaOnGold,
       onSurface: isM3Enabled
           ? darkDynamicColor?.onSurface ?? Color(0xFFece0da)
           : useUserColor
@@ -227,15 +228,15 @@ ThemeData darkThemeData(
               ? color.cs.onErrorContainer
               : Color(0xFFffdad6),
       onPrimaryContainer: isM3Enabled
-          ? darkDynamicColor?.onPrimaryContainer ?? Color(0xFFffdcc6)
+          ? darkDynamicColor?.onPrimaryContainer ?? AppBrand.cinemaOnGoldContainerDark
           : useUserColor
               ? color.cs.onPrimaryContainer
-              : Color(0xFFffdcc6),
+              : AppBrand.cinemaOnGoldContainerDark,
       onSecondaryContainer: isM3Enabled
-          ? darkDynamicColor?.onSecondaryContainer ?? Color(0xFFffdcc6)
+          ? darkDynamicColor?.onSecondaryContainer ?? AppBrand.cinemaOnGoldContainerDark
           : useUserColor
               ? color.cs.onSecondaryContainer
-              : Color(0xFFffdcc6),
+              : AppBrand.cinemaOnGoldContainerDark,
       onSurfaceVariant: isM3Enabled
           ? darkDynamicColor?.onSurfaceVariant ?? Color(0xFFd7c3b7)
           : useUserColor
@@ -291,10 +292,10 @@ ThemeData lightThemeData(
         BottomSheetThemeData(backgroundColor: Colors.grey.shade400),
     appBarTheme: AppBarTheme(
       backgroundColor: isM3Enabled
-          ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       iconTheme: IconThemeData(
         color: isM3Enabled
             ? lightDynamicColor?.onPrimary ?? Colors.black
@@ -313,16 +314,16 @@ ThemeData lightThemeData(
     ),
     dialogTheme: DialogThemeData(backgroundColor: Color(0xFFdedede)),
     primaryColor: isM3Enabled
-        ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+        ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
         : useUserColor
             ? color.cs.primary
-            : const Color(0xFFF57C00),
+            : AppBrand.cinemaGold,
     iconTheme: IconThemeData(
       color: isM3Enabled
-          ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     bannerTheme: MaterialBannerThemeData(),
     chipTheme: ChipThemeData(),
@@ -341,18 +342,18 @@ ThemeData lightThemeData(
     scaffoldBackgroundColor: Color(0xFFf5f5f5),
     radioTheme: RadioThemeData(
         fillColor: WidgetStatePropertyAll(isM3Enabled
-            ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+            ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
             : useUserColor
                 ? color.cs.primary
-                : Color(0xFFF57C00))),
+                : AppBrand.cinemaGold)),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ButtonStyle(
         backgroundColor: WidgetStatePropertyAll(
           isM3Enabled
-              ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+              ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
               : useUserColor
                   ? color.cs.primary
-                  : Color(0xFFF57C00),
+                  : AppBrand.cinemaGold,
         ),
         foregroundColor: WidgetStatePropertyAll(
           isM3Enabled
@@ -368,10 +369,10 @@ ThemeData lightThemeData(
           backgroundColor: WidgetStateProperty.all(
             isM3Enabled
                 ? lightDynamicColor?.primary.withValues(alpha: 0.1) ??
-                    Color(0xFFF57C00).withValues(alpha: 0.1)
+                    AppBrand.cinemaGold.withValues(alpha: 0.1)
                 : useUserColor
                     ? color.cs.primary.withValues(alpha: 0.1)
-                    : Color(0xFFF57C00).withValues(alpha: 0.1),
+                    : AppBrand.cinemaGold.withValues(alpha: 0.1),
           ),
           maximumSize: WidgetStateProperty.all(const Size(200, 60)),
           shape: WidgetStateProperty.all<RoundedRectangleBorder>(
@@ -379,10 +380,10 @@ ThemeData lightThemeData(
                   borderRadius: BorderRadius.circular(5.0),
                   side: BorderSide(
                     color: isM3Enabled
-                        ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+                        ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
                         : useUserColor
                             ? color.cs.primary
-                            : Color(0xFFF57C00),
+                            : AppBrand.cinemaGold,
                   )))),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(
@@ -392,17 +393,17 @@ ThemeData lightThemeData(
               ? color.cs.onPrimary
               : Colors.black,
       color: isM3Enabled
-          ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: isM3Enabled
-          ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       selectionHandleColor: const Color(0xFF000000),
       selectionColor: Colors.black12,
     ),
@@ -420,47 +421,48 @@ ThemeData lightThemeData(
         unselectedLabelStyle: const TextStyle(
             fontFamily: 'FigtreeSB', fontWeight: FontWeight.w500),
         indicatorColor: isM3Enabled
-            ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+            ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
             : useUserColor
                 ? color.cs.primary
-                : Color(0xFFF57C00)),
+                : AppBrand.cinemaGold),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStatePropertyAll(
         isM3Enabled
-            ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+            ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
             : useUserColor
                 ? color.cs.primary
-                : Color(0xFFF57C00),
+                : AppBrand.cinemaGold,
       ),
       trackColor: WidgetStatePropertyAll(
         isM3Enabled
-            ? lightDynamicColor?.primaryContainer ?? Color(0xFF994d02)
+            ? lightDynamicColor?.primaryContainer ?? AppBrand.cinemaGoldContainerLight
             : useUserColor
                 ? color.cs.primaryContainer
-                : Color(0xFF994d02),
+                : AppBrand.cinemaGoldContainerLight,
       ),
     ),
     colorScheme: ColorScheme(
       primary: isM3Enabled
-          ? lightDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? lightDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : const Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       primaryContainer: isM3Enabled
-          ? lightDynamicColor?.primaryContainer ?? Color(0xFFffdcc6)
+          ? lightDynamicColor?.primaryContainer ?? AppBrand.cinemaGoldContainerLight
           : useUserColor
               ? color.cs.primaryContainer
-              : Color(0xFFffdcc6),
+              : AppBrand.cinemaGoldContainerLight,
       secondary: isM3Enabled
           ? lightDynamicColor?.secondary ?? Color(0xFF755846)
           : useUserColor
               ? color.cs.secondary
               : Color(0xFF755846),
       secondaryContainer: isM3Enabled
-          ? lightDynamicColor?.secondaryContainer ?? Color(0xFFffdcc6)
+          ? lightDynamicColor?.secondaryContainer ??
+              AppBrand.cinemaSecondaryContainerLight
           : useUserColor
               ? color.cs.secondaryContainer
-              : Color(0xFFffdcc6),
+              : AppBrand.cinemaSecondaryContainerLight,
       surface: isM3Enabled
           ? lightDynamicColor?.surface ?? Color(0xFFfffbff)
           : useUserColor
@@ -472,10 +474,10 @@ ThemeData lightThemeData(
               ? color.cs.error
               : Color(0xFFba1a1a),
       onPrimary: isM3Enabled
-          ? lightDynamicColor?.onPrimary ?? Color(0xFFFFC890)
+          ? lightDynamicColor?.onPrimary ?? AppBrand.cinemaOnGold
           : useUserColor
               ? color.cs.onPrimary
-              : Color(0xFFFFC890),
+              : AppBrand.cinemaOnGold,
       onSecondary: isM3Enabled
           ? lightDynamicColor?.onSecondary ?? Color(0xFFffffff)
           : useUserColor
@@ -502,15 +504,16 @@ ThemeData lightThemeData(
               ? color.cs.onErrorContainer
               : Color(0xFF410002),
       onPrimaryContainer: isM3Enabled
-          ? lightDynamicColor?.onPrimaryContainer ?? Color(0xFF311400)
+          ? lightDynamicColor?.onPrimaryContainer ?? AppBrand.cinemaOnGoldContainerLight
           : useUserColor
               ? color.cs.onPrimaryContainer
-              : Color(0xFF311400),
+              : AppBrand.cinemaOnGoldContainerLight,
       onSecondaryContainer: isM3Enabled
-          ? lightDynamicColor?.onSecondaryContainer ?? Color(0xFF2b1708)
+          ? lightDynamicColor?.onSecondaryContainer ??
+              AppBrand.cinemaOnGoldContainerLight
           : useUserColor
               ? color.cs.onSecondaryContainer
-              : Color(0xFF2b1708),
+              : AppBrand.cinemaOnGoldContainerLight,
       onSurfaceVariant: isM3Enabled
           ? lightDynamicColor?.onSurfaceVariant ?? Color(0xFF52443c)
           : useUserColor
@@ -566,10 +569,10 @@ ThemeData lightsOutThemeData(
         BottomSheetThemeData(backgroundColor: Colors.grey.shade900),
     appBarTheme: AppBarTheme(
       backgroundColor: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       iconTheme: IconThemeData(
         color: isM3Enabled
             ? darkDynamicColor?.onPrimary ?? Colors.black
@@ -594,16 +597,16 @@ ThemeData lightsOutThemeData(
     ),
     dialogTheme: DialogThemeData(backgroundColor: Color(0xFF171717)),
     primaryColor: isM3Enabled
-        ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+        ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
         : useUserColor
             ? color.cs.primary
-            : const Color(0xFFF57C00),
+            : AppBrand.cinemaGold,
     iconTheme: IconThemeData(
       color: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     bannerTheme: MaterialBannerThemeData(),
     chipTheme: ChipThemeData(),
@@ -623,18 +626,18 @@ ThemeData lightsOutThemeData(
     scaffoldBackgroundColor: Colors.black,
     radioTheme: RadioThemeData(
         fillColor: WidgetStatePropertyAll(isM3Enabled
-            ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+            ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
             : useUserColor
                 ? color.cs.primary
-                : Color(0xFFF57C00))),
+                : AppBrand.cinemaGold)),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ButtonStyle(
         backgroundColor: WidgetStatePropertyAll(
           isM3Enabled
-              ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+              ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
               : useUserColor
                   ? color.cs.primary
-                  : Color(0xFFF57C00),
+                  : AppBrand.cinemaGold,
         ),
         foregroundColor: WidgetStatePropertyAll(
           isM3Enabled
@@ -650,10 +653,10 @@ ThemeData lightsOutThemeData(
           backgroundColor: WidgetStateProperty.all(
             isM3Enabled
                 ? darkDynamicColor?.primary.withValues(alpha: 0.1) ??
-                    Color(0xFFF57C00).withValues(alpha: 0.1)
+                    AppBrand.cinemaGold.withValues(alpha: 0.1)
                 : useUserColor
                     ? color.cs.primary.withValues(alpha: 0.1)
-                    : Color(0xFFF57C00).withValues(alpha: 0.1),
+                    : AppBrand.cinemaGold.withValues(alpha: 0.1),
           ),
           maximumSize: WidgetStateProperty.all(const Size(200, 60)),
           shape: WidgetStateProperty.all<RoundedRectangleBorder>(
@@ -661,10 +664,10 @@ ThemeData lightsOutThemeData(
                   borderRadius: BorderRadius.circular(5.0),
                   side: BorderSide(
                     color: isM3Enabled
-                        ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+                        ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
                         : useUserColor
                             ? color.cs.primary
-                            : Color(0xFFF57C00),
+                            : AppBrand.cinemaGold,
                   )))),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(
@@ -672,17 +675,17 @@ ThemeData lightsOutThemeData(
           ? darkDynamicColor?.onPrimary ?? Colors.black
           : Colors.black,
       color: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       selectionHandleColor: const Color(0xFFFFFFFF),
       selectionColor: Colors.white12,
     ),
@@ -700,38 +703,38 @@ ThemeData lightsOutThemeData(
       unselectedLabelStyle:
           const TextStyle(fontFamily: 'FigtreeSB', fontWeight: FontWeight.w500),
       indicatorColor: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStatePropertyAll(
         isM3Enabled
-            ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+            ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
             : useUserColor
                 ? color.cs.primary
-                : Color(0xFFF57C00),
+                : AppBrand.cinemaGold,
       ),
       trackColor: WidgetStatePropertyAll(
         isM3Enabled
-            ? darkDynamicColor?.primaryContainer ?? Color(0xFF994d02)
+            ? darkDynamicColor?.primaryContainer ?? AppBrand.cinemaGoldContainerDark
             : useUserColor
                 ? color.cs.primaryContainer
-                : Color(0xFF994d02),
+                : AppBrand.cinemaGoldContainerDark,
       ),
     ),
     colorScheme: ColorScheme(
       primary: isM3Enabled
-          ? darkDynamicColor?.primary ?? Color(0xFFF57C00)
+          ? darkDynamicColor?.primary ?? AppBrand.cinemaGold
           : useUserColor
               ? color.cs.primary
-              : const Color(0xFFF57C00),
+              : AppBrand.cinemaGold,
       primaryContainer: isM3Enabled
-          ? darkDynamicColor?.primaryContainer ?? Color(0xFF723600)
+          ? darkDynamicColor?.primaryContainer ?? AppBrand.cinemaGoldContainerDark
           : useUserColor
               ? color.cs.primaryContainer
-              : Color(0xFF723600),
+              : AppBrand.cinemaGoldContainerDark,
       secondary: isM3Enabled
           ? darkDynamicColor?.secondary ?? Color(0xFFe4bfa8)
           : useUserColor
@@ -753,15 +756,15 @@ ThemeData lightsOutThemeData(
               ? color.cs.error
               : Color(0xFFffb4ab),
       onPrimary: isM3Enabled
-          ? darkDynamicColor?.onPrimary ?? Color(0xFF502400)
+          ? darkDynamicColor?.onPrimary ?? AppBrand.cinemaOnGold
           : useUserColor
               ? color.cs.onPrimary
-              : Color(0xFF502400),
+              : AppBrand.cinemaOnGold,
       onSecondary: isM3Enabled
           ? darkDynamicColor?.onSecondary ?? Color(0xFF422b1b)
           : useUserColor
               ? color.cs.onSecondary
-              : Color(0xFF502400),
+              : AppBrand.cinemaOnGold,
       onSurface: isM3Enabled
           ? darkDynamicColor?.onSurface ?? Color(0xFFece0da)
           : useUserColor
@@ -783,15 +786,15 @@ ThemeData lightsOutThemeData(
               ? color.cs.onErrorContainer
               : Color(0xFFffdad6),
       onPrimaryContainer: isM3Enabled
-          ? darkDynamicColor?.onPrimaryContainer ?? Color(0xFFffdcc6)
+          ? darkDynamicColor?.onPrimaryContainer ?? AppBrand.cinemaOnGoldContainerDark
           : useUserColor
               ? color.cs.onPrimaryContainer
-              : Color(0xFFffdcc6),
+              : AppBrand.cinemaOnGoldContainerDark,
       onSecondaryContainer: isM3Enabled
-          ? darkDynamicColor?.onSecondaryContainer ?? Color(0xFFffdcc6)
+          ? darkDynamicColor?.onSecondaryContainer ?? AppBrand.cinemaOnGoldContainerDark
           : useUserColor
               ? color.cs.onSecondaryContainer
-              : Color(0xFFffdcc6),
+              : AppBrand.cinemaOnGoldContainerDark,
       onSurfaceVariant: isM3Enabled
           ? darkDynamicColor?.onSurfaceVariant ?? Color(0xFFd7c3b7)
           : useUserColor
