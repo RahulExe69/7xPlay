@@ -3,10 +3,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../design/skeleton.dart';
 import 'pill_button.dart';
+
+
+/// A small 7X colour signature for page headings. It is intentionally thin
+/// and short: a brand cue, not a glowing divider across the whole screen.
+class BrandAccentRule extends StatelessWidget {
+  const BrandAccentRule({this.width = 38, this.height = 2, super.key});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(height),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: AlignmentDirectional.centerStart,
+                end: AlignmentDirectional.centerEnd,
+                stops: <double>[0, .72, 1],
+                colors: <Color>[
+                  AppBrand.cinemaGold,
+                  AppBrand.ember,
+                  AppBrand.magenta,
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
 
 /// The parts every pushed page is built from, in the TV's language: the
 /// page colour behind everything, ink for what's chosen, muted text for
@@ -68,6 +102,8 @@ class PageAppBar extends StatelessWidget implements PreferredSizeWidget {
               color: palette.foreground,
             ),
           ),
+          const SizedBox(height: 4),
+          const BrandAccentRule(),
         ],
       ),
       actions: <Widget>[...?actions, const SizedBox(width: 4)],
