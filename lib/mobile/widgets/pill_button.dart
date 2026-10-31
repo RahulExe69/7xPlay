@@ -5,8 +5,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 
-/// A touch button in the TV's language: the main action solid ink (Play),
-/// others a soft fill (My List). Never the accent.
+/// A compact action button: the primary action uses the product accent;
+/// secondary actions remain quiet and translucent over artwork.
 class PillButton extends StatelessWidget {
   const PillButton({
     required this.label,
@@ -52,11 +52,16 @@ class PillButton extends StatelessWidget {
       background = colors.error;
       foreground = colors.onError;
     } else if (onArtwork) {
-      background = primary ? const Color(0xF2FFFFFF) : const Color(0x38FFFFFF);
-      foreground = primary ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+      final scheme = Theme.of(context).colorScheme;
+      background = primary ? scheme.primary : const Color(0x6206070A);
+      foreground = primary ? scheme.onPrimary : const Color(0xFFFFFFFF);
+    } else if (primary) {
+      final scheme = Theme.of(context).colorScheme;
+      background = scheme.primary;
+      foreground = scheme.onPrimary;
     } else {
-      background = primary ? palette.focusFill : palette.idleFill;
-      foreground = primary ? palette.onFocus : palette.foreground;
+      background = palette.idleFill;
+      foreground = palette.foreground;
     }
     final icon = this.icon;
     return Semantics(
@@ -68,7 +73,12 @@ class PillButton extends StatelessWidget {
         opacity: onPressed == null ? .45 : 1,
         child: Material(
           color: background,
-          borderRadius: BorderRadius.circular(AppRadii.button),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.button),
+            side: onArtwork && !primary
+                ? BorderSide(color: foreground.withValues(alpha: 0.56))
+                : BorderSide.none,
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onPressed == null || busy

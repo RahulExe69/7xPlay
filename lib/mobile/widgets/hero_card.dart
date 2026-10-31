@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../catalog/home_hero.dart';
@@ -37,9 +36,12 @@ class HeroCard extends StatefulWidget {
   static double heightFor(BuildContext context) {
     final media = MediaQuery.sizeOf(context);
     final width = media.width;
-    final cardWidth = width - AppSpace.gutter(context) * 2;
+    final tabletInset = AppBreakpoints.isTablet(context)
+        ? AppSpace.gutter(context) * 2
+        : 0.0;
+    final cardWidth = width - tabletInset;
     if (width < AppBreakpoints.tablet) {
-      return (cardWidth * 1.3).clamp(0, 520).toDouble();
+      return (cardWidth * 1.22).clamp(0, 520).toDouble();
     }
     final frame = (cardWidth * 9 / 16).clamp(0, 460).toDouble();
     return AppBreakpoints.isTablet(context)
@@ -109,7 +111,9 @@ class _HeroCardState extends State<HeroCard> {
   Widget build(BuildContext context) {
     final item = _item;
     final media = MediaQuery.sizeOf(context);
-    final gutter = AppSpace.gutter(context);
+    final isTablet = AppBreakpoints.isTablet(context);
+    final edgeInset = isTablet ? AppSpace.gutter(context) : 0.0;
+    final artworkWidth = media.width - edgeInset * 2;
     final height = HeroCard.heightFor(context);
     final art = HeroCard.artworkFor(context, item);
     final accent = Theme.of(context).colorScheme.primary;
@@ -128,16 +132,15 @@ class _HeroCardState extends State<HeroCard> {
     const white = Color(0xFFFFFFFF);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: gutter),
-      // Not a Pressable: its buttons must stay reachable by screen readers,
-      // and the card shouldn't sink while one of them is held.
+      padding: EdgeInsets.symmetric(horizontal: edgeInset),
+      // Keep the actions as independent semantic controls over the artwork.
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => MobilePlayback.openDetails(context, item),
         child: SizedBox(
           height: height,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadii.hero),
+            borderRadius: BorderRadius.circular(isTablet ? AppRadii.hero : 0),
             child: Stack(
               fit: StackFit.expand,
               children: <Widget>[
@@ -148,7 +151,7 @@ class _HeroCardState extends State<HeroCard> {
                   child: MediaArt(
                     item: item,
                     path: art.$1,
-                    width: media.width,
+                    width: artworkWidth,
                     size: art.$2,
                     alignment: Alignment.topCenter,
                     placeholder: MediaArt.darkPlaceholder,
@@ -161,92 +164,118 @@ class _HeroCardState extends State<HeroCard> {
                       end: Alignment.bottomCenter,
                       colors: <Color>[
                         Color(0x00000000),
-                        Color(0x33000000),
-                        Color(0xE0000000),
+                        Color(0x26000000),
+                        Color(0xF0000000),
                       ],
-                      stops: <double>[.35, .6, 1],
+                      stops: <double>[.28, .55, 1],
                     ),
                   ),
                 ),
+                if (isTablet)
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: AlignmentDirectional.centerStart,
+                        end: AlignmentDirectional.centerEnd,
+                        colors: <Color>[
+                          Color(0x88000000),
+                          Color(0x33000000),
+                          Color(0x00000000),
+                        ],
+                        stops: <double>[0, .42, .78],
+                      ),
+                    ),
+                  ),
                 Positioned.fill(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: <Widget>[
-                        _HeroKicker(label: kicker, accent: accent),
-                        const SizedBox(height: AppSpace.sm),
-                        SizedBox(
-                          height: 72,
-                          child: Center(
-                            child: TitleLogo(
-                              item: item,
-                              maxHeight: 72,
-                              alignment: Alignment.bottomCenter,
-                              fallback: Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Text(
-                                  item.title,
-                                  maxLines: 2,
-                                  textAlign: TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppType.heroTitle.copyWith(
-                                    color: white,
+                    padding: EdgeInsetsDirectional.fromSTEB(
+                      isTablet ? AppSpace.xxl : 24,
+                      20,
+                      isTablet ? AppSpace.xxl : 24,
+                      24,
+                    ),
+                    child: Align(
+                      alignment: AlignmentDirectional.bottomStart,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: isTablet
+                              ? 560
+                              : (media.width - 48).clamp(0, 520).toDouble(),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: <Widget>[
+                            _HeroKicker(label: kicker, accent: accent),
+                            const SizedBox(height: AppSpace.md),
+                            SizedBox(
+                              height: 76,
+                              child: Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: TitleLogo(
+                                  item: item,
+                                  maxHeight: 76,
+                                  alignment: AlignmentDirectional.centerStart,
+                                  fallback: Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Text(
+                                      item.title,
+                                      maxLines: 2,
+                                      textAlign: TextAlign.start,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppType.heroTitle.copyWith(
+                                        color: white,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpace.md),
-                        Text(
-                          facts,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: AppType.metadata.copyWith(
-                            color: const Color(0xD9FFFFFF),
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpace.lg),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: AppBreakpoints.isTablet(context)
-                                ? HeroCard.tabletButtonsWidth
-                                : double.infinity,
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              if (MobilePlayback.canPlay(context)) ...<Widget>[
+                            const SizedBox(height: AppSpace.sm),
+                            Text(
+                              facts,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.start,
+                              style: AppType.metadata.copyWith(
+                                color: const Color(0xD9FFFFFF),
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpace.lg),
+                            Row(
+                              children: <Widget>[
+                                if (MobilePlayback.canPlay(context)) ...<Widget>[
+                                  Expanded(
+                                    child: PillButton(
+                                      onArtwork: true,
+                                      primary: true,
+                                      busy: _starting,
+                                      icon: PhosphorIcons.play(
+                                        PhosphorIconsStyle.fill,
+                                      ),
+                                      label: _playLabel(),
+                                      onPressed: _play,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpace.sm),
+                                ],
                                 Expanded(
                                   child: PillButton(
                                     onArtwork: true,
-                                    primary: true,
-                                    busy: _starting,
-                                    icon: PhosphorIcons.play(
-                                      PhosphorIconsStyle.fill,
-                                    ),
-                                    label: _playLabel(),
-                                    onPressed: _play,
+                                    icon: saved
+                                        ? PhosphorIcons.check()
+                                        : PhosphorIcons.plus(),
+                                    label: tr('my_list'),
+                                    onPressed: () => MyList.toggle(context, item),
                                   ),
                                 ),
-                                const SizedBox(width: AppSpace.sm),
                               ],
-                              Expanded(
-                                child: PillButton(
-                                  onArtwork: true,
-                                  icon: saved
-                                      ? PhosphorIcons.check()
-                                      : PhosphorIcons.plus(),
-                                  label: tr('my_list'),
-                                  onPressed: () => MyList.toggle(context, item),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -259,9 +288,8 @@ class _HeroCardState extends State<HeroCard> {
   }
 }
 
-/// What a hero card is, the way Netflix marks its own: the FlixQuest mark
-/// in the accent, then SERIES, MOVIE or CONTINUE WATCHING in wide white
-/// capitals, shadowed so bright artwork can't swallow it.
+/// A small editorial label for the featured title. The short gold rule
+/// replaces the old FlixQuest symbol and keeps the artwork in charge.
 class _HeroKicker extends StatelessWidget {
   const _HeroKicker({required this.label, required this.accent});
 
@@ -273,27 +301,26 @@ class _HeroKicker extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        SvgPicture.asset(
-          'assets/images/fq_mark.svg',
-          height: 18,
-          colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(1),
+          ),
+          child: const SizedBox(width: 22, height: 2),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: AppSpace.sm),
         Flexible(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                color: Color(0xFFFFFFFF),
-                fontFamily: AppType.bold,
-                fontSize: 13,
-                height: 1,
-                letterSpacing: 3,
-                shadows: <Shadow>[
-                  Shadow(color: Color(0x99000000), blurRadius: 8),
-                ],
-              ),
+          child: Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppType.kicker.copyWith(
+              color: const Color(0xFFF5F3EE),
+              fontSize: 11,
+              letterSpacing: 1.8,
+              shadows: const <Shadow>[
+                Shadow(color: Color(0x99000000), blurRadius: 8),
+              ],
             ),
           ),
         ),
@@ -302,8 +329,8 @@ class _HeroKicker extends StatelessWidget {
   }
 }
 
-/// Home's hero: [heroes] as cards the viewer can swipe through, turning on
-/// their own every [interval] as FlixQuest's hero always has, with dots
+/// Home's hero: [heroes] as cinematic spotlights the viewer can swipe through,
+/// turning on their own every [interval], with dots
 /// under them to show where the viewer is.
 ///
 /// It holds still while touched, while scrolled out of sight, while its tab
