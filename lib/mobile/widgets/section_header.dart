@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 
@@ -42,6 +43,14 @@ class SectionHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppBrand.ember,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                    child: const SizedBox(width: 18, height: 2),
+                  ),
+                  const SizedBox(height: 6),
                   if (kicker case final kicker?)
                     Text(
                       kicker.toUpperCase(),
