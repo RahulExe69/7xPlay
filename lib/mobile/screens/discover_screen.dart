@@ -195,12 +195,20 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         surfaceTintColor: Colors.transparent,
         // Level with the choices below; a phone's gutter is the default.
         titleSpacing: AppBreakpoints.isTablet(context) ? gutter : null,
-        title: Text(
-          tr('browse_with_filters'),
-          style: AppType.sectionHeader.copyWith(
-            fontFamily: AppType.bold,
-            color: palette.foreground,
-          ),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              tr('browse_with_filters'),
+              style: AppType.sectionHeader.copyWith(
+                fontFamily: AppType.bold,
+                color: palette.foreground,
+              ),
+            ),
+            const SizedBox(height: 3),
+            const BrandAccentRule(width: 32),
+          ],
         ),
         actions: <Widget>[
           AnimatedOpacity(

@@ -3,14 +3,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../design/skeleton.dart';
 import 'pill_button.dart';
 
+/// A small 7X colour signature for page headings. It is intentionally thin
+/// and short: a brand cue, not a glowing divider across the whole screen.
+class BrandAccentRule extends StatelessWidget {
+  const BrandAccentRule({this.width = 38, this.height = 2, super.key});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(height),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: AlignmentDirectional.centerStart,
+                end: AlignmentDirectional.centerEnd,
+                stops: <double>[0, .72, 1],
+                colors: <Color>[
+                  AppBrand.cinemaGold,
+                  AppBrand.ember,
+                  AppBrand.magenta,
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
 /// The parts every pushed page is built from, in the TV's language: the
 /// page colour behind everything, ink for what's chosen, muted text for
-/// what's secondary, and never the accent.
+/// what's secondary, and restrained 7X accents for visual orientation.
 
 /// A pushed page's bar: the page colour, the title in heavy type with an
 /// optional kicker above it, and whatever sits beneath (a switch, chips).
@@ -68,6 +101,8 @@ class PageAppBar extends StatelessWidget implements PreferredSizeWidget {
               color: palette.foreground,
             ),
           ),
+          const SizedBox(height: 4),
+          const BrandAccentRule(),
         ],
       ),
       actions: <Widget>[...?actions, const SizedBox(width: 4)],
@@ -124,8 +159,14 @@ class SearchPill extends StatelessWidget {
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: palette.idleFill,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(AppRadii.hero),
+        border: Border.all(
+          color: palette.dark
+              ? AppBrand.ember.withValues(alpha: .22)
+              : palette.hairline,
+          width: .7,
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -239,8 +280,14 @@ class SegmentSwitch<T> extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: palette.idleFill,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(AppRadii.chip),
+        border: Border.all(
+          color: palette.dark
+              ? AppBrand.ember.withValues(alpha: .20)
+              : palette.hairline,
+          width: .7,
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -263,14 +310,14 @@ class SegmentSwitch<T> extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     decoration: BoxDecoration(
                       color: segment.value == selected
-                          ? palette.focusFill
+                          ? Theme.of(context).colorScheme.primary
                           : const Color(0x00000000),
                       borderRadius: BorderRadius.circular(AppRadii.chip - 2),
                     ),
                     child: _SegmentLabel(
                       segment: segment,
                       color: segment.value == selected
-                          ? palette.onFocus
+                          ? Theme.of(context).colorScheme.onPrimary
                           : palette.secondaryText,
                     ),
                   ),
@@ -333,7 +380,8 @@ class TogglePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    final foreground = selected ? palette.onFocus : palette.foreground;
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = selected ? scheme.onPrimary : palette.foreground;
     final marked = selected && check;
     void tap() {
       HapticFeedback.selectionClick();
@@ -354,8 +402,18 @@ class TogglePill extends StatelessWidget {
           child: Center(
             widthFactor: 1,
             child: Material(
-              color: selected ? palette.focusFill : palette.idleFill,
-              borderRadius: BorderRadius.circular(AppRadii.chip),
+              color: selected ? scheme.primary : palette.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.chip),
+                side: BorderSide(
+                  color: selected
+                      ? scheme.primary
+                      : palette.dark
+                          ? AppBrand.ember.withValues(alpha: .20)
+                          : palette.hairline,
+                  width: selected ? 0 : .7,
+                ),
+              ),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: tap,
