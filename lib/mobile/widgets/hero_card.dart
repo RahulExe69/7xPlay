@@ -9,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../catalog/home_hero.dart';
 import '../../catalog/media_item.dart';
 import '../../constants/app_constants.dart';
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../design/title_logo.dart';
@@ -301,7 +302,7 @@ class _HeroKicker extends StatelessWidget {
       children: <Widget>[
         DecoratedBox(
           decoration: BoxDecoration(
-            color: accent,
+            color: AppBrand.cinemaGold,
             borderRadius: BorderRadius.circular(1),
           ),
           child: const SizedBox(width: 22, height: 2),
