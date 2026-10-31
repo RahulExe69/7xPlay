@@ -235,10 +235,10 @@ class ContinueCard extends StatelessWidget {
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0x66000000),
+                          color: const Color(0x990D050A),
                           border: Border.all(
-                            color: const Color(0xE6FFFFFF),
-                            width: 1.5,
+                            color: const Color(0xCCFFB91D),
+                            width: 1.2,
                           ),
                         ),
                         child: Padding(

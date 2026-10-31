@@ -219,8 +219,14 @@ class DetailsRoundButton extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: onArtwork
-                  ? const Color(0x61000000)
+                  ? const Color(0x990D050A)
                   : palette.page.withValues(alpha: 0),
+              border: Border.all(
+                color: onArtwork
+                    ? const Color(0x66FFB91D)
+                    : palette.hairline,
+                width: .7,
+              ),
               shape: BoxShape.circle,
             ),
           ),

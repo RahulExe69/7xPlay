@@ -90,8 +90,19 @@ class ChoicePill extends StatelessWidget {
               child: Material(
                 color: selected
                     ? Theme.of(context).colorScheme.primary
-                    : palette.idleFill,
+                    : palette.surface,
                 borderRadius: BorderRadius.circular(AppRadii.chip),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.chip),
+                  side: BorderSide(
+                    color: selected
+                        ? Theme.of(context).colorScheme.primary
+                        : palette.dark
+                            ? const Color(0x40FF482E)
+                            : palette.hairline,
+                    width: selected ? 0 : .7,
+                  ),
+                ),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: _tap,
