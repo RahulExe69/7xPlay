@@ -748,7 +748,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
         else
           fallbackTitle,
         const SizedBox(height: AppSpace.sm),
-        _facts(context),
+        _facts(context, onArtwork: onArtwork),
         _genrePills(context, onArtwork: onArtwork),
       ],
     );
@@ -786,10 +786,13 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     );
   }
 
-  Widget _facts(BuildContext context) {
+  Widget _facts(BuildContext context, {bool onArtwork = false}) {
     final palette = AppPalette.of(context);
+    final factColor = onArtwork
+        ? const Color(0xDFFFFFFF)
+        : palette.mutedText;
     final style = AppType.metadata.copyWith(
-      color: palette.mutedText,
+      color: factColor,
       fontSize: 13,
     );
     // Year · ★ 8.3 · 2h 50m, the star drawn as an icon: Figtree has none.
@@ -805,7 +808,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
               child: Icon(
                 PhosphorIcons.star(PhosphorIconsStyle.fill),
                 size: 12,
-                color: palette.mutedText,
+                color: factColor,
               ),
             ),
           ),
