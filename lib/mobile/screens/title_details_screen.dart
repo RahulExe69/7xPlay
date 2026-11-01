@@ -46,7 +46,6 @@ import '../playlists.dart';
 import '../widgets/details_header.dart';
 import '../widgets/details_parts.dart';
 import '../widgets/episodes_section.dart';
-import '../widgets/filter_chips.dart';
 import '../widgets/media_art.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/poster_card.dart';
@@ -187,8 +186,12 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     if (collapsed != _collapsed) setState(() => _collapsed = collapsed);
   }
 
-  double _backdropHeight(BuildContext context) =>
-      DetailsSliverHeader.heightFor(context);
+  double _backdropHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final preferred = size.width * 1.05;
+    final viewportCap = size.height * .68;
+    return preferred < viewportCap ? preferred : viewportCap;
+  }
 
   void _trackView() {
     final analytics = context.read<SettingsProvider>().analytics;
@@ -593,8 +596,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
 
   /// Above 1,000 px: the artwork and what to do with the title stay at the
   /// start, and the episodes and tabs scroll beside them.
-  Widget _twoColumns(BuildContext context, WatchHistory history) =>
-      DetailsSplit(
+  Widget _twoColumns(BuildContext context, WatchHistory history) => DetailsSplit(
         controller: _scroll,
         artwork: (width) => MediaArt(
           item: _item,
@@ -603,7 +605,14 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
           size: ArtSize.backdrop,
           alignment: Alignment.topCenter,
         ),
-        start: <Widget>[_summary(context, history), _adSlot()],
+        start: <Widget>[
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
+            child: _heroIdentity(context),
+          ),
+          _summary(context, history),
+          _adSlot(),
+        ],
         end: <Widget>[
           if (!_isMovie) SliverToBoxAdapter(child: _episodes(context, history)),
           _tabsHeader(AppPalette.of(context)),
@@ -612,61 +621,166 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
         ],
       );
 
-  Widget _header(BuildContext context) => DetailsSliverHeader(
-        title: _item.title,
-        collapsed: _collapsed,
-        artwork: MediaArt(
-          item: _item,
-          path: _item.backdropPath ?? _item.posterPath,
-          width: MediaQuery.sizeOf(context).width,
-          size: ArtSize.backdrop,
-          alignment: Alignment.topCenter,
-        ),
-      );
-
-  Widget _summary(BuildContext context, WatchHistory history) {
+  Widget _header(BuildContext context) {
     final palette = AppPalette.of(context);
     final gutter = AppSpace.gutter(context);
-    final item = _item;
-    final badge = MediaBadge.recencyOf(item);
-    final fallbackTitle = Text(
-      item.title,
-      style: AppType.scaled(context, AppType.heroTitle)
-          .copyWith(color: palette.foreground),
+    final heroHeight = _backdropHeight(context);
+    return SliverAppBar(
+      pinned: true,
+      expandedHeight: heroHeight,
+      toolbarHeight: kToolbarHeight,
+      backgroundColor: palette.page,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      automaticallyImplyLeading: false,
+      systemOverlayStyle: _collapsed && !palette.dark
+          ? SystemUiOverlayStyle.dark
+          : SystemUiOverlayStyle.light,
+      leadingWidth: 56,
+      leading: Padding(
+        padding: const EdgeInsetsDirectional.only(start: AppSpace.sm),
+        child: Center(
+          child: DetailsRoundButton(
+            icon: PhosphorIcons.caretLeft(),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onArtwork: !_collapsed,
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+      ),
+      titleSpacing: 0,
+      title: AnimatedOpacity(
+        opacity: _collapsed ? 1 : 0,
+        duration: const Duration(milliseconds: 160),
+        child: Text(
+          _item.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppType.sectionHeader.copyWith(color: palette.foreground),
+        ),
+      ),
+      actions: <Widget>[
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: AppSpace.sm),
+          child: DetailsRoundButton(
+            icon: PhosphorIcons.shareNetwork(),
+            tooltip: tr('share'),
+            onArtwork: !_collapsed,
+            onPressed: () => unawaited(_share()),
+          ),
+        ),
+      ],
+      flexibleSpace: LayoutBuilder(
+        builder: (context, constraints) {
+          final topInset = MediaQuery.paddingOf(context).top;
+          final minExtent = kToolbarHeight + topInset;
+          final range = (heroHeight - kToolbarHeight).clamp(1.0, 10000.0);
+          final visible = ((constraints.maxHeight - minExtent) / range)
+              .clamp(0.0, 1.0)
+              .toDouble();
+          return Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              MediaArt(
+                item: _item,
+                path: _item.backdropPath ?? _item.posterPath,
+                width: MediaQuery.sizeOf(context).width,
+                size: ArtSize.backdrop,
+                alignment: Alignment.topCenter,
+                placeholder: MediaArt.darkPlaceholder,
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const <double>[0, .30, .66, 1],
+                    colors: <Color>[
+                      const Color(0x70000000),
+                      const Color(0x00000000),
+                      const Color(0xDC000000),
+                      palette.page,
+                    ],
+                  ),
+                ),
+              ),
+              PositionedDirectional(
+                start: gutter,
+                end: gutter,
+                bottom: AppSpace.xl + MediaQuery.paddingOf(context).bottom,
+                child: Opacity(
+                  opacity: visible,
+                  child: _heroIdentity(context, onArtwork: true),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
+  }
+
+  Widget _heroIdentity(BuildContext context, {bool onArtwork = false}) {
+    final palette = AppPalette.of(context);
+    final badge = MediaBadge.recencyOf(_item);
+    final fallbackTitle = Text(
+      _item.title,
+      style: AppType.scaled(context, AppType.heroTitle).copyWith(
+        color: onArtwork ? const Color(0xFFFFFFFF) : palette.foreground,
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (badge != null) ...<Widget>[
+          MediaBadge(label: badge),
+          const SizedBox(height: AppSpace.sm),
+        ],
+        if (widget.showTitleLogos)
+          TitleLogo(
+            item: _item,
+            maxHeight: 68,
+            alignment: AlignmentDirectional.centerStart,
+            fallback: fallbackTitle,
+          )
+        else
+          fallbackTitle,
+        const SizedBox(height: AppSpace.sm),
+        _facts(context),
+        _genrePills(context, onArtwork: onArtwork),
+      ],
+    );
+  }
+
+  Widget _summary(BuildContext context, WatchHistory history) {
+    final gutter = AppSpace.gutter(context);
     return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(gutter, 0, gutter, AppSpace.lg),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        gutter,
+        AppSpace.lg,
+        gutter,
+        AppSpace.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          if (widget.showTitleLogos)
-            TitleLogo(
-              item: item,
-              maxHeight: 72,
-              alignment: AlignmentDirectional.centerStart,
-              fallback: fallbackTitle,
-            )
-          else
-            fallbackTitle,
-          const SizedBox(height: AppSpace.md),
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              _facts(context),
-              if (badge != null) MediaBadge(label: badge),
+              Expanded(child: _playButton(context, history)),
+              if (_isMovie) ...<Widget>[
+                const SizedBox(width: AppSpace.sm),
+                _downloadButton(context),
+              ],
             ],
           ),
-          _genrePills(context),
-          const SizedBox(height: AppSpace.lg),
-          _playButton(context, history),
-          if (_isMovie) _downloadButton(context),
-          const SizedBox(height: AppSpace.lg),
-          _synopsis(context),
-          _creditLines(context),
           const SizedBox(height: AppSpace.md),
           _actions(context),
+          const SizedBox(height: AppSpace.xl),
+          _synopsis(context),
+          _creditLines(context),
         ],
       ),
     );
@@ -737,7 +851,8 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     );
   }
 
-  Widget _genrePills(BuildContext context) {
+  Widget _genrePills(BuildContext context, {bool onArtwork = false}) {
+    final palette = AppPalette.of(context);
     return FutureBuilder<List<Genres>>(
       future: _genres,
       builder: (context, snapshot) {
@@ -745,18 +860,46 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
             .where((genre) => genre.genreID != null && genre.genreName != null)
             .toList(growable: false);
         if (genres.isEmpty) return const SizedBox.shrink();
+        final foreground = onArtwork
+            ? const Color(0xEFFFFFFF)
+            : palette.secondaryText;
         return Padding(
-          padding: const EdgeInsets.only(top: AppSpace.md),
+          padding: const EdgeInsets.only(top: AppSpace.xs),
           child: Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.sm,
+            spacing: AppSpace.md,
+            runSpacing: AppSpace.xs,
             children: <Widget>[
-              for (final genre in genres)
-                ChoicePill(
-                  spec: FilterChipSpec(
-                    label: genre.genreName!,
-                    onTap: () =>
-                        openGenreCollection(context, _item.kind, genre),
+              for (var index = 0; index < genres.length; index++)
+                InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: () => openGenreCollection(
+                    context,
+                    _item.kind,
+                    genres[index],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        if (index > 0) ...<Widget>[
+                          Text(
+                            '•',
+                            style: AppType.metadata.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          genres[index].genreName!,
+                          style: AppType.metadata.copyWith(
+                            color: foreground,
+                            fontFamily: AppType.semiBold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -826,16 +969,35 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     if (!(dependencies?.displayDownloadButton ?? false) || !released) {
       return const SizedBox.shrink();
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpace.sm),
-      child: SizedBox(
-        width: double.infinity,
-        child: PillButton(
-          label: tr('download_action'),
-          icon: PhosphorIcons.downloadSimple(),
-          height: 48,
-          onPressed:
-              _starting ? null : () => _run(() => _playMovie(download: true)),
+    final palette = AppPalette.of(context);
+    return Tooltip(
+      message: tr('download_action'),
+      child: Semantics(
+        button: true,
+        label: tr('download_action'),
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: Material(
+            color: palette.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: palette.hairline),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _starting
+                  ? null
+                  : () => _run(() => _playMovie(download: true)),
+              child: Center(
+                child: Icon(
+                  PhosphorIcons.downloadSimple(),
+                  size: 22,
+                  color: _starting ? palette.mutedText : palette.foreground,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -845,22 +1007,62 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     final palette = AppPalette.of(context);
     final overview = _item.overview.trim();
     if (overview.isEmpty) return const SizedBox.shrink();
-    return Semantics(
-      button: true,
-      onTapHint: _synopsisOpen ? tr('read_less') : tr('read_more'),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _synopsisOpen = !_synopsisOpen),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          alignment: AlignmentDirectional.topStart,
-          child: Text(
-            overview,
-            maxLines: _synopsisOpen ? null : 3,
-            overflow: _synopsisOpen ? null : TextOverflow.ellipsis,
-            style: AppType.body.copyWith(color: palette.secondaryText),
+    final expandable = overview.length > 180;
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.hairline),
+      ),
+      padding: const EdgeInsets.all(AppSpace.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                tr('overview').toUpperCase(),
+                style: AppType.kicker.copyWith(color: palette.mutedText),
+              ),
+              const Spacer(),
+              Icon(
+                PhosphorIcons.bookOpenText(),
+                size: 17,
+                color: palette.accent,
+              ),
+            ],
           ),
-        ),
+          const SizedBox(height: AppSpace.md),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            alignment: AlignmentDirectional.topStart,
+            child: Text(
+              overview,
+              maxLines: _synopsisOpen ? null : 4,
+              overflow: _synopsisOpen ? null : TextOverflow.ellipsis,
+              style: AppType.body.copyWith(
+                color: palette.secondaryText,
+                height: 1.55,
+              ),
+            ),
+          ),
+          if (expandable)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: palette.accent,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () =>
+                    setState(() => _synopsisOpen = !_synopsisOpen),
+                child: Text(tr(_synopsisOpen ? 'read_less' : 'read_more')),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -910,51 +1112,90 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
   }
 
   Widget _actions(BuildContext context) {
+    final palette = AppPalette.of(context);
     final saved = MyList.contains(context, _item);
     final inList = context
             .watch<PlaylistProvider?>()
             ?.listsContaining(_item)
             .isNotEmpty ??
         false;
+
+    Widget actionTile({
+      required IconData icon,
+      required String label,
+      required VoidCallback onPressed,
+    }) {
+      return Expanded(
+        child: Material(
+          color: palette.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: palette.hairline),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.sm,
+                vertical: AppSpace.md,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(icon, size: 18, color: palette.foreground),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.metadata.copyWith(
+                        color: palette.foreground,
+                        fontFamily: AppType.semiBold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return FutureBuilder<Videos>(
       future: _videos,
       builder: (context, snapshot) {
         final trailer = pickTrailer(snapshot.data);
+        final actions = <Widget>[
+          actionTile(
+            icon: saved
+                ? PhosphorIcons.check(PhosphorIconsStyle.bold)
+                : PhosphorIcons.plus(),
+            label: tr('my_list'),
+            onPressed: _toggleMyList,
+          ),
+          actionTile(
+            icon: inList
+                ? PhosphorIcons.listChecks()
+                : PhosphorIcons.listPlus(),
+            label: tr('playlist_save'),
+            onPressed: () => showSaveToListSheet(context, _item),
+          ),
+          if (trailer != null)
+            actionTile(
+              icon: PhosphorIcons.filmStrip(),
+              label: tr('trailer'),
+              onPressed: () => openVideo(trailer),
+            ),
+        ];
         return Row(
           children: <Widget>[
-            Expanded(
-              child: DetailsAction(
-                icon: saved
-                    ? PhosphorIcons.check(PhosphorIconsStyle.bold)
-                    : PhosphorIcons.plus(),
-                label: tr('my_list'),
-                onPressed: _toggleMyList,
-              ),
-            ),
-            Expanded(
-              child: DetailsAction(
-                icon: inList
-                    ? PhosphorIcons.listChecks()
-                    : PhosphorIcons.listPlus(),
-                label: tr('playlist_save'),
-                onPressed: () => showSaveToListSheet(context, _item),
-              ),
-            ),
-            if (trailer != null)
-              Expanded(
-                child: DetailsAction(
-                  icon: PhosphorIcons.filmStrip(),
-                  label: tr('trailer'),
-                  onPressed: () => openVideo(trailer),
-                ),
-              ),
-            Expanded(
-              child: DetailsAction(
-                icon: PhosphorIcons.shareNetwork(),
-                label: tr('share'),
-                onPressed: _share,
-              ),
-            ),
+            for (var index = 0; index < actions.length; index++) ...<Widget>[
+              if (index > 0) const SizedBox(width: AppSpace.sm),
+              actions[index],
+            ],
           ],
         );
       },
@@ -1502,7 +1743,7 @@ class _TabsHeader extends SliverPersistentHeaderDelegate {
   final Color hairline;
   final ValueChanged<DetailsTab> onSelect;
 
-  static const _height = FilterChips.height + AppSpace.md * 2;
+  static const _height = 58.0;
 
   @override
   double get minExtent => _height;
@@ -1516,6 +1757,7 @@ class _TabsHeader extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final palette = AppPalette.of(context);
     final labels = <DetailsTab, String>{
       DetailsTab.moreLikeThis: tr('more_like_this'),
       DetailsTab.trailers: tr('trailers_and_more'),
@@ -1525,22 +1767,56 @@ class _TabsHeader extends SliverPersistentHeaderDelegate {
       decoration: BoxDecoration(
         color: background,
         border: Border(
-          bottom: BorderSide(
-            color: overlapsContent || shrinkOffset > 0 ? hairline : background,
-          ),
+          top: BorderSide(color: hairline.withValues(alpha: .65)),
+          bottom: BorderSide(color: hairline),
         ),
       ),
-      child: Center(
-        child: FilterChips(
-          chips: <FilterChipSpec>[
-            for (final option in DetailsTab.values)
-              FilterChipSpec(
-                label: labels[option]!,
-                selected: option == tab,
+      child: Row(
+        children: <Widget>[
+          for (final option in DetailsTab.values)
+            Expanded(
+              child: InkWell(
                 onTap: () => onSelect(option),
+                child: Column(
+                  children: <Widget>[
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              labels[option]!,
+                              style: AppType.metadata.copyWith(
+                                color: option == tab
+                                    ? palette.foreground
+                                    : palette.mutedText,
+                                fontFamily: option == tab
+                                    ? AppType.semiBold
+                                    : AppType.regular,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      height: 3,
+                      width: option == tab ? 34 : 0,
+                      decoration: BoxDecoration(
+                        color: option == tab
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
