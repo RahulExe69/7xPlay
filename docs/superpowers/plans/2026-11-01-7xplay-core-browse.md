@@ -132,6 +132,25 @@ This workstream owns the shared mobile visual foundation plus Home, New & Hot, D
 
 **Task gate:** Search history and race tests pass; returning from details restores query/scroll; no persistence keys or API contracts change.
 
+### Task 6: Redesign Live TV browsing without changing live playback
+
+**Files**
+- Modify: lib/screens/common/live_tv_screen.dart.
+- Test: test/live_tv_error_test.dart, test/live_channel_letters_test.dart, test/live_schedule_sports_test.dart, test/live_stream_discovery_test.dart; create test/live_tv_screen_test.dart if absent.
+- Explicitly out of scope: lib/screens/common/live_player.dart and live playback controls.
+
+**Interfaces**
+- Consumes current Live TV channel, schedule and discovery models/controllers plus existing open-live-player callbacks.
+- Produces a clear channel/programme browsing surface while keeping channel IDs, schedule time handling and live-player hand-off unchanged.
+
+- [ ] Add tests for channel grouping/letters, current and upcoming schedule labels, empty results, failed schedule requests and opening the selected channel with the same ID.
+- [ ] Run the existing Live TV error, channel-letter, schedule and discovery tests.
+- [ ] Recompose the Live TV browse page with clear channel identity, programme context and useful empty/error/retry state. Do not alter live-player controls, provider selection, stream resolution or playback.
+- [ ] Check Arabic RTL, long channel names, narrow phone width and tablet layout. Verify failed schedule lookup does not hide the channel list.
+- [ ] Run Live TV tests, format and analyze; commit the browse-page work.
+
+**Task gate:** Live TV browse tests pass; live playback and player files remain unchanged.
+
 ## Workstream completion gate
 - [ ] All five root tabs have a meaningful, task-specific composition.
 - [ ] Relevant widget/unit tests pass and no new analyzer issues are introduced.

@@ -106,6 +106,26 @@
 
 **Task gate:** Tab state, deep links and route restoration pass alongside offline library tests.
 
+### Task 5: Redesign Wellness / Viewing Insights as a personal destination
+
+**Files**
+- Modify: lib/screens/wellness/wellness_screen.dart, lib/screens/wellness/widgets/insights_dashboard.dart.
+- Review shared chart presentation carefully: lib/widgets/wellness_chart_palette.dart, wellness_charts.dart.
+- Test: test/wellness_chart_palette_test.dart, test/wellness_charts_test.dart, test/wellness_dashboard_metrics_test.dart, test/wellness_dashboard_widgets_test.dart, test/wellness_insights_test.dart, test/wellness_recap_test.dart, test/wellness_time_series_test.dart.
+- Do not modify: lib/tv/screens/tv_wellness_screen.dart.
+
+**Interfaces**
+- Consumes existing wellness metrics, recap/time-series models and provider/repository data.
+- Produces a readable viewing-insights page preserving the meaning, units, aggregation and privacy choices of current metrics.
+
+- [ ] Add tests for empty/short/populated history, missing values, large numbers, chart labels/units and offline/failed-sync states.
+- [ ] Run the listed wellness model, chart and dashboard tests.
+- [ ] Recompose mobile insights so the most useful summary comes first and charts remain readable in the current theme/locale. Do not invent measurements or change aggregation.
+- [ ] Verify text scale 1.3 and Arabic RTL. Check chart palettes in Dark, AMOLED, Light and custom theme modes.
+- [ ] Run wellness tests and analyze; commit mobile-only presentation changes.
+
+**Task gate:** Metric values/units and aggregation remain unchanged; mobile wellness tests pass; TV wellness files remain untouched.
+
 ## Workstream completion gate
 - [ ] My 7xPlay, Downloads, My List and all playlist variants have deliberate page compositions.
 - [ ] Offline, guest, sync-failure and shared-permission tests pass.

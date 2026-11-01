@@ -31,7 +31,7 @@
 ### Task 1: Redesign settings and preference controls
 
 **Files**
-- Modify: lib/screens/common/settings.dart, lib/mobile/widgets/settings_kit.dart.
+- Modify: lib/screens/common/settings.dart, lib/screens/common/language_choose.dart, lib/mobile/widgets/settings_kit.dart.
 - Review/modify: lib/mobile/widgets/account_form.dart.
 - Test: test/settings_kit_test.dart, test/app_mode_settings_test.dart, test/ambient_theme_test.dart, test/seasonal_component_theme_test.dart.
 
@@ -50,7 +50,7 @@
 ### Task 2: Redesign profile and authentication screens without changing auth semantics
 
 **Files**
-- Modify: lib/screens/user/edit_profile.dart, login_screen.dart, signup_screen.dart, forgot_password.dart, email_change.dart, password_change.dart, delete_account.dart.
+- Modify: lib/screens/common/landing_screen.dart; lib/screens/user/edit_profile.dart, login_screen.dart, signup_screen.dart, forgot_password.dart, email_change.dart, password_change.dart, delete_account.dart.
 - Review/modify: lib/mobile/widgets/account_form.dart.
 - Test: test/presentation/auth_screens_test.dart, test/auth_navigation_service_test.dart, test/auth_state_router_test.dart, test/data/account_transition_provider_test.dart.
 

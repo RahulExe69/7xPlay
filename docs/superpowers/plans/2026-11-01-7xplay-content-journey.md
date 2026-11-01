@@ -110,6 +110,23 @@ PR #24 currently changes title_details_screen.dart substantially (approximately 
 
 **Task gate:** People/credits sections fail independently, missing images remain stable, and each page preserves title navigation.
 
+### Task 5: Redesign artwork galleries and image viewing surfaces
+
+**Files**
+- Review/modify: lib/screens/common/photoview.dart, hero_photoview.dart, image_viewer_chrome.dart.
+- Test: create test/mobile_photo_view_test.dart; inspect callers to confirm whether any widget is shared with Android TV before changing shared presentation.
+
+**Interfaces**
+- Consumes existing image/gallery URLs, title/person context and current zoom/share/close actions.
+- Produces a restrained immersive mobile viewing surface that preserves image URLs, gesture behaviour, semantics and close/back handling.
+
+- [ ] Inventory all photo-viewer call sites and identify mobile-only versus TV-shared callers. If a shared widget would leak handheld styling into TV, introduce a mobile-only presentation wrapper rather than changing TV.
+- [ ] Add tests for missing image, loading/error image, zoom/pan, close/back, safe-area controls, and Arabic directional chrome.
+- [ ] Apply the 7xPlay visual language to image chrome only; do not change image source construction, cache behaviour, or gallery ordering.
+- [ ] Run photo-viewer and owning title/person screen tests; format and analyze; commit.
+
+**Task gate:** Gallery ordering and image URLs are unchanged; mobile controls remain accessible; TV presentation is not affected.
+
 ## Workstream completion gate
 - [ ] Every content page has a materially distinct composition.
 - [ ] Existing resume/availability/download/trailer/share logic remains authoritative.
