@@ -727,7 +727,9 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     final fallbackTitle = Text(
       _item.title,
       style: AppType.scaled(context, AppType.heroTitle).copyWith(
-        color: onArtwork ? const Color(0xFFFFFFFF) : palette.foreground,
+        color: onArtwork && palette.dark
+            ? const Color(0xFFFFFFFF)
+            : palette.foreground,
       ),
     );
     return Column(
@@ -788,7 +790,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
 
   Widget _facts(BuildContext context, {bool onArtwork = false}) {
     final palette = AppPalette.of(context);
-    final factColor = onArtwork
+    final factColor = onArtwork && palette.dark
         ? const Color(0xDFFFFFFF)
         : palette.mutedText;
     final style = AppType.metadata.copyWith(
@@ -863,7 +865,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
             .where((genre) => genre.genreID != null && genre.genreName != null)
             .toList(growable: false);
         if (genres.isEmpty) return const SizedBox.shrink();
-        final foreground = onArtwork
+        final foreground = onArtwork && palette.dark
             ? const Color(0xEFFFFFFF)
             : palette.secondaryText;
         return Padding(
