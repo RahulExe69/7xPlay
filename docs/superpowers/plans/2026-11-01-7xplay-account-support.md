@@ -2,17 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
 
-**Goal:** Bring settings, profile/account flows, sync/status/update/about, 7xPlay Plus, wallet, Flix AI and supporting sheets into the same considered 7xPlay mobile design.
+**Goal:** Bring settings, profile/account flows, sync/status/update/about, 7xPlay Plus, wallet, 7x AI and supporting sheets into the same considered 7xPlay mobile design.
 
-**Architecture:** Redesign the presentation layer of existing account, support and commerce flows. Keep authentication, account mutation, billing, sync, server checks, update logic and Flix AI request/controller behaviour unchanged. Use existing form/page patterns where appropriate; split oversized presentation widgets only when there is a concrete reuse or readability benefit.
+**Architecture:** Redesign the presentation layer of existing account, support and commerce flows. Keep authentication, account mutation, billing, sync, server checks, update logic and 7x AI request/controller behaviour unchanged. Use existing form/page patterns where appropriate; split oversized presentation widgets only when there is a concrete reuse or readability benefit.
 
-**Tech Stack:** Flutter 3.35.7, Dart, Provider, easy_localization, existing auth/settings/billing/Flix AI controllers, Flutter widget/unit tests.
+**Tech Stack:** Flutter 3.35.7, Dart, Provider, easy_localization, existing auth/settings/billing/7x AI controllers, Flutter widget/unit tests.
 
 **Spec:** docs/superpowers/specs/2026-11-01-7xplay-mobile-redesign-design.md
 
 ## Global Constraints
 - Target handheld presentation only; do not change lib/tv/**.
-- Preserve settings keys/defaults, authentication/session semantics, billing product IDs, payment hand-offs, entitlement decisions, sync logic, status services, update logic and Flix AI request flow.
+- Preserve settings keys/defaults, authentication/session semantics, billing product IDs, payment hand-offs, entitlement decisions, sync logic, status services, update logic and 7x AI request flow.
 - Do not change API/backend contracts, account mutation semantics, analytics IDs, or deep-link formats.
 - Preserve guest access wherever currently supported and keep destructive account actions explicitly confirmed.
 - Preserve Dark, AMOLED, Light, custom/dynamic, seasonal, ambient and Arabic RTL; new translations go in en/es/ar/hi.
@@ -84,7 +84,7 @@
 
 **Task gate:** Support states reflect real service results; sync/update behaviour and routes remain unchanged.
 
-### Task 4: Redesign Plus, payment, wallet and Flix AI surfaces
+### Task 4: Redesign Plus, payment, wallet and 7x AI surfaces
 
 **Files**
 - Modify: lib/mobile/screens/plus_screen.dart, plus_payment_screen.dart, wallet_screen.dart, flix_ai_screen.dart.
@@ -92,16 +92,16 @@
 - Test: test/plus_screens_test.dart, test/plus_ad_free_test.dart, test/flix_ai_screen_test.dart and relevant billing/controller tests.
 
 **Interfaces**
-- Consumes existing billing/Plus controllers, wallet data, payment navigation and Flix AI controller/repository.
+- Consumes existing billing/Plus controllers, wallet data, payment navigation and 7x AI controller/repository.
 - Produces clear commerce and AI surfaces preserving price values, plan details, payment hand-off, entitlements, credit balance and request states.
 
 - [ ] Add tests that plan prices/benefits come from current data, payment selection sends the same plan/product ID, success/failure/cancel are distinct, ad-free entitlement remains controller-owned, and wallet balance/history are never fabricated.
-- [ ] Run Plus, billing and Flix AI tests.
+- [ ] Run Plus, billing and 7x AI tests.
 - [ ] Redesign Plus plan comparison, benefits and active entitlement; show wallet balance/history clearly. Do not invent discounts or hide price/cancellation terms.
-- [ ] Redesign Flix AI prompt, progress, result and retry states using existing controller/repository. Do not change prompt submission, model routing or credit consumption.
+- [ ] Redesign the 7x AI prompt, progress, result and retry states using the existing `FlixAiController` and repository. Do not change prompt submission, model routing or credit consumption.
 - [ ] Run screen/controller tests, format and analyze; commit.
 
-**Task gate:** Price/plan values, payment IDs, entitlements, wallet data and Flix AI calls are unchanged.
+**Task gate:** Price/plan values, payment IDs, entitlements, wallet data and 7x AI calls are unchanged.
 
 ### Task 5: Unify supporting sheets, dialogs and state surfaces
 
@@ -122,7 +122,7 @@
 **Task gate:** Sheets preserve callback/dismissal semantics, remain usable at compact heights, and do not leak handheld styles into TV.
 
 ## Workstream completion gate
-- [ ] Settings/profile/auth/support/commerce/Flix AI surfaces have deliberate layouts.
+- [ ] Settings/profile/auth/support/commerce/7x AI surfaces have deliberate layouts.
 - [ ] Existing values, validators, auth transitions, billing/payment and update semantics remain unchanged.
 - [ ] Relevant tests pass and there are no new analyzer issues.
 - [ ] Dark, AMOLED, Light, Arabic RTL and compact-height reviews are recorded.

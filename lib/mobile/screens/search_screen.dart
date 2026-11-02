@@ -344,7 +344,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text('FlixAI',
+                              Text('7x AI',
                                   style: AppType.cardTitle.copyWith(
                                       fontSize: 15,
                                       color: palette.foreground)),

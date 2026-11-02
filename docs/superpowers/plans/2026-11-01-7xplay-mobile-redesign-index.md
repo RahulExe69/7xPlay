@@ -11,7 +11,7 @@ The approved design covers multiple independently testable subsystems. Execution
 | 1 | Core browse | 2026-11-01-7xplay-core-browse.md | Shared mobile foundation, five-tab shell, Home, New & Hot, Discover, Search, Live TV browsing |
 | 2 | Content journey | 2026-11-01-7xplay-content-journey.md | Title details, collections, seasons, episodes, people, credits and artwork galleries |
 | 3 | Personal library | 2026-11-01-7xplay-personal-library.md | My 7xPlay, Downloads, My List, playlists, Wellness/Viewing Insights and offline-first presentation |
-| 4 | Account/support | 2026-11-01-7xplay-account-support.md | Settings, profile/auth, sync/status/update/about, Plus, wallet, Flix AI and sheets |
+| 4 | Account/support | 2026-11-01-7xplay-account-support.md | Settings, profile/auth, sync/status/update/about, Plus, wallet, 7x AI and sheets |
 
 ## Execution order and gates
 1. Execute and review Core browse first because its theme and mobile primitives are consumed by the other workstreams.
@@ -45,7 +45,7 @@ The content-journey executor must audit the existing title-details work and reta
 - [ ] Home, New & Hot, Discover and Search have distinct compositions.
 - [ ] My 7xPlay, Downloads, My List, watch-history entry points, playlists and Wellness/Viewing Insights covered.
 - [ ] Title details, collections, seasons, episodes, people, credits, artwork galleries and Live TV browsing covered.
-- [ ] Settings, profile/auth, sync, server status, update/about, Plus/payment/wallet and Flix AI covered.
+- [ ] Settings, profile/auth, sync, server status, update/about, Plus/payment/wallet and 7x AI covered.
 - [ ] Supporting sheets/dialogs and their callbacks covered.
 - [ ] Dark, AMOLED, Light, custom/dynamic, seasonal and ambient themes checked.
 - [ ] Arabic RTL, Spanish and Hindi retained/updated.

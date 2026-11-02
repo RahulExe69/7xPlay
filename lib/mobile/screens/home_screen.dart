@@ -693,7 +693,7 @@ class _HomeHeader extends StatelessWidget {
                     icon: Icon(PhosphorIcons.downloadSimple(), size: 24),
                   ),
                   IconButton(
-                    tooltip: 'FlixAI',
+                    tooltip: '7x AI',
                     color: palette.foreground,
                     onPressed: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(

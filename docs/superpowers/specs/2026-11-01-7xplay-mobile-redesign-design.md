@@ -34,6 +34,8 @@ The movie-details screenshots supplied by the product owner illustrate the probl
 
 The product owner selected **Approach A: shared design system first**, with independently composed page layouts. This document treats the selection as authoritative.
 
+The AI assistant's user-facing product name is **7x AI**. Preserve the existing internal `flix_ai_*` localization keys, `FlixAiScreen`/controller/repository symbols, and `/flix-ai` route identifier.
+
 ## Approaches considered
 
 ### A. Shared design system, distinct page compositions — selected
@@ -106,7 +108,7 @@ The redesign covers the full mobile experience, not only the five root tabs. The
 - My List/bookmarks and watch history/continue-watching surfaces.
 - Settings, profile editing, sync, server status, update/about pages.
 - 7xPlay Plus, payment, and wallet surfaces.
-- Flix AI and other existing auxiliary product screens.
+- 7x AI and other existing auxiliary product screens.
 - Supporting bottom sheets, dialogs, menus, forms, toasts/snackbars, loading states, and error states reached from the above pages.
 
 Each in-scope page must be reviewed and given a deliberate layout decision. A global palette or shared header change alone does not satisfy the requirement.

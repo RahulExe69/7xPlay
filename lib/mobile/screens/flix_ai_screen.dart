@@ -170,7 +170,7 @@ class _FlixAiScreenState extends State<FlixAiScreen>
     return Scaffold(
       backgroundColor: palette.page,
       appBar: PageAppBar(
-        title: 'FlixAI',
+        title: '7x AI',
         contentWidth: _columnWidth,
         actions: [
           if (signedIn) ...[
@@ -333,7 +333,7 @@ class _FlixAiScreenState extends State<FlixAiScreen>
   }
 }
 
-/// FlixAI's mark in a soft circle, beside its replies; its sparks twinkle
+/// 7x AI's mark in a soft circle, beside its replies; its sparks twinkle
 /// while one is on its way.
 class _Mark extends StatelessWidget {
   const _Mark({this.size = 28, this.thinking = false});
@@ -553,7 +553,7 @@ class _TurnView extends StatelessWidget {
   }
 }
 
-/// A reply from FlixAI: its mark, then what it said, with no bubble.
+/// A reply from 7x AI: its mark, then what it said, with no bubble.
 class _Reply extends StatelessWidget {
   const _Reply(
       {required this.gutter, required this.children, this.thinking = false});
