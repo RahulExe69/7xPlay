@@ -78,6 +78,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/page_app_bar_test.dart
 
+      - name: Test cinematic Home feature layout and feed behavior
+        working-directory: 7xPlay
+        run: flutter test test/hero_card_layout_test.dart test/home_screen_test.dart
+
   # PRs run the quick provider tests above. Avoid rebuilding all APKs on
   # every PR update; full APKs are built once after merge or on manual dispatch.
   build-apks:
