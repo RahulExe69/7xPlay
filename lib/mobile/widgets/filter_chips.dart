@@ -91,7 +91,6 @@ class ChoicePill extends StatelessWidget {
                 color: selected
                     ? Theme.of(context).colorScheme.primary
                     : palette.surface,
-                borderRadius: BorderRadius.circular(AppRadii.chip),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadii.chip),
                   side: BorderSide(
