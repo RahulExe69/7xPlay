@@ -101,8 +101,6 @@ class PageAppBar extends StatelessWidget implements PreferredSizeWidget {
               color: palette.foreground,
             ),
           ),
-          const SizedBox(height: 4),
-          const BrandAccentRule(),
         ],
       ),
       actions: <Widget>[...?actions, const SizedBox(width: 4)],
