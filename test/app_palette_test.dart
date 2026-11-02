@@ -68,6 +68,43 @@ void main() {
     expect(palettes['dark']!.page, isNot(palettes['amoled']!.page));
   });
 
+  test('custom and seasonal colours keep accent and control contrast', () {
+    final scenarios = <ThemeData>[
+      ThemeData(
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF5A2A56),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF24101C),
+      ),
+      ThemeData(
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFFE9B7D0),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFFFF4F7),
+      ),
+    ];
+
+    for (final theme in scenarios) {
+      final palette = AppPalette.fromTheme(theme);
+      expect(palette.page, theme.scaffoldBackgroundColor);
+      expect(
+        _contrast(palette.accent, palette.page),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        _contrast(palette.foreground, palette.page),
+        greaterThan(12),
+      );
+      expect(
+        _contrast(
+          palette.onFocus,
+          _over(palette.focusFill, palette.page),
+        ),
+        greaterThan(12),
+      );
+    }
+  });
+
   testWidgets('text stays readable on every page', (tester) async {
     final palettes = await _palettes(tester);
     for (final MapEntry(key: mode, value: palette) in palettes.entries) {
