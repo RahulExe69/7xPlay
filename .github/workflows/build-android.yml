@@ -74,6 +74,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/flix_ai_screen_test.dart
 
+      - name: Test shared page header composition
+        working-directory: 7xPlay
+        run: flutter test test/page_app_bar_test.dart
+
   # PRs run the quick provider tests above. Avoid rebuilding all APKs on
   # every PR update; full APKs are built once after merge or on manual dispatch.
   build-apks:
