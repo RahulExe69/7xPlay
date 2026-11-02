@@ -31,9 +31,9 @@ class HeroCard extends StatefulWidget {
   /// The title's genre names, shown after its year.
   final List<String> genres;
 
-  /// The card's height on [context]'s page: tall like a poster on phones,
-  /// a wide frame on wider pages. On a tablet it keeps to half the screen,
-  /// so a landscape one still shows the rows below.
+  /// The card's height on [context]'s page: a compact featured frame on
+  /// phones, and a wide frame on larger pages. On a tablet it keeps to half
+  /// the screen, so a landscape one still shows the rows below.
   static double heightFor(BuildContext context) {
     final media = MediaQuery.sizeOf(context);
     final width = media.width;
@@ -42,7 +42,7 @@ class HeroCard extends StatefulWidget {
         : 0.0;
     final cardWidth = width - tabletInset;
     if (width < AppBreakpoints.tablet) {
-      return (cardWidth * 1.22).clamp(0, 520).toDouble();
+      return (cardWidth * .82).clamp(240, 420).toDouble();
     }
     final frame = (cardWidth * 9 / 16).clamp(0, 460).toDouble();
     return AppBreakpoints.isTablet(context)
@@ -53,13 +53,13 @@ class HeroCard extends StatefulWidget {
   /// The widest the Play and My List pair grows on a tablet.
   static const tabletButtonsWidth = 520.0;
 
-  /// The artwork the card shows for [item] on this screen: the poster on
-  /// phones, the backdrop on tablets or when there's no poster.
+  /// The featured card uses backdrop artwork wherever it exists, on phones
+  /// and tablets alike. A poster is the fallback when no backdrop is supplied.
   static (String?, String?) artworkFor(BuildContext context, MediaItem item) {
-    final wide = MediaQuery.sizeOf(context).width >= AppBreakpoints.tablet;
-    return wide || item.posterPath == null
-        ? (item.backdropPath ?? item.posterPath, ArtSize.backdrop)
-        : (item.posterPath, null);
+    final backdrop = item.backdropPath;
+    return backdrop == null
+        ? (item.posterPath, null)
+        : (backdrop, ArtSize.backdrop);
   }
 
   /// Where that artwork is, for loading it ahead. Outside build.

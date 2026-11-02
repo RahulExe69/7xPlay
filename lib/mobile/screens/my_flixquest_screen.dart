@@ -222,11 +222,19 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
             Padding(
               padding:
                   EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
-              child: Text(
-                tr('my_flixquest'),
-                style: AppType.scaled(context, AppType.pageTitle).copyWith(
-                  color: palette.foreground,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    tr('my_flixquest'),
+                    style: AppType.scaled(context, AppType.pageTitle).copyWith(
+                      color: palette.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const BrandAccentRule(width: 36),
+                ],
               ),
             ),
             const SizedBox(height: AppSpace.xl),

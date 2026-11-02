@@ -11,6 +11,7 @@ import '../../catalog/catalog_controller.dart';
 import '../../catalog/media_item.dart';
 import '../../catalog/media_search.dart';
 import '../../constants/app_constants.dart';
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../design/flix_ai_mark.dart';
@@ -343,7 +344,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text('FlixAI',
+                              Text('7x AI',
                                   style: AppType.cardTitle.copyWith(
                                       fontSize: 15,
                                       color: palette.foreground)),
@@ -625,8 +626,16 @@ class _SearchHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final chips = this.chips;
-    return ColoredBox(
-      color: palette.page,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.page,
+        border: Border(
+          bottom: BorderSide(
+            color: AppBrand.ember.withValues(alpha: palette.dark ? .34 : .18),
+            width: .7,
+          ),
+        ),
+      ),
       child: Padding(
         padding: EdgeInsets.only(top: topInset),
         child: Column(
