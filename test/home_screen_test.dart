@@ -483,7 +483,7 @@ void main() {
           .map((text) => text.data);
       expect(accentTexts, isEmpty);
       expect(find.text('CONTINUE_WATCHING'), findsOneWidget);
-      expect(find.text('FLIXQUEST'), findsOneWidget);
+      expect(find.text('7XPLAY'), findsOneWidget);
       final accentIcons = tester
           .widgetList<Icon>(find.byType(Icon))
           .where((icon) => icon.color == accent);
