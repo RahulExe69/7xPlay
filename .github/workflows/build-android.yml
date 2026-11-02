@@ -82,6 +82,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/hero_card_layout_test.dart test/filter_chips_test.dart test/home_screen_test.dart
 
+      - name: Test catalogue, New & Hot, Discover and Search flows
+        working-directory: 7xPlay
+        run: flutter test test/home_feed_controller_test.dart test/home_catalog_test.dart test/continue_watching_test.dart test/new_and_hot_screen_test.dart test/discover_screen_test.dart test/search_screen_test.dart
+
   # PRs run the quick provider tests above. Avoid rebuilding all APKs on
   # every PR update; full APKs are built once after merge or on manual dispatch.
   build-apks:
