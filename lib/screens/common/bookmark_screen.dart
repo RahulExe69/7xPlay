@@ -84,7 +84,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        tr('bookmarks'),
+                        tr('my_list'),
                         style: AppType.scaled(context, AppType.pageTitle)
                             .copyWith(color: palette.foreground),
                       ),
@@ -95,20 +95,6 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                       onPressed: _syncBookmarks,
                     ),
                   ],
-                ),
-              ),
-            if (widget.embedded)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpace.gutter(context),
-                  AppSpace.lg,
-                  AppSpace.gutter(context),
-                  AppSpace.xs,
-                ),
-                child: Text(
-                  tr('my_list'),
-                  style: AppType.scaled(context, AppType.pageTitle)
-                      .copyWith(color: palette.foreground),
                 ),
               ),
             Padding(
