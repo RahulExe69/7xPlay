@@ -3704,6 +3704,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   void _maybeAutoSwitchToPreferredAudioSource() {
     if (!_initialPlaybackReady ||
+        _automaticFallbackRunning ||
         _automaticPreferredLanguageAttempted ||
         _audioLanguageExplicitlySelected ||
         _isSwitchingProvider ||
@@ -4561,6 +4562,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // candidate can still be resolved on demand below.
     _automaticFallbackRunning = true;
     if (mounted) setState(() {});
+    var playbackRecovered = false;
 
     try {
       final selectedLanguage = _activeAudioLanguageCode;
@@ -4591,6 +4593,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             failedProviderCode: failedProviderCode,
             resumeAt: resumeAt,
           )) {
+            playbackRecovered = true;
             return true;
           }
         } catch (error) {
@@ -4618,6 +4621,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           preserveExplicitSelection: true,
         );
         if (switched) {
+          playbackRecovered = true;
           _trackPlaybackEvent(
             'automatic_provider_fallback_succeeded',
             value: _analyticsProviderName ?? selectedLanguage,
@@ -4639,6 +4643,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           failedProviderCode: failedProviderCode,
           resumeAt: resumeAt,
         )) {
+          playbackRecovered = true;
           return true;
         }
       } catch (error) {
@@ -4704,6 +4709,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           closeMenu: () {},
         );
         if (switched) {
+          playbackRecovered = true;
           _trackPlaybackEvent(
             'automatic_provider_fallback_succeeded',
             value: provider.displayName,
@@ -4718,7 +4724,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       return false;
     } finally {
       _automaticFallbackRunning = false;
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+        // A language discovered during failover may now be applied, but only
+        // after the replacement stream has demonstrated actual playback.
+        if (playbackRecovered) _maybeAutoSwitchToPreferredAudioSource();
+      }
     }
   }
 
