@@ -98,6 +98,14 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/home_feed_controller_test.dart test/home_catalog_test.dart test/continue_watching_test.dart test/new_and_hot_screen_test.dart test/discover_screen_test.dart test/search_screen_test.dart
 
+      - name: Test title details, episode actions and themed components
+        working-directory: 7xPlay
+        run: flutter test test/title_details_screen_test.dart test/details_play_test.dart test/episode_cast_test.dart test/seasonal_component_theme_test.dart
+
+      - name: Test saved library, playlist sync and settings
+        working-directory: 7xPlay
+        run: flutter test test/settings_kit_test.dart test/app_mode_settings_test.dart test/data/bookmark_repository_test.dart test/data/bookmark_sync_engine_test.dart test/data/playlist_sync_engine_test.dart
+
       - name: Test collection paging, empty and retry states
         working-directory: 7xPlay
         run: flutter test test/collection_screen_test.dart test/poster_grid_test.dart
