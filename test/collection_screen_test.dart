@@ -73,4 +73,69 @@ void main() {
     expect(shown(), <MediaKind>[MediaKind.movie]);
     expect(moviePages.length, loaded);
   });
+
+  testWidgets('an empty result gets a deliberate collection empty state',
+      (tester) async {
+    final requested = <int>[];
+    final collection = MediaCollection(
+      id: 'empty',
+      title: 'No matches',
+      kicker: 'DISCOVER',
+      loadPage: (page) async {
+        requested.add(page);
+        return const <MediaItem>[];
+      },
+    );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+          ChangeNotifierProvider(create: (_) => AppDependencyProvider()),
+        ],
+        child: MaterialApp(home: CollectionScreen(collection: collection)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requested, <int>[1]);
+    expect(find.text('No matches'), findsOneWidget);
+    expect(find.text('nothing_here_yet'), findsOneWidget);
+    expect(find.byType(PosterCard), findsNothing);
+  });
+
+  testWidgets('an initial collection error can be retried in place',
+      (tester) async {
+    var requests = 0;
+    final collection = MediaCollection(
+      id: 'retry',
+      title: 'Retry collection',
+      kicker: 'STREAMING',
+      loadPage: (page) async {
+        requests++;
+        if (requests == 1) throw StateError('temporary error');
+        return <MediaItem>[
+          MediaItem.fromMovie(Movie(id: 21, title: 'Recovered title')),
+        ];
+      },
+    );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+          ChangeNotifierProvider(create: (_) => AppDependencyProvider()),
+        ],
+        child: MaterialApp(home: CollectionScreen(collection: collection)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requests, 1);
+    expect(find.text('check_connection'), findsOneWidget);
+    await tester.tap(find.text('retry'));
+    await tester.pumpAndSettle();
+
+    expect(requests, 2);
+    expect(find.byType(PosterCard), findsOneWidget);
+  });
+
 }

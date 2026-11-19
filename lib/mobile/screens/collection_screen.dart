@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../catalog/catalog_controller.dart';
 import '../../data/ads/content_ads.dart';
@@ -13,6 +14,7 @@ import '../widgets/pill_button.dart';
 import '../widgets/poster_card.dart';
 import '../widgets/poster_grid.dart';
 import '../widgets/media_rows.dart';
+import '../widgets/page_kit.dart' show BrandAccentRule, EmptyState;
 
 /// A genre's or a service's titles in a grid, a page at a time as the viewer
 /// scrolls.
@@ -48,23 +50,35 @@ class _CollectionScreenState extends State<CollectionScreen> {
     return Scaffold(
       backgroundColor: palette.page,
       appBar: AppBar(
+        toolbarHeight: 98,
         backgroundColor: palette.page,
         surfaceTintColor: Colors.transparent,
         titleSpacing: 0,
         title: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              first.kicker,
-              style: AppType.kicker.copyWith(color: palette.mutedText),
+              first.kicker.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.kicker.copyWith(
+                color: palette.mutedText,
+                letterSpacing: 1.8,
+              ),
             ),
+            const SizedBox(height: 3),
             Text(
               first.title,
-              style: AppType.sectionHeader.copyWith(
-                fontFamily: AppType.bold,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.scaled(context, AppType.pageTitle).copyWith(
                 color: palette.foreground,
               ),
             ),
+            const SizedBox(height: 7),
+            const BrandAccentRule(width: 48, height: 2),
           ],
         ),
         actions: <Widget>[
@@ -72,11 +86,12 @@ class _CollectionScreenState extends State<CollectionScreen> {
             Padding(
               padding: const EdgeInsetsDirectional.only(end: 16),
               child: Container(
-                height: 30,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                height: 34,
+                constraints: const BoxConstraints(maxWidth: 96),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppPalette.logoPlate,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Image.asset(logo, fit: BoxFit.contain),
               ),
@@ -87,7 +102,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
             : PreferredSize(
                 preferredSize: const Size.fromHeight(FilterChips.height + 12),
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsetsDirectional.fromSTEB(gutter, 0, gutter, 12),
                   child: FilterChips(
                     chips: <FilterChipSpec>[
                       for (var i = 0; i < widget.tabs.length; i++)
@@ -203,49 +218,57 @@ class _CollectionGridState extends State<_CollectionGrid> {
                 placement: placement,
               ),
             ),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(gutter, AppSpace.sm, gutter, 0),
-            sliver: SliverGrid.builder(
-              gridDelegate: posterGridDelegate(context),
-              // While a page comes, posters' places pulse where it'll go:
-              // the rest of the last row and the one after.
-              itemCount:
-                  _items.length + (_loading ? _placeholders(columns) : 0),
-              itemBuilder: (context, index) => index >= _items.length
-                  ? const SkeletonBlock()
-                  : LayoutBuilder(
-                      builder: (context, constraints) => PosterCard(
-                        item: _items[index],
-                        width: constraints.maxWidth,
-                        badge: recencyBadge(_items[index]),
+          if (_items.isEmpty && !_loading && _failed)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState.error(
+                message: tr('check_connection'),
+                onRetry: _loadMore,
+              ),
+            )
+          else if (_items.isEmpty && !_loading && _ended)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: PhosphorIcons.filmStrip(),
+                title: tr('nothing_here_yet'),
+              ),
+            )
+          else ...<Widget>[
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(gutter, AppSpace.lg, gutter, 0),
+              sliver: SliverGrid.builder(
+                gridDelegate: posterGridDelegate(context),
+                // Skeletons reserve the same poster spaces as the results.
+                itemCount:
+                    _items.length + (_loading ? _placeholders(columns) : 0),
+                itemBuilder: (context, index) => index >= _items.length
+                    ? const SkeletonBlock()
+                    : LayoutBuilder(
+                        builder: (context, constraints) => PosterCard(
+                          item: _items[index],
+                          width: constraints.maxWidth,
+                          badge: recencyBadge(_items[index]),
+                        ),
                       ),
-                    ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                gutter,
-                AppSpace.xxl,
-                gutter,
-                AppSpace.xxl + MediaQuery.paddingOf(context).bottom,
-              ),
-              child: Center(
-                child: _failed
-                    ? PillButton(label: tr('retry'), onPressed: _loadMore)
-                    : _loading
-                        ? const SizedBox.shrink()
-                        : _items.isEmpty
-                            ? Text(
-                                tr('nothing_here_yet'),
-                                style: AppType.body.copyWith(
-                                  color: palette.mutedText,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
               ),
             ),
-          ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  gutter,
+                  AppSpace.xxl,
+                  gutter,
+                  AppSpace.xxl + MediaQuery.paddingOf(context).bottom,
+                ),
+                child: Center(
+                  child: _failed
+                      ? PillButton(label: tr('retry'), onPressed: _loadMore)
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
