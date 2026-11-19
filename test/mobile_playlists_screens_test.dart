@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flixquest/data/playlists/playlist.dart';
 import 'package:flixquest/mobile/screens/playlists_screen.dart';
 import 'package:flixquest/mobile/widgets/page_kit.dart';
@@ -7,6 +11,22 @@ import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+
+class _FileLoader extends AssetLoader {
+  const _FileLoader();
+
+  @override
+  Future<Map<String, dynamic>> load(String path, Locale locale) async =>
+      jsonDecode(File('$path/${locale.languageCode}.json').readAsStringSync())
+          as Map<String, dynamic>;
+}
+
+const _locales = <Locale>[
+  Locale('en'),
+  Locale('es'),
+  Locale('ar'),
+  Locale('hi'),
+];
 
 class _FakePlaylists extends PlaylistProvider {
   _FakePlaylists(this._lists);
@@ -54,25 +74,44 @@ Future<void> _pumpPlaylists(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<SettingsProvider>(
-          create: (_) => SettingsProvider(),
+    EasyLocalization(
+      supportedLocales: _locales,
+      startLocale: _locales.first,
+      fallbackLocale: _locales.first,
+      saveLocale: false,
+      path: 'assets/translations',
+      assetLoader: const _FileLoader(),
+      child: Builder(
+        builder: (context) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider<SettingsProvider>(
+              create: (_) => SettingsProvider(),
+            ),
+            ChangeNotifierProvider<AppDependencyProvider>(
+              create: (_) => AppDependencyProvider(),
+            ),
+            ChangeNotifierProvider<PlaylistProvider>.value(
+              value: _FakePlaylists(lists),
+            ),
+          ],
+          child: MaterialApp(
+            locale: context.locale,
+            supportedLocales: context.supportedLocales,
+            localizationsDelegates: context.localizationDelegates,
+            home: const PlaylistsScreen(),
+          ),
         ),
-        ChangeNotifierProvider<AppDependencyProvider>(
-          create: (_) => AppDependencyProvider(),
-        ),
-        ChangeNotifierProvider<PlaylistProvider>.value(
-          value: _FakePlaylists(lists),
-        ),
-      ],
-      child: const MaterialApp(home: PlaylistsScreen()),
+      ),
     ),
   );
   await tester.pumpAndSettle();
 }
 
 void main() {
+  setUpAll(() async {
+    await EasyLocalization.ensureInitialized();
+  });
+
   testWidgets('shows custom lists as artwork-led gallery cards',
       (tester) async {
     await _pumpPlaylists(
@@ -106,9 +145,9 @@ void main() {
     await _pumpPlaylists(tester, lists: const <Playlist>[]);
 
     expect(tester.takeException(), isNull);
-    expect(find.text('playlists_empty_title'), findsOneWidget);
-    expect(find.text('playlist_new'), findsOneWidget);
-    expect(find.text('playlist_import'), findsOneWidget);
+    expect(find.text(tr('playlists_empty_title')), findsOneWidget);
+    expect(find.text(tr('playlist_new')), findsOneWidget);
+    expect(find.text(tr('playlist_import')), findsOneWidget);
     expect(find.byType(GridView), findsNothing);
   });
 }
