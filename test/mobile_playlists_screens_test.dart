@@ -109,6 +109,7 @@ Future<void> _pumpPlaylists(
 
 void main() {
   setUpAll(() async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
     await EasyLocalization.ensureInitialized();
   });
 
