@@ -1,4 +1,5 @@
 import 'package:flixquest/models/movie.dart';
+import 'package:flixquest/mobile/app/mobile_tabs.dart';
 import 'package:flixquest/models/tv.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
 import 'package:flixquest/provider/bookmark_provider.dart';
@@ -43,21 +44,18 @@ Future<void> _pump(
     ..devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    MobileTabScope(
-      controller: tabs,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AppDependencyProvider>(
-            create: (_) => AppDependencyProvider(),
-          ),
-          ChangeNotifierProvider<BookmarkProvider>.value(
-            value: _FakeBookmarks(movies: movies, tvShows: series),
-          ),
-        ],
-        child: MaterialApp(
-          home: BookmarkScreen(
-            onDiscover: () => tabs.select(MobileTab.discover),
-          ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppDependencyProvider>(
+          create: (_) => AppDependencyProvider(),
+        ),
+        ChangeNotifierProvider<BookmarkProvider>.value(
+          value: _FakeBookmarks(movies: movies, tvShows: series),
+        ),
+      ],
+      child: MaterialApp(
+        home: BookmarkScreen(
+          onDiscover: () => tabs.select(MobileTab.discover),
         ),
       ),
     ),
