@@ -542,12 +542,18 @@ class _DownloadMetadata extends StatelessWidget {
       children: [
         Icon(icon, size: 13, color: colors.onSurfaceVariant),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text(
+            label,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
         ),
       ],
     );
