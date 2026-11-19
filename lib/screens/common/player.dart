@@ -4452,6 +4452,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     Duration timeout = const Duration(seconds: 12),
   }) async {
     final deadline = DateTime.now().add(timeout);
+    Duration? lastPlayingPosition;
+    var advanced = Duration.zero;
+
     while (DateTime.now().isBefore(deadline)) {
       if (!mounted || _adBlockStopped) return false;
       final value = _betterPlayerController.videoPlayerController?.value;
@@ -4459,17 +4462,37 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final initialized = value != null &&
           value.duration != null &&
           value.duration! > Duration.zero;
-      final started = value != null && value.isPlaying && !value.isBuffering;
-      if (initialized && (!expectPlaying || started)) return true;
+      if (initialized && !expectPlaying) return true;
+
+      if (initialized && value!.isPlaying && !value.isBuffering) {
+        final previousPosition = lastPlayingPosition;
+        if (previousPosition != null) {
+          final delta = value.position - previousPosition;
+          if (delta > Duration.zero) {
+            advanced += delta;
+          } else if (delta < Duration.zero) {
+            advanced = Duration.zero;
+          }
+        }
+        lastPlayingPosition = value.position;
+        // A controller can report isPlaying before the CDN has delivered
+        // decodable frames. Require observable timeline movement as well.
+        if (advanced >= const Duration(milliseconds: 500)) return true;
+      } else {
+        lastPlayingPosition = null;
+        advanced = Duration.zero;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }
+
+    // A paused source only needs to initialize; an autoplaying source must
+    // have demonstrated actual playback before recovery can stop.
     final value = _betterPlayerController.videoPlayerController?.value;
-    final initialized = value != null &&
+    return !expectPlaying &&
+        value != null &&
         value.duration != null &&
         value.duration! > Duration.zero &&
         !value.hasError;
-    final started = value != null && value.isPlaying && !value.isBuffering;
-    return initialized && (!expectPlaying || started);
   }
 
   Future<bool> _isCurrentPlaybackProgressing() async {
