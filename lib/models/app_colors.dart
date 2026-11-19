@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../design/app_brand.dart';
+
 class AppColor {
   ColorScheme cs;
   int index;
@@ -58,7 +60,7 @@ class AppColorsList {
     // Default color (index -1) + dynamically generated color list
     return [
       AppColor(
-        cs: AppColor.colorGetter(const Color(0xFFF97316), isDark),
+        cs: AppColor.colorGetter(AppBrand.amber, isDark),
         index: AppColor.defaultIndex,
       ),
       ...List.generate(

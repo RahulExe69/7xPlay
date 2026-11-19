@@ -641,47 +641,22 @@ class _HomeHeader extends StatelessWidget {
               padding: EdgeInsetsDirectional.fromSTEB(gutter, 0, gutter - 8, 0),
               child: Row(
                 children: <Widget>[
-                  // The mark in the theme's colour, as the TV rail has it (a
-                  // logo set remotely still takes its place), and the name
-                  // in heavy type in the text colour beside it.
-                  // Tight, so the Spacer's share of the free space is all
-                  // that's left and the icons sit at the bar's far end.
                   Flexible(
                     fit: FlexFit.tight,
                     child: Semantics(
                       header: true,
                       label: '7xPlay',
                       excludeSemantics: true,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          AppLogo(
-                            fallbackAsset: 'assets/images/7xplay_logo.svg',
-                            height: 26,
-                            fallbackColor:
-                                Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          // A logo, so it keeps its size at any text size,
-                          // and gives way only if the bar runs out of room.
-                          Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: AlignmentDirectional.centerStart,
-                              child: Text(
-                                '7XPLAY',
-                                textScaler: TextScaler.noScaling,
-                                style: TextStyle(
-                                  color: palette.foreground,
-                                  fontFamily: 'FigtreeBlack',
-                                  fontSize: 20,
-                                  height: 1,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: AppLogo(
+                          // The product wordmark is an in-app brand asset.
+                          // icon.png is reserved exclusively for the launcher.
+                          fallbackAsset: 'assets/images/7xplay_wordmark.png',
+                          width: 136,
+                          height: 48,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ),
@@ -690,23 +665,24 @@ class _HomeHeader extends StatelessWidget {
                     tooltip: tr('downloads'),
                     color: palette.foreground,
                     onPressed: onDownloads,
-                    icon: Icon(PhosphorIcons.downloadSimple(), size: 24),
+                    icon: Icon(PhosphorIcons.downloadSimple(), size: 23),
                   ),
                   IconButton(
                     tooltip: '7x AI',
                     color: palette.foreground,
                     onPressed: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                            settings: const RouteSettings(name: '/flix-ai'),
-                            builder: (_) => const FlixAiScreen())),
+                      MaterialPageRoute(
+                        settings: const RouteSettings(name: '/flix-ai'),
+                        builder: (_) => const FlixAiScreen(),
+                      ),
+                    ),
                     icon: const FlixAiMark(height: 22),
                   ),
-                  // Search last, at the bar's far end.
                   IconButton(
                     tooltip: tr('search'),
                     color: palette.foreground,
                     onPressed: onSearch,
-                    icon: Icon(PhosphorIcons.magnifyingGlass(), size: 24),
+                    icon: Icon(PhosphorIcons.magnifyingGlass(), size: 23),
                   ),
                 ],
               ),
