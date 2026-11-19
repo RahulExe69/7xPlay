@@ -70,6 +70,65 @@ void main() {
       );
       expect(request.toMap()['source'], source.toMap());
     });
+    test('strips provider display decoration before saving recovery quality', () {
+      final taggedLinks = [
+        RegularVideoLinks(
+          url: 'https://example.test/tagged',
+          quality: '1080p · Provider',
+          server: 'mirror-a',
+        ),
+      ];
+
+      final source = OfflineDownloadSource.forSelection(
+        provider: provider,
+        apiBaseUrl: 'https://api.test/api/v2',
+        links: taggedLinks,
+        url: 'https://example.test/tagged',
+      );
+
+      expect(source?.quality, '1080p');
+      expect(source?.server, 'mirror-a');
+    });
+
+    test('uses the selected headers to disambiguate identical source URLs', () {
+      const url = 'https://example.test/shared';
+      final duplicateUrls = [
+        RegularVideoLinks(
+          url: url,
+          quality: '720p · Provider',
+          server: 'server-one',
+          headers: {'Referer': 'https://one.example/'},
+        ),
+        RegularVideoLinks(
+          url: url,
+          quality: '720p · Provider',
+          server: 'server-two',
+          headers: {'Referer': 'https://two.example/'},
+        ),
+      ];
+
+      final source = OfflineDownloadSource.forSelection(
+        provider: provider,
+        apiBaseUrl: 'https://api.test/api/v2',
+        links: duplicateUrls,
+        url: url,
+        headers: {'referer': 'https://two.example/'},
+      );
+
+      expect(source?.server, 'server-two');
+      expect(source?.quality, '720p');
+      expect(
+        OfflineDownloadSource.forSelection(
+          provider: provider,
+          apiBaseUrl: 'https://api.test/api/v2',
+          links: duplicateUrls,
+          url: url,
+          headers: {'referer': 'https://missing.example/'},
+        ),
+        isNull,
+      );
+    });
+
     test('does not invent recovery metadata for missing or ambiguous sources',
         () {
       for (final candidates in [

@@ -155,7 +155,9 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
     // even if the scraper API also exposes a provider named "vixsrc". The
     // user's configured order from "Change Providers Order" is respected as-is.
     providers.add(VideoProvider.directVixSrc);
-    final orderedProviders = settings.orderStreamProviders(providers);
+    final orderedProviders = VideoProviderOrder.prioritizeKaramara(
+      settings.orderStreamProviders(providers),
+    );
     if (!mounted) return;
     setState(() {
       videoProviders = orderedProviders;
@@ -446,8 +448,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
         );
       },
       loadExpanded: (provider, fastResult) {
-        if (widget.download ||
-            provider.type == VideoProviderType.directVixSrc) {
+        if (provider.type == VideoProviderType.directVixSrc) {
           return Future<ProviderLoadResult>.value(fastResult);
         }
         return ProviderLoader.loadMovieFromProvider(
@@ -660,6 +661,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
                 apiBaseUrl: _scraperApiUrl,
                 links: movieVideoLinks ?? const [],
                 url: url,
+                headers: downloadHeaders,
               ),
               contentId: _metadata.movieId,
               subtitleTrackUrl: subtitleTrack?.url,
