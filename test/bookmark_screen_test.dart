@@ -1,5 +1,3 @@
-import 'package:flixquest/design/app_palette.dart';
-import 'package:flixquest/design/app_tokens.dart';
 import 'package:flixquest/mobile/app/mobile_tabs.dart';
 import 'package:flixquest/models/movie.dart';
 import 'package:flixquest/models/tv.dart';
