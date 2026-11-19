@@ -220,11 +220,13 @@ void main() {
     // The shortcut row repeats My List and Downloads labels; the section
     // positions below refer to their later content headings.
     double top(String text) => tester.getTopLeft(find.text(text).last).dy;
+    // Viewing Insights is exposed as the "wellness" library shortcut above
+    // the activity sections, not as a separate lower-page heading.
+    expect(find.text('wellness'), findsOneWidget);
     final order = <String>[
       'continue_watching',
       'my_list',
       'downloads',
-      'viewing_insights',
       'settings',
       'sync',
       'check_server',
