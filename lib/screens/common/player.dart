@@ -4456,18 +4456,20 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!mounted || _adBlockStopped) return false;
       final value = _betterPlayerController.videoPlayerController?.value;
       if (value?.hasError == true) return false;
-      if (value != null &&
-          value.duration != null && value.duration! > Duration.zero &&
-          (!expectPlaying || value.isPlaying || value.position > Duration.zero)) {
-        return true;
-      }
+      final initialized = value != null &&
+          value.duration != null &&
+          value.duration! > Duration.zero;
+      final started = value != null && value.isPlaying && !value.isBuffering;
+      if (initialized && (!expectPlaying || started)) return true;
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }
     final value = _betterPlayerController.videoPlayerController?.value;
-    return value != null &&
-        value.duration != null && value.duration! > Duration.zero &&
-        !value.hasError &&
-        (!expectPlaying || value.isPlaying || value.position > Duration.zero);
+    final initialized = value != null &&
+        value.duration != null &&
+        value.duration! > Duration.zero &&
+        !value.hasError;
+    final started = value != null && value.isPlaying && !value.isBuffering;
+    return initialized && (!expectPlaying || started);
   }
 
   Future<bool> _isCurrentPlaybackProgressing() async {
@@ -4530,62 +4532,62 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final providers = widget.availableProviders ?? const <VideoProvider>[];
     if (providers.isEmpty) return false;
 
-    if (_backgroundProviderAggregationPending &&
-        widget.backgroundProviderSelection != null) {
-      final pendingSelection = await widget.backgroundProviderSelection!;
-      if (!mounted || _adBlockStopped) return false;
-      _mergeBackgroundProviderSelection(pendingSelection);
-    }
-    final selectedLanguage = _activeAudioLanguageCode;
-    if (_audioLanguageExplicitlySelected && selectedLanguage != null) {
-      // If a viewer changed audio before cross-provider manifest inspection
-      // finished, let the catalogue complete briefly before deciding that no
-      // same-language alternatives exist. The currently selected native
-      // source was registered immediately when the track was tapped.
-      final discoveryDeadline =
-          DateTime.now().add(const Duration(seconds: 12));
-      while (_audioLanguageDiscoveryRunning &&
-          DateTime.now().isBefore(discoveryDeadline)) {
-        if (!mounted || _adBlockStopped) return false;
-        await Future<void>.delayed(const Duration(milliseconds: 150));
-      }
-      final languageSourceKeys =
-          _audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[];
-      if (languageSourceKeys.isEmpty) {
-        _trackPlaybackEvent(
-          'automatic_provider_fallback_blocked_no_eligible_source',
-          error: reason,
-        );
-        return false;
-      }
+    // Keep one continuous recovery state visible while the player tests
+    // alternatives. Do not wait for the all-providers future: fast provider
+    // attempts are streamed into _loadedProviderAttempts, and a missing
+    // candidate can still be resolved on demand below.
+    _automaticFallbackRunning = true;
+    if (mounted) setState(() {});
 
-      _automaticFallbackRunning = true;
-      try {
-        if (await _refreshFailedProviderForRecovery(
-          failedProviderCode: failedProviderCode,
-          resumeAt: resumeAt,
-        )) {
-          _automaticFallbackRunning = false;
-          return true;
+    try {
+      final selectedLanguage = _activeAudioLanguageCode;
+      if (_audioLanguageExplicitlySelected && selectedLanguage != null) {
+        // If a viewer changed audio before cross-provider manifest inspection
+        // finished, let the catalogue complete briefly before deciding that no
+        // same-language alternatives exist. The currently selected native
+        // source was registered immediately when the track was tapped.
+        final discoveryDeadline =
+            DateTime.now().add(const Duration(seconds: 12));
+        while (_audioLanguageDiscoveryRunning &&
+            DateTime.now().isBefore(discoveryDeadline)) {
+          if (!mounted || _adBlockStopped) return false;
+          await Future<void>.delayed(const Duration(milliseconds: 150));
         }
-      } catch (error) {
-        debugPrint('[Player] Same-provider refresh failed: $error');
-      }
-      if (failedProviderCode != null) {
-        _providerErrors[failedProviderCode] = tr('provider_playback_failed');
-        // Penalize only sources belonging to the provider that just failed;
-        // keep the other same-language providers eligible.
-        for (final key in languageSourceKeys) {
-          if (_allVideoProviderCodes[key] == failedProviderCode) {
-            _recordAudioSourceFailure(
-              key,
-              reason ?? tr('provider_playback_failed'),
-            );
+        final languageSourceKeys =
+            _audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[];
+        if (languageSourceKeys.isEmpty) {
+          _trackPlaybackEvent(
+            'automatic_provider_fallback_blocked_no_eligible_source',
+            error: reason,
+          );
+          return false;
+        }
+
+        try {
+          if (await _refreshFailedProviderForRecovery(
+            failedProviderCode: failedProviderCode,
+            resumeAt: resumeAt,
+          )) {
+            return true;
           }
+        } catch (error) {
+          debugPrint('[Player] Same-provider refresh failed: $error');
         }
-        _automaticFallbackTried.add(failedProviderCode);
-      }
-      try {
+        if (failedProviderCode != null) {
+          _providerErrors[failedProviderCode] = tr('provider_playback_failed');
+          // Penalize only sources belonging to the provider that just failed;
+          // keep the other same-language providers eligible.
+          for (final key in languageSourceKeys) {
+            if (_allVideoProviderCodes[key] == failedProviderCode) {
+              _recordAudioSourceFailure(
+                key,
+                reason ?? tr('provider_playback_failed'),
+              );
+            }
+          }
+          _automaticFallbackTried.add(failedProviderCode);
+        }
+
         final switched = await _switchToAudioLanguage(
           selectedLanguage,
           languageSourceKeys,
@@ -4604,71 +4606,66 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           );
         }
         return switched;
-      } finally {
-        _automaticFallbackRunning = false;
       }
-    }
 
-    // The default/original-language path can move between languages only
-    // before the viewer explicitly locks a language.
-    final allowed = providers.map((provider) => provider.codeName).toSet();
-    _automaticFallbackRunning = true;
-    try {
-      if (await _refreshFailedProviderForRecovery(
-        failedProviderCode: failedProviderCode,
-        resumeAt: resumeAt,
-      )) {
-        _automaticFallbackRunning = false;
-        return true;
+      // The default/original-language path can move between languages only
+      // before the viewer explicitly locks a language.
+      final allowed = providers.map((provider) => provider.codeName).toSet();
+      try {
+        if (await _refreshFailedProviderForRecovery(
+          failedProviderCode: failedProviderCode,
+          resumeAt: resumeAt,
+        )) {
+          return true;
+        }
+      } catch (error) {
+        debugPrint('[Player] Same-provider refresh failed: $error');
       }
-    } catch (error) {
-      debugPrint('[Player] Same-provider refresh failed: $error');
-    }
-    if (failedProviderCode != null) {
-      _providerErrors[failedProviderCode] = tr('provider_playback_failed');
-      _automaticFallbackTried.add(failedProviderCode);
-    }
-    final attemptsForFallback = widget.backgroundProviderSelection == null
-        ? widget.initialProviderAttempts
-        : _loadedProviderAttempts;
-    final resolvedCandidates = attemptsForFallback.isNotEmpty
-        ? ProviderLoader.fallbackCandidates(
-            attempts: attemptsForFallback,
-            failedProviderCode: failedProviderCode ?? _currentProviderCode,
-            eligibleProviderCodes: allowed,
-            alreadyTriedProviderCodes: _automaticFallbackTried,
-          ).map((attempt) => attempt.provider).toList(growable: false)
-        : <VideoProvider>[];
-    final resolvedCodes =
-        resolvedCandidates.map((provider) => provider.codeName).toSet();
-    // Do not permanently blacklist a provider just because its first
-    // concurrent lookup timed out or returned a transient error. Retry providers
-    // that remain eligible but had no usable initial result, after known-good
-    // candidates have been attempted.
-    final recoveryCandidates = providers.where((provider) {
-      final code = provider.codeName;
-      return allowed.contains(code) &&
-          code != _currentProviderCode &&
-          code != failedProviderCode &&
-          !resolvedCodes.contains(code) &&
-          !_automaticFallbackTried.contains(code);
-    }).toList(growable: false);
-    final candidates = <VideoProvider>[
-      ...resolvedCandidates,
-      ...recoveryCandidates,
-    ];
-    final configuredPriority = {
-      for (var index = 0; index < candidates.length; index++)
-        candidates[index].codeName: index,
-    };
-    candidates.sort((left, right) {
-      final reliability = (_providerFailureCounts[left.codeName] ?? 0)
-          .compareTo(_providerFailureCounts[right.codeName] ?? 0);
-      if (reliability != 0) return reliability;
-      return configuredPriority[left.codeName]!
-          .compareTo(configuredPriority[right.codeName]!);
-    });
-    try {
+      if (failedProviderCode != null) {
+        _providerErrors[failedProviderCode] = tr('provider_playback_failed');
+        _automaticFallbackTried.add(failedProviderCode);
+      }
+      final attemptsForFallback = widget.backgroundProviderSelection == null
+          ? widget.initialProviderAttempts
+          : _loadedProviderAttempts;
+      final resolvedCandidates = attemptsForFallback.isNotEmpty
+          ? ProviderLoader.fallbackCandidates(
+              attempts: attemptsForFallback,
+              failedProviderCode: failedProviderCode ?? _currentProviderCode,
+              eligibleProviderCodes: allowed,
+              alreadyTriedProviderCodes: _automaticFallbackTried,
+            ).map((attempt) => attempt.provider).toList(growable: false)
+          : <VideoProvider>[];
+      final resolvedCodes =
+          resolvedCandidates.map((provider) => provider.codeName).toSet();
+      // Do not permanently blacklist a provider just because its first
+      // concurrent lookup timed out or returned a transient error. Retry providers
+      // that remain eligible but had no usable initial result, after known-good
+      // candidates have been attempted.
+      final recoveryCandidates = providers.where((provider) {
+        final code = provider.codeName;
+        return allowed.contains(code) &&
+            code != _currentProviderCode &&
+            code != failedProviderCode &&
+            !resolvedCodes.contains(code) &&
+            !_automaticFallbackTried.contains(code);
+      }).toList(growable: false);
+      final candidates = <VideoProvider>[
+        ...resolvedCandidates,
+        ...recoveryCandidates,
+      ];
+      final configuredPriority = {
+        for (var index = 0; index < candidates.length; index++)
+          candidates[index].codeName: index,
+      };
+      candidates.sort((left, right) {
+        final reliability = (_providerFailureCounts[left.codeName] ?? 0)
+            .compareTo(_providerFailureCounts[right.codeName] ?? 0);
+        if (reliability != 0) return reliability;
+        return configuredPriority[left.codeName]!
+            .compareTo(configuredPriority[right.codeName]!);
+      });
+
       for (final provider in candidates) {
         final code = provider.codeName;
         if (code == _currentProviderCode ||
@@ -4698,6 +4695,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       return false;
     } finally {
       _automaticFallbackRunning = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -4783,11 +4781,53 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                   onPlay: () => _playTvEpisode(nextEpisode),
                 ),
               ),
+            if (_automaticFallbackRunning || _isSwitchingProvider)
+              Positioned.fill(child: _buildProviderRecoveryOverlay()),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildProviderRecoveryOverlay() => AbsorbPointer(
+        child: ColoredBox(
+          color: Colors.black.withValues(alpha: .72),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: .86),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: .12),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: widget.colors.first,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Text(
+                    tr('loading_video_sources'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 
   void _handleScreenOrientation(BuildContext context) {
     final orientation = MediaQuery.of(context).orientation;
@@ -4824,9 +4864,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
   Widget _buildPortraitInlineLayout(BuildContext context) {
     return PlayerWatchLayout(
-      video: BetterPlayer(
-        controller: _betterPlayerController,
-        key: _betterPlayerKey,
+      video: Stack(
+        fit: StackFit.expand,
+        children: [
+          BetterPlayer(
+            controller: _betterPlayerController,
+            key: _betterPlayerKey,
+          ),
+          if (_automaticFallbackRunning || _isSwitchingProvider)
+            Positioned.fill(child: _buildProviderRecoveryOverlay()),
+        ],
       ),
       slivers: widget.mediaType == MediaType.tvShow
           ? _seriesWatchSlivers()
@@ -5448,6 +5495,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                 apiBaseUrl: downloadApiBaseUrl,
                 links: rawDownloadLinks,
                 url: url,
+                headers: downloadHeaders,
               ),
               contentId: isMovie ? movie?.movieId : episode?.tvId,
               seasonNumber: isMovie ? null : season,

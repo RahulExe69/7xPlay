@@ -446,8 +446,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
         );
       },
       loadExpanded: (provider, fastResult) {
-        if (widget.download ||
-            provider.type == VideoProviderType.directVixSrc) {
+        if (provider.type == VideoProviderType.directVixSrc) {
           return Future<ProviderLoadResult>.value(fastResult);
         }
         return ProviderLoader.loadMovieFromProvider(
@@ -660,6 +659,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
                 apiBaseUrl: _scraperApiUrl,
                 links: movieVideoLinks ?? const [],
                 url: url,
+                headers: downloadHeaders,
               ),
               contentId: _metadata.movieId,
               subtitleTrackUrl: subtitleTrack?.url,

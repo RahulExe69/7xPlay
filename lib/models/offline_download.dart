@@ -22,23 +22,60 @@ class OfflineDownloadSource {
     required String apiBaseUrl,
     required Iterable<RegularVideoLinks> links,
     required String url,
+    Map<String, String>? headers,
   }) {
     if (provider?.type != VideoProviderType.scraperApi ||
         provider?.apiId?.isNotEmpty != true ||
         apiBaseUrl.trim().isEmpty) {
       return null;
     }
-    final matches = links.where((link) => link.url == url).toList();
-    // Display labels can contain server names or occurrence numbers. Save the
-    // actual API quality and server instead, and never guess an ambiguous link.
+
+    var matches = links.where((link) => link.url == url).toList();
+    // When several API entries reuse one URL, use the request headers to keep
+    // the saved server identity aligned with the exact stream selected.
+    if (matches.length > 1 && headers != null) {
+      final headerMatches = matches
+          .where((link) => _sameHeaders(link.headers, headers))
+          .toList();
+      if (headerMatches.length == 1) matches = headerMatches;
+    }
+    // Never guess a provider/server when the selected URL remains ambiguous.
     if (matches.length != 1) return null;
+
+    final selectedProvider = provider!;
     final link = matches.single;
+    final displayedQuality = link.quality?.trim() ?? 'unknown quality';
+    final providerSuffix = ' · ${selectedProvider.displayName}';
+    // Combined provider catalogues decorate qualities for UI display. The
+    // recovery API expects the original, undecorated quality value.
+    final rawQuality = displayedQuality.endsWith(providerSuffix)
+        ? displayedQuality
+            .substring(0, displayedQuality.length - providerSuffix.length)
+            .trimRight()
+        : displayedQuality;
+
     return OfflineDownloadSource(
       apiBaseUrl: apiBaseUrl,
-      providerId: provider!.apiId!,
-      providerName: provider.displayName,
+      providerId: selectedProvider.apiId!,
+      providerName: selectedProvider.displayName,
       server: link.server,
-      quality: link.quality ?? 'unknown quality',
+      quality: rawQuality,
+    );
+  }
+
+  static bool _sameHeaders(
+    Map<String, String>? left,
+    Map<String, String> right,
+  ) {
+    Map<String, String> normalize(Map<String, String>? values) => {
+          for (final entry in values?.entries ?? const <MapEntry<String, String>>[])
+            entry.key.toLowerCase(): entry.value,
+        };
+    final normalizedLeft = normalize(left);
+    final normalizedRight = normalize(right);
+    if (normalizedLeft.length != normalizedRight.length) return false;
+    return normalizedLeft.entries.every(
+      (entry) => normalizedRight[entry.key] == entry.value,
     );
   }
 

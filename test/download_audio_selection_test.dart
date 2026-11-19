@@ -131,7 +131,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('inspection failure does not accept a default audio track',
+  testWidgets('inspection failure offers an explicit default-audio fallback',
       (tester) async {
     var finished = false;
     DownloadAudioSelection? selection;
@@ -144,10 +144,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('download_audio_error'), findsOneWidget);
     expect(finished, isFalse);
-    await tester.tap(find.text('cancel'));
+    expect(find.text('player_default_audio'), findsOneWidget);
+    await tester.tap(find.text('player_default_audio'));
     await tester.pumpAndSettle();
     expect(finished, isTrue);
-    expect(selection, isNull);
+    expect(selection?.track, isNull);
   });
 }
 
