@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,8 +9,8 @@ import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import 'mobile_tabs.dart';
 
-/// Floating five-destination dock. The selected tab sits in a warm brand
-/// capsule; the rest of the page stays visually separate from navigation.
+/// Edge-to-edge five-destination navigation. A restrained translucent surface
+/// keeps the content and destination controls visually connected.
 class MobileNavBar extends StatelessWidget {
   const MobileNavBar({
     required this.current,
@@ -19,45 +21,50 @@ class MobileNavBar extends StatelessWidget {
   final MobileTab current;
   final ValueChanged<MobileTab> onSelect;
 
-  static const height = 86.0;
+  static const height = 68.0;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 14, 10),
+    final media = MediaQuery.of(context);
+    final reduceMotion = media.disableAnimations;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: palette.surface.withValues(alpha: .98),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: palette.hairline),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .28),
-                blurRadius: 26,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            color: palette.page.withValues(alpha: .94),
+            border: Border(
+              top: BorderSide(color: palette.hairline),
+            ),
           ),
-          child: SizedBox(
-            height: 68,
-            child: MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.2,
-              child: Row(
-                children: <Widget>[
-                  for (final tab in MobileTab.values)
-                    Expanded(
-                      child: _DockItem(
-                        tab: tab,
-                        selected: tab == current,
-                        reduceMotion: reduceMotion,
-                        onTap: () => onSelect(tab),
-                      ),
-                    ),
-                ],
+          child: Padding(
+            // Paint the same surface behind Android's gesture/navigation
+            // inset while keeping the five destinations above that inset.
+            padding: EdgeInsets.only(bottom: media.padding.bottom),
+            child: SizedBox(
+              height: height,
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: media.padding.left,
+                  end: media.padding.right,
+                ),
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.2,
+                  child: Row(
+                    children: <Widget>[
+                      for (final tab in MobileTab.values)
+                        Expanded(
+                          child: _DockItem(
+                            tab: tab,
+                            selected: tab == current,
+                            reduceMotion: reduceMotion,
+                            onTap: () => onSelect(tab),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -219,21 +226,16 @@ class _DockItem extends StatelessWidget {
                 : const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
-              color: selected
-                  ? palette.accent.withValues(alpha: .16)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-              border: selected
-                  ? Border.all(color: palette.accent.withValues(alpha: .32))
-                  : null,
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Icon(
                   selected ? selectedIcon : icon,
-                  size: 22,
-                  color: selected ? palette.accent : palette.mutedText,
+                  size: selected ? 24 : 22,
+                  color: selected ? palette.foreground : palette.mutedText,
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -244,7 +246,7 @@ class _DockItem extends StatelessWidget {
                     fontFamily: selected ? AppType.semiBold : AppType.regular,
                     fontSize: 10.5,
                     height: 13 / 10.5,
-                    color: selected ? palette.accent : palette.mutedText,
+                    color: selected ? palette.foreground : palette.mutedText,
                   ),
                 ),
               ],
@@ -291,7 +293,7 @@ class _RailItem extends StatelessWidget {
           margin: const EdgeInsetsDirectional.fromSTEB(7, 5, 7, 5),
           decoration: BoxDecoration(
             color: selected
-                ? palette.accent.withValues(alpha: .16)
+                ? palette.idleFillFaint
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
           ),
@@ -301,7 +303,7 @@ class _RailItem extends StatelessWidget {
               Icon(
                 selected ? selectedIcon : icon,
                 size: 23,
-                color: selected ? palette.accent : palette.mutedText,
+                color: selected ? palette.foreground : palette.mutedText,
               ),
               const SizedBox(height: 4),
               Text(
