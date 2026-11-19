@@ -201,6 +201,13 @@ void main() {
     expect(bars.every((bar) => bar.value != null), isTrue);
   });
 
+  testWidgets('My List and Downloads have dedicated library shortcuts', (tester) async {
+    await _pump(tester);
+
+    expect(find.byKey(const ValueKey<String>('library-shortcut-my-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('library-shortcut-downloads')), findsOneWidget);
+  });
+
   testWidgets('sections and account rows appear in the guide order',
       (tester) async {
     await _pump(

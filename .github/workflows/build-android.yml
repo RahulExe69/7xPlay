@@ -78,6 +78,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/mobile_shell_test.dart
 
+      - name: Test My 7xPlay library dashboard and offline entry points
+        working-directory: 7xPlay
+        run: flutter test test/my_flixquest_screen_test.dart
+
       - name: Test shared page header composition
         working-directory: 7xPlay
         run: flutter test test/page_app_bar_test.dart
