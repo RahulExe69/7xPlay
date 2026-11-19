@@ -1,4 +1,3 @@
-import 'package:flixquest/mobile/app/mobile_tabs.dart';
 import 'package:flixquest/models/movie.dart';
 import 'package:flixquest/models/tv.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
@@ -55,7 +54,11 @@ Future<void> _pump(
             value: _FakeBookmarks(movies: movies, tvShows: series),
           ),
         ],
-        child: const MaterialApp(home: BookmarkScreen()),
+        child: MaterialApp(
+          home: BookmarkScreen(
+            onDiscover: () => tabs.select(MobileTab.discover),
+          ),
+        ),
       ),
     ),
   );
@@ -102,7 +105,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(GridView), findsNWidgets(2));
+    expect(find.byType(GridView), findsOneWidget);
     expect(find.textContaining('2'), findsWidgets);
     await tester.tap(find.text('tv_series'));
     await tester.pumpAndSettle();
