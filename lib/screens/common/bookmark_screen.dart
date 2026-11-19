@@ -10,7 +10,6 @@ import '../../constants/app_constants.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../mobile/my_list.dart';
-import '../../mobile/app/mobile_tabs.dart';
 import '../../mobile/widgets/page_kit.dart';
 import '../../mobile/widgets/pill_button.dart';
 import '../../mobile/widgets/poster_grid.dart';
@@ -22,9 +21,18 @@ import '/screens/common/sync_screen.dart';
 import '../../widgets/hosted_ads_banner.dart';
 
 class BookmarkScreen extends StatefulWidget {
-  const BookmarkScreen({this.embedded = false, super.key});
+  const BookmarkScreen({
+    this.embedded = false,
+    this.onDiscover,
+    super.key,
+  });
 
   final bool embedded;
+
+  /// Returns to the root shell's Discover destination when the viewer chooses
+  /// to browse from an empty list. The caller owns the tab controller because
+  /// pushed routes do not inherit MobileTabScope from the page below them.
+  final VoidCallback? onDiscover;
 
   @override
   State<BookmarkScreen> createState() => _BookmarkScreenState();
@@ -135,11 +143,13 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                     items: MyList.items(context, filter: HomeFilter.movies),
                     loading: bookmarkProvider.isLoading,
                     emptyMessage: tr('no_movies_bookmarked'),
+                    onDiscover: widget.onDiscover,
                   ),
                   _SavedGrid(
                     items: MyList.items(context, filter: HomeFilter.series),
                     loading: bookmarkProvider.isLoading,
                     emptyMessage: tr('no_tv_bookmarked'),
+                    onDiscover: widget.onDiscover,
                   ),
                 ],
               ),
@@ -236,11 +246,13 @@ class _SavedGrid extends StatelessWidget {
     required this.items,
     required this.loading,
     required this.emptyMessage,
+    this.onDiscover,
   });
 
   final List<MediaItem> items;
   final bool loading;
   final String emptyMessage;
+  final VoidCallback? onDiscover;
 
   @override
   Widget build(BuildContext context) {
@@ -250,14 +262,15 @@ class _SavedGrid extends StatelessWidget {
         icon: PhosphorIcons.bookmarkSimple(),
         title: emptyMessage,
         message: tr('my_list_empty_hint'),
-        actionLabel: tr('discover'),
-        actionIcon: PhosphorIcons.compass(),
-        onAction: () {
-          final tabs = MobileTabScope.maybeOf(context);
-          final navigator = Navigator.of(context);
-          if (navigator.canPop()) navigator.pop();
-          tabs?.select(MobileTab.discover);
-        },
+        actionLabel: onDiscover == null ? null : tr('discover'),
+        actionIcon:
+            onDiscover == null ? null : PhosphorIcons.compass(),
+        onAction: onDiscover == null
+            ? null
+            : () {
+                onDiscover!();
+                Navigator.of(context).maybePop();
+              },
       );
     }
     return PosterGrid(items: items);
