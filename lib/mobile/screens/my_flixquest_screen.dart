@@ -35,6 +35,7 @@ import '../../presentation/billing/plus_controller.dart';
 import '../../services/auth_navigation_service.dart';
 import '../../services/plus_navigation.dart';
 import '../../widgets/plus/plus_visuals.dart';
+import '../app/mobile_tabs.dart';
 import '../playlists.dart';
 import '../widgets/media_rows.dart';
 import '../widgets/page_kit.dart';
@@ -261,7 +262,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                         key: const ValueKey<String>('library-shortcut-my-list'),
                         label: tr('my_list'),
                         icon: PhosphorIcons.bookmarkSimple(),
-                        onTap: () => _push(const BookmarkScreen()),
+                        onTap: () => _openMyList(),
                       ),
                       const SizedBox(width: AppSpace.sm),
                       _LibraryShortcut(
@@ -329,7 +330,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
               PosterRow(
                 title: tr('my_list'),
                 items: saved,
-                onSeeAll: () => _push(const BookmarkScreen()),
+                onSeeAll: () => _openMyList(),
               ),
             ],
             if (playlists != null) ...<Widget>[
@@ -421,6 +422,12 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
     await FlixQuestAuthService().signOut();
     if (!mounted) return;
     await AuthNavigationService.returnToSignedOutRoot(context);
+  }
+
+  void _openMyList() {
+    _push(BookmarkScreen(
+      onDiscover: () => MobileTabScope.of(context).select(MobileTab.discover),
+    ));
   }
 
   void _push(Widget page) {
