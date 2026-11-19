@@ -66,8 +66,13 @@ class _Gateway implements OfflineDownloadGateway {
 
 Future<OfflineDownloadProvider> _pump(
   WidgetTester tester,
-  List<OfflineDownload> items,
-) async {
+  List<OfflineDownload> items, {
+  Size size = const Size(390, 844),
+}) async {
+  tester.view
+    ..physicalSize = size
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   final provider = OfflineDownloadProvider(service: _Gateway(items));
   await provider.initialize();
   await tester.pumpWidget(
@@ -106,7 +111,9 @@ void main() {
         createdAt: 2,
         state: OfflineDownloadState.stopped,
       ),
-    ]);
+    ],
+      size: const Size(390, 2600),
+    );
 
     expect(tester.takeException(), isNull);
     expect(find.text('offline_library'), findsOneWidget);
