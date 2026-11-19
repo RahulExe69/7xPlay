@@ -193,38 +193,54 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       appBar: AppBar(
         backgroundColor: palette.page,
         surfaceTintColor: Colors.transparent,
-        // Level with the choices below; a phone's gutter is the default.
+        toolbarHeight: 86,
         titleSpacing: AppBreakpoints.isTablet(context) ? gutter : null,
         title: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              tr('browse_with_filters'),
-              style: AppType.sectionHeader.copyWith(
-                fontFamily: AppType.bold,
-                color: palette.foreground,
+              tr('browse_with_filters').toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.kicker.copyWith(
+                color: AppBrand.ember,
+                letterSpacing: 1.25,
               ),
             ),
-            const SizedBox(height: 3),
-            const BrandAccentRule(width: 32),
+            const SizedBox(height: 2),
+            Text(
+              tr('discover'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.scaled(context, AppType.pageTitle).copyWith(
+                color: palette.foreground,
+                height: 1.05,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              tr('browse_with_filters_hint'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.metadata.copyWith(
+                color: palette.mutedText,
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
         actions: <Widget>[
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 160),
-            opacity: changed ? 1 : 0,
-            child: TextButton(
-              onPressed:
-                  changed ? () => _change((query) => query.clear()) : null,
-              style: TextButton.styleFrom(foregroundColor: palette.foreground),
+          if (changed)
+            TextButton(
+              onPressed: () => _change((query) => query.clear()),
+              style: TextButton.styleFrom(foregroundColor: palette.mutedText),
               child: Text(tr('clear_all')),
             ),
-          ),
           const SizedBox(width: 4),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
+          preferredSize: const Size.fromHeight(64),
           child: Padding(
             padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 12),
             child: SegmentSwitch<MediaKind>(
