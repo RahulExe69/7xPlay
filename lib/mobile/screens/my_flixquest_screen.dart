@@ -13,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../catalog/continue_watching.dart';
 import '../../catalog/media_item.dart';
 import '../../data/playlists/playlist.dart';
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../models/offline_download.dart';
@@ -453,74 +454,124 @@ class _ProfileHeaderContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // The pill may take everything but the avatar and its gaps, so it
-        // stays against the far end and gives way only when it must.
-        final maxPill = (constraints.maxWidth -
-                _ProfileAvatar.size -
-                AppSpace.lg -
-                AppSpace.md)
-            .clamp(0.0, double.infinity);
-        return Row(
-          children: <Widget>[
-            _ProfileAvatar(profile: profile, plus: plus),
-            const SizedBox(width: AppSpace.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Flexible(
-                        child: Text(
-                          profile.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppType.sectionHeader.copyWith(
-                            color: palette.foreground,
+    final cardTint = Color.alphaBlend(
+      AppBrand.violet.withValues(alpha: .075),
+      palette.surface,
+    );
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: <Color>[palette.surface, cardTint, palette.raisedSurface],
+          stops: const <double>[0, .58, 1],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppBrand.magenta.withValues(alpha: .22),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppBrand.ember.withValues(alpha: .08),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              _ProfileAvatar(profile: profile, plus: plus),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Flexible(
+                          child: Text(
+                            profile.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.sectionHeader.copyWith(
+                              color: palette.foreground,
+                              fontSize: 19,
+                            ),
                           ),
                         ),
-                      ),
-                      if (verified) ...<Widget>[
-                        const SizedBox(width: 5),
-                        const VerifiedBadge(size: 19),
+                        if (verified) ...<Widget>[
+                          const SizedBox(width: 5),
+                          const VerifiedBadge(size: 18),
+                        ],
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  if (plus)
-                    PlusSheen(
-                      child: Text(
-                        status,
-                        style: AppType.metadata.copyWith(
-                          fontFamily: AppType.semiBold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      status,
-                      style:
-                          AppType.metadata.copyWith(color: palette.mutedText),
                     ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: <Widget>[
+                        if (plus) ...<Widget>[
+                          Icon(
+                            PhosphorIcons.crownSimple(PhosphorIconsStyle.fill),
+                            size: 13,
+                            color: AppBrand.amber,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                        Flexible(
+                          child: plus
+                              ? PlusSheen(
+                                  child: Text(
+                                    status,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppType.metadata.copyWith(
+                                      fontFamily: AppType.semiBold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  status,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppType.metadata.copyWith(
+                                    color: palette.mutedText,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: <Color>[
+                  AppBrand.ember.withValues(alpha: .42),
+                  AppBrand.magenta.withValues(alpha: .24),
+                  Colors.transparent,
                 ],
               ),
             ),
-            const SizedBox(width: AppSpace.md),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxPill),
-              child: PillButton(
-                label: actionLabel,
-                icon: actionIcon,
-                busy: busy,
-                onPressed: onAction,
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+          const SizedBox(height: 12),
+          PillButton(
+            label: actionLabel,
+            icon: actionIcon,
+            busy: busy,
+            onPressed: onAction,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -54,8 +54,9 @@ Redesign each page separately, allowing every page to invent its own controls an
 
 ### Brand and surfaces
 
-- Dark-first identity based on the approved 7xPlay mark: near-black and deep wine are the primary canvases.
-- Amber/cinema gold is the main action accent. Ember supports secondary emphasis. Magenta is a rare signature, not a repeated decoration.
+- The committed product artwork is the source of truth: `RahulExe69/7x/products/7xplay/assets/icon.png` and `wordmark.png`. The icon's visible identity is a near-black cinematic canvas with a gold/yellow-to-orange/red 7/play symbol and a hot-pink-to-violet X.
+- Build the interface on near-black and purple-black surfaces. Use warm gold/orange for primary actions; use hot pink/violet as restrained secondary signature colours. Do not take the draft cyan/blue values in `brand/tokens/colors.json` as the 7xPlay palette.
+- Use `icon.png` only for the Android launcher. Use `wordmark.png` for in-app branding; do not stretch the square launcher icon into a header logo.
 - Preserve intentional distinctions between Dark, AMOLED, Light, custom/dynamic, seasonal, and ambient theme modes. Do not hard-code dark-only text or surfaces into general-purpose components.
 - Use surface layers, restrained hairlines, spacing, and contrast to establish hierarchy. Do not wrap every content block in a rounded card.
 - Avoid repeated glow effects, giant saturated panels, gradients used as decoration, and accent-colour lines added merely to make a page appear redesigned.

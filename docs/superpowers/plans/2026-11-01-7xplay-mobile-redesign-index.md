@@ -52,5 +52,7 @@ The content-journey executor must audit the existing title-details work and reta
 - [ ] Offline, navigation restoration, deep links, home-widget and ads contracts preserved.
 - [ ] Android TV and playback/provider/audio selection unchanged.
 
-## Approval boundary
-This index and the linked plans describe intended implementation only. No product-code changes are authorised until Rahul approves the plan package and chooses an execution approach.
+## Approval status
+
+Rahul approved implementation of this redesign on 2026-11-19. Continue in reviewable commits on `redesign/phase-2-catalog-experience` and keep `redesign/7xplay-native-experience` in sync. Preserve the five tab IDs, feature contracts, playback/provider boundaries, and the Android TV implementation. PR #24 remains draft until the full mobile scope and validation matrix are complete.
+
