@@ -664,6 +664,7 @@
   "home_movies": "Home: Movies",
   "home_series": "Home: Series",
   "my_list": "My List",
+  "my_list_empty_hint": "Find something new to save to your list.",
   "downloads": "Downloads",
   "no_downloads_yet": "No downloads yet",
   "loading_downloads": "Loading downloads…",
