@@ -106,6 +106,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/settings_kit_test.dart test/app_mode_settings_test.dart test/data/bookmark_repository_test.dart test/data/bookmark_sync_engine_test.dart test/data/playlist_sync_engine_test.dart
 
+      - name: Test the redesigned offline downloads library
+        working-directory: 7xPlay
+        run: flutter test test/downloads_screen_test.dart
+
       - name: Test the redesigned playlist gallery and empty state
         working-directory: 7xPlay
         run: flutter test test/mobile_playlists_screens_test.dart
