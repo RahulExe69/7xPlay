@@ -152,8 +152,8 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
     }
 
     // Keep the app's existing VixSrc implementation as an independent source,
-    // even if the scraper API also exposes a provider named "vixsrc". The
-    // user's configured order from "Change Providers Order" is respected as-is.
+    // even if the scraper API also exposes a provider named "vixsrc". Karamara
+    // is pinned first; the saved order is respected for the remaining sources.
     providers.add(VideoProvider.directVixSrc);
     final orderedProviders = VideoProviderOrder.prioritizeKaramara(
       settings.orderStreamProviders(providers),
