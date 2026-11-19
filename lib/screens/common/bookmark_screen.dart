@@ -10,6 +10,7 @@ import '../../constants/app_constants.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../mobile/my_list.dart';
+import '../../mobile/app/mobile_tabs.dart';
 import '../../mobile/widgets/page_kit.dart';
 import '../../mobile/widgets/pill_button.dart';
 import '../../mobile/widgets/poster_grid.dart';
@@ -57,7 +58,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
       appBar: widget.embedded
           ? null
           : PageAppBar(
-              title: tr('bookmarks'),
+              title: tr('my_list'),
               actions: <Widget>[
                 IconButton(
                   tooltip: tr('sync'),
@@ -96,6 +97,32 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                   ],
                 ),
               ),
+            if (widget.embedded)
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpace.gutter(context),
+                  AppSpace.lg,
+                  AppSpace.gutter(context),
+                  AppSpace.xs,
+                ),
+                child: Text(
+                  tr('my_list'),
+                  style: AppType.scaled(context, AppType.pageTitle)
+                      .copyWith(color: palette.foreground),
+                ),
+              ),
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(
+                AppSpace.gutter(context),
+                widget.embedded ? AppSpace.xs : AppSpace.md,
+                AppSpace.gutter(context),
+                AppSpace.md,
+              ),
+              child: _MyListOverview(
+                movies: bookmarkProvider.movies.length,
+                series: bookmarkProvider.tvShows.length,
+              ),
+            ),
             Padding(
               padding:
                   EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
@@ -161,6 +188,61 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
   }
 }
 
+
+/// The saved library's snapshot and filter context. Counts come directly
+/// from the local bookmark provider, so they remain accurate offline.
+class _MyListOverview extends StatelessWidget {
+  const _MyListOverview({required this.movies, required this.series});
+
+  final int movies;
+  final int series;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final total = movies + series;
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(AppRadii.hero),
+        border: Border.all(color: palette.hairline),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  '$total',
+                  style: AppType.heroTitle.copyWith(
+                    fontSize: 28,
+                    color: palette.foreground,
+                  ),
+                ),
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  '${tr('movies')}: $movies  ·  ${tr('tv_series')}: $series',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.metadata.copyWith(color: palette.mutedText),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpace.md),
+          Icon(
+            PhosphorIcons.bookmarkSimple(PhosphorIconsStyle.bold),
+            size: 30,
+            color: palette.accent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// One kind of saved titles: the browse grid while there are any, its
 /// skeleton while the first read is on its way, and the empty state after.
 class _SavedGrid extends StatelessWidget {
@@ -180,8 +262,15 @@ class _SavedGrid extends StatelessWidget {
     if (items.isEmpty) {
       return EmptyState(
         icon: PhosphorIcons.bookmarkSimple(),
-        title: tr('bookmarks'),
-        message: emptyMessage,
+        title: emptyMessage,
+        message: tr('my_list_empty_hint'),
+        actionLabel: tr('discover'),
+        actionIcon: PhosphorIcons.compass(),
+        onAction: () {
+          final tabs = MobileTabScope.maybeOf(context);
+          Navigator.of(context).maybePop();
+          tabs?.select(MobileTab.discover);
+        },
       );
     }
     return PosterGrid(items: items);
