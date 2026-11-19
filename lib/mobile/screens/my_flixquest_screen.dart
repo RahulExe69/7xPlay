@@ -153,6 +153,11 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
           ),
     ];
     final links = <Widget>[
+      ListRow(
+        icon: PhosphorIcons.slidersHorizontal(),
+        label: tr('settings'),
+        onTap: () => _push(const app_settings.Settings()),
+      ),
       if (_isSignedIn)
         ListRow(
           leading: PlusMark(size: 22, color: palette.mutedText),
@@ -266,14 +271,15 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                         onTap: () => _push(const DownloadsScreen()),
                       ),
                       const SizedBox(width: AppSpace.sm),
-                      _LibraryShortcut(
-                        key: const ValueKey<String>('library-shortcut-playlists'),
-                        label: tr('playlists'),
-                        icon: PhosphorIcons.queue(),
-                        onTap: playlists == null
-                            ? () => _push(const PlaylistsScreen())
-                            : () => _push(const PlaylistsScreen()),
-                      ),
+                      if (playlists != null)
+                        _LibraryShortcut(
+                          key: const ValueKey<String>('library-shortcut-playlists'),
+                          label: tr('playlists'),
+                          icon: PhosphorIcons.queue(),
+                          onTap: () => _push(const PlaylistsScreen()),
+                        )
+                      else
+                        const Spacer(),
                     ],
                   ),
                   const SizedBox(height: AppSpace.sm),
@@ -288,7 +294,12 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                       _LibraryShortcut(
                         label: '7x AI',
                         icon: PhosphorIcons.sparkle(),
-                        onTap: () => _push(const FlixAiScreen()),
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            settings: const RouteSettings(name: '/flix-ai'),
+                            builder: (_) => const FlixAiScreen(),
+                          ),
+                        ),
                       ),
                       const SizedBox(width: AppSpace.sm),
                       _LibraryShortcut(
