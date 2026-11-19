@@ -146,7 +146,7 @@ class _PlaylistCard extends StatelessWidget {
                   fontFamily: AppType.bold,
                 ),
               ),
-              const SizedBox(height: AppSpace.xxs),
+              const SizedBox(height: AppSpace.xs),
               Text(
                 playlistSummary(playlist),
                 maxLines: 1,
@@ -198,7 +198,7 @@ class _PlaylistArtwork extends StatelessWidget {
         }
 
         return ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadii.small),
+          borderRadius: BorderRadius.circular(AppRadii.card),
           child: Column(
             children: <Widget>[
               Expanded(
