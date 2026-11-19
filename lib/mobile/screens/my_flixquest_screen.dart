@@ -43,6 +43,7 @@ import '../widgets/plus_card.dart';
 import '../widgets/verified_badge.dart';
 import '../widgets/section_header.dart';
 import 'playlists_screen.dart';
+import 'flix_ai_screen.dart';
 
 /// The phone library and account tab. Local media is useful immediately and
 /// remote profile data only enhances the header when it is available.
@@ -150,13 +151,6 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
             download: download,
             onTap: () => _push(const DownloadsScreen()),
           ),
-      const SizedBox(height: AppSpace.xxl),
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
-        child: WellnessPreviewCard(
-          onTap: () => _push(const WellnessScreen()),
-        ),
-      ),
     ];
     final links = <Widget>[
       if (_isSignedIn)
@@ -165,11 +159,6 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
           label: tr('plus_name'),
           onTap: () => unawaited(openPlus(context)),
         ),
-      ListRow(
-        icon: PhosphorIcons.slidersHorizontal(),
-        label: tr('settings'),
-        onTap: () => _push(const app_settings.Settings()),
-      ),
       ListRow(
         icon: PhosphorIcons.arrowsDownUp(),
         label: tr('sync'),
@@ -222,20 +211,25 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
           ),
           children: <Widget>[
             Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
-                  Text(
-                    tr('my_flixquest'),
-                    style: AppType.scaled(context, AppType.pageTitle).copyWith(
-                      color: palette.foreground,
+                  Expanded(
+                    child: Text(
+                      tr('my_flixquest'),
+                      style: AppType.scaled(context, AppType.pageTitle).copyWith(
+                        color: palette.foreground,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  const BrandAccentRule(width: 36),
+                  Image.asset(
+                    'assets/images/7xplay_wordmark.png',
+                    width: 88,
+                    height: 30,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
                 ],
               ),
             ),
@@ -254,30 +248,56 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
             const SizedBox(height: AppSpace.lg),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
-              child: Row(
+              child: Column(
                 children: <Widget>[
-                  _LibraryShortcut(
-                    key: const ValueKey<String>('library-shortcut-my-list'),
-                    label: tr('my_list'),
-                    icon: PhosphorIcons.bookmarkSimple(),
-                    onTap: () => _push(const BookmarkScreen()),
+                  Row(
+                    children: <Widget>[
+                      _LibraryShortcut(
+                        key: const ValueKey<String>('library-shortcut-my-list'),
+                        label: tr('my_list'),
+                        icon: PhosphorIcons.bookmarkSimple(),
+                        onTap: () => _push(const BookmarkScreen()),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      _LibraryShortcut(
+                        key: const ValueKey<String>('library-shortcut-downloads'),
+                        label: tr('downloads'),
+                        icon: PhosphorIcons.downloadSimple(),
+                        onTap: () => _push(const DownloadsScreen()),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      _LibraryShortcut(
+                        key: const ValueKey<String>('library-shortcut-playlists'),
+                        label: tr('playlists'),
+                        icon: PhosphorIcons.queue(),
+                        onTap: playlists == null
+                            ? () => _push(const PlaylistsScreen())
+                            : () => _push(const PlaylistsScreen()),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: AppSpace.sm),
-                  _LibraryShortcut(
-                    key: const ValueKey<String>('library-shortcut-downloads'),
-                    label: tr('downloads'),
-                    icon: PhosphorIcons.downloadSimple(),
-                    onTap: () => _push(const DownloadsScreen()),
+                  const SizedBox(height: AppSpace.sm),
+                  Row(
+                    children: <Widget>[
+                      _LibraryShortcut(
+                        label: tr('wellness'),
+                        icon: PhosphorIcons.chartLineUp(),
+                        onTap: () => _push(const WellnessScreen()),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      _LibraryShortcut(
+                        label: '7x AI',
+                        icon: PhosphorIcons.sparkle(),
+                        onTap: () => _push(const FlixAiScreen()),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      _LibraryShortcut(
+                        label: tr('settings'),
+                        icon: PhosphorIcons.slidersHorizontal(),
+                        onTap: () => _push(const app_settings.Settings()),
+                      ),
+                    ],
                   ),
-                  if (playlists != null) ...<Widget>[
-                    const SizedBox(width: AppSpace.sm),
-                    _LibraryShortcut(
-                      key: const ValueKey<String>('library-shortcut-playlists'),
-                      label: tr('playlists'),
-                      icon: PhosphorIcons.queue(),
-                      onTap: () => _push(const PlaylistsScreen()),
-                    ),
-                  ],
                 ],
               ),
             ),
