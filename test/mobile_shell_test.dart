@@ -267,12 +267,12 @@ void main() {
       matching: find.byType(DecoratedBox),
     ).first;
     final rect = tester.getRect(surface);
-    expect(rect.left, 0);
-    expect(rect.right, 390);
+    expect(rect.left, greaterThan(0));
+    expect(rect.right, lessThan(390));
     final decoration = tester.widget<DecoratedBox>(surface).decoration
         as BoxDecoration;
-    expect(decoration.borderRadius, isNull);
-    expect(decoration.boxShadow, isNull);
+    expect(decoration.borderRadius, isNotNull);
+    expect(decoration.boxShadow, isNotEmpty);
   });
 
   group('on a tablet', () {
