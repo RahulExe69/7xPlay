@@ -23,7 +23,6 @@ import '../../screens/common/bookmark_screen.dart';
 import '../../screens/common/downloads_screen.dart';
 import '../../screens/common/live_tv_screen.dart';
 import '../../services/ambient_theme_service.dart';
-import '../../widgets/app_logo.dart';
 import '../../widgets/common_widgets.dart'
     show AppStreamingService, appStreamingServices;
 import '../../widgets/hosted_ads_banner.dart';
@@ -649,13 +648,20 @@ class _HomeHeader extends StatelessWidget {
                       excludeSemantics: true,
                       child: Align(
                         alignment: AlignmentDirectional.centerStart,
-                        child: AppLogo(
-                          // The product wordmark is an in-app brand asset.
-                          // icon.png is reserved exclusively for the launcher.
-                          fallbackAsset: 'assets/images/7xplay_wordmark.png',
+                        child: Image.asset(
+                          // The product wordmark is the in-app brand asset.
+                          // icon.png is reserved exclusively for the Android launcher.
+                          'assets/images/7xplay_wordmark.png',
                           width: 136,
                           height: 48,
                           fit: BoxFit.contain,
+                          alignment: AlignmentDirectional.centerStart,
+                          errorBuilder: (_, __, ___) => Text(
+                            '7xPlay',
+                            style: AppType.sectionHeader.copyWith(
+                              color: palette.foreground,
+                            ),
+                          ),
                         ),
                       ),
                     ),

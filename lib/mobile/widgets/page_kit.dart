@@ -28,11 +28,12 @@ class BrandAccentRule extends StatelessWidget {
               gradient: LinearGradient(
                 begin: AlignmentDirectional.centerStart,
                 end: AlignmentDirectional.centerEnd,
-                stops: <double>[0, .72, 1],
+                stops: <double>[0, .58, .82, 1],
                 colors: <Color>[
                   AppBrand.cinemaGold,
                   AppBrand.ember,
                   AppBrand.magenta,
+                  AppBrand.violet,
                 ],
               ),
             ),
