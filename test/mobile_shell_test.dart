@@ -293,6 +293,16 @@ void main() {
       );
     });
 
+    testWidgets('the selected rail item uses neutral foreground', (tester) async {
+      await _pumpShell(tester, size: tablet);
+      final context = tester.element(find.byType(MobileNavRail));
+      final palette = AppPalette.of(context);
+      final label = tester.widget<Text>(
+        _navItem(MobileTab.home, bar: MobileNavRail),
+      );
+      expect(label.style?.color, palette.foreground);
+    });
+
     testWidgets('the rail switches tabs',
         (tester) async {
       final shell = await _pumpShell(tester, size: tablet);
