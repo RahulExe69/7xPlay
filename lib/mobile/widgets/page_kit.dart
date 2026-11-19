@@ -149,7 +149,7 @@ class SearchPill extends StatelessWidget {
   final bool searching;
   final bool autofocus;
 
-  static const height = 48.0;
+  static const height = 52.0;
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +276,7 @@ class SegmentSwitch<T> extends StatelessWidget {
     final palette = AppPalette.of(context);
     return Container(
       height: height,
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(1),
       decoration: BoxDecoration(
         color: palette.surface,
         borderRadius: BorderRadius.circular(AppRadii.chip),
