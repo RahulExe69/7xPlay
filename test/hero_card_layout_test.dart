@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('phone spotlight uses cinematic backdrop art in a wide frame',
+  testWidgets('phone spotlight uses backdrop art inside a compact poster-led stage',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -35,6 +35,6 @@ void main() {
     );
 
     expect(artwork.$1, '/backdrop.jpg');
-    expect(height, lessThanOrEqualTo(390 * .85));
+    expect(height, inInclusiveRange(252.0, 288.0));
   });
 }
