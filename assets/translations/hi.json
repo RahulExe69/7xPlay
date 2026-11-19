@@ -664,6 +664,7 @@
   "home_movies": "होम: फिल्में",
   "home_series": "होम: सीरीज़",
   "my_list": "मेरी सूची",
+  "my_list_empty_hint": "अपनी सूची में जोड़ने के लिए कुछ नया खोजें।",
   "downloads": "डाउनलोड",
   "no_downloads_yet": "अभी कोई डाउनलोड नहीं",
   "loading_downloads": "डाउनलोड लोड हो रहे हैं…",
