@@ -444,7 +444,12 @@ class _DownloadCard extends StatelessWidget {
                               ? 1
                               : download.progress > 0
                                   ? download.progress / 100
-                                  : null,
+                                  : download.state ==
+                                              OfflineDownloadState.downloading ||
+                                          download.state ==
+                                              OfflineDownloadState.restarting
+                                      ? null
+                                      : 0,
                       minHeight: 5,
                       borderRadius: BorderRadius.circular(10),
                     ),
