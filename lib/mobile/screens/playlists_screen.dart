@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -8,7 +9,7 @@ import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../provider/playlist_provider.dart';
 import '../playlists.dart';
-import '../widgets/media_art.dart';
+import '../widgets/media_art.dart' show tmdbImageUrl;
 import '../widgets/page_kit.dart';
 import '../widgets/pill_button.dart';
 import 'playlist_import_screen.dart';
@@ -177,23 +178,27 @@ class _PlaylistArtwork extends StatelessWidget {
       builder: (context, constraints) {
         final cellWidth = constraints.maxWidth / 2;
         Widget cell(int index) {
-          if (index >= items.length ||
-              (items[index].posterPath?.isEmpty ?? true)) {
-            return ColoredBox(
-              color: palette.raisedSurface,
-              child: Center(
-                child: Icon(
-                  PhosphorIcons.listBullets(),
-                  color: palette.mutedText,
-                  size: 22,
+          Widget fallback() => ColoredBox(
+                color: palette.raisedSurface,
+                child: Center(
+                  child: Icon(
+                    PhosphorIcons.listBullets(),
+                    color: palette.mutedText,
+                    size: 22,
+                  ),
                 ),
-              ),
-            );
-          }
-          return MediaArt(
-            item: items[index],
-            path: items[index].posterPath,
-            width: cellWidth,
+              );
+          if (index >= items.length) return fallback();
+          final url = tmdbImageUrl(context, items[index].posterPath);
+          if (url == null) return fallback();
+          return CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.cover,
+            memCacheWidth:
+                (cellWidth * MediaQuery.devicePixelRatioOf(context)).round(),
+            fadeInDuration: const Duration(milliseconds: 140),
+            placeholder: (_, __) => fallback(),
+            errorWidget: (_, __, ___) => fallback(),
           );
         }
 
