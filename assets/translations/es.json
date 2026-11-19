@@ -664,6 +664,7 @@
   "home_movies": "Inicio: Películas",
   "home_series": "Inicio: Series",
   "my_list": "Mi lista",
+  "my_list_empty_hint": "Descubre algo nuevo para guardar en tu lista.",
   "downloads": "Descargas",
   "no_downloads_yet": "Aún no hay descargas",
   "loading_downloads": "Cargando descargas…",
