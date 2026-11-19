@@ -110,6 +110,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/downloads_screen_test.dart
 
+      - name: Test the redesigned My List screen
+        working-directory: 7xPlay
+        run: flutter test test/bookmark_screen_test.dart
+
       - name: Test the redesigned playlist gallery and empty state
         working-directory: 7xPlay
         run: flutter test test/mobile_playlists_screens_test.dart
