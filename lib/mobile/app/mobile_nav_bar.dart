@@ -313,7 +313,7 @@ class _RailItem extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: AppType.semiBold,
                   fontSize: 10,
-                  color: selected ? palette.accent : palette.mutedText,
+                  color: selected ? palette.foreground : palette.mutedText,
                 ),
               ),
             ],
