@@ -3739,23 +3739,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       return;
     }
 
-    // Do not switch to a provider based only on its scraper blurb. Wait until
-    // a real HLS/DASH manifest has positively exposed the preferred track.
-    final verifiedKeys =
-        _discoveredAudioSourceKeysByLanguage[preferred]?.toList() ??
-            const <String>[];
-    if (verifiedKeys.isEmpty) return;
-
-    // One controlled original-language hand-off is allowed after discovery.
-    // Background provider completions never re-run the active source setup.
+    // Background provider discovery must never replace the active stream.
+    // A verified language on another provider is offered in the unified
+    // language selector; only an explicit user choice may switch providers.
+    // This avoids a surprise player reset when a slower provider completes.
     _automaticPreferredLanguageAttempted = true;
-    unawaited(
-      _switchToAudioLanguage(
-        preferred,
-        verifiedKeys,
-        userInitiated: false,
-      ).then<void>((_) {}),
-    );
   }
 
   List<String> _orderedAudioSourceKeys(List<String> sourceKeys) {
