@@ -1033,7 +1033,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
               Icon(
                 PhosphorIcons.bookOpenText(),
                 size: 17,
-                color: palette.accent,
+                color: palette.mutedText,
               ),
             ],
           ),

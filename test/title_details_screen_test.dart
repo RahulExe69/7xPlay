@@ -6,7 +6,6 @@ import 'package:flixquest/constants/theme_data.dart';
 import 'package:flixquest/mobile/screens/title_details_screen.dart';
 import 'package:flixquest/mobile/widgets/details_header.dart';
 import 'package:flixquest/mobile/widgets/page_kit.dart';
-import 'package:flixquest/mobile/widgets/filter_chips.dart';
 import 'package:flixquest/mobile/widgets/poster_card.dart';
 import 'package:flixquest/models/app_colors.dart';
 import 'package:flixquest/models/credits.dart';
@@ -262,20 +261,13 @@ Future<void> _reach(WidgetTester tester, Finder target) =>
 
 /// Brings the tab row into view, then [label] within it, and picks it.
 Future<void> _tab(WidgetTester tester, String label) async {
-  await _reach(tester, find.byType(FilterChips));
-  await tester.scrollUntilVisible(
-    find.text(label),
-    80,
-    scrollable: find.descendant(
-      of: find.byType(FilterChips),
-      matching: find.byType(Scrollable),
-    ),
-  );
-  // Wholly on screen, not just built: in right to left the row runs the
-  // other way.
-  await tester.ensureVisible(find.text(label));
+  // Title details now uses its own pinned three-way tab header rather than
+  // the generic horizontally scrolling FilterChips control.
+  final target = find.text(label);
+  await _reach(tester, target);
+  await tester.ensureVisible(target);
   await tester.pumpAndSettle();
-  await tester.tap(find.text(label));
+  await tester.tap(target);
   await tester.pumpAndSettle();
 }
 
@@ -299,7 +291,7 @@ void main() {
     );
     expect(find.text('Crime'), findsOneWidget);
     expect(find.text('play'), findsOneWidget);
-    expect(find.text('download_action'), findsOneWidget);
+    expect(find.byTooltip('download_action'), findsOneWidget);
     expect(find.text('starring_line'), findsOneWidget);
     expect(find.text('director_line'), findsOneWidget);
     // Play sits above everything that describes the movie.
@@ -565,7 +557,7 @@ void main() {
         expect(atStart(find.byType(DetailsPlayButton)), isTrue);
         expect(atStart(find.text('AD_SLOT')), isTrue);
         expect(atStart(find.text('episodes')), isFalse);
-        expect(atStart(find.byType(FilterChips)), isFalse);
+        expect(atStart(find.text('more_like_this')), isFalse);
         expect(tester.takeException(), isNull);
       });
     }
