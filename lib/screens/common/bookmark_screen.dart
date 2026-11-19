@@ -269,7 +269,8 @@ class _SavedGrid extends StatelessWidget {
             ? null
             : () {
                 onDiscover!();
-                Navigator.of(context).maybePop();
+                final navigator = Navigator.of(context);
+                if (navigator.canPop()) navigator.pop();
               },
       );
     }
