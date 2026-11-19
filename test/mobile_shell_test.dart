@@ -1,5 +1,6 @@
 import 'package:flixquest/catalog/home_feed_controller.dart';
 import 'package:flixquest/constants/app_constants.dart';
+import 'package:flixquest/design/app_palette.dart';
 import 'package:flixquest/mobile/app/mobile_nav_bar.dart';
 import 'package:flixquest/mobile/app/mobile_shell.dart';
 import 'package:flixquest/mobile/app/mobile_tabs.dart';
@@ -240,20 +241,21 @@ void main() {
     expect(find.text('home 0 resets 1'), findsOneWidget);
   });
 
-  testWidgets('the selected tab is ink, with no accent', (tester) async {
+  testWidgets('the selected dock item uses the product accent', (tester) async {
     await _pumpShell(tester);
-    final theme = Theme.of(tester.element(find.byType(MobileNavBar)));
+    final context = tester.element(find.byType(MobileNavBar));
+    final accent = AppPalette.of(context).accent;
+    final muted = AppPalette.of(context).mutedText;
     final label = tester.widget<Text>(_navItem(MobileTab.home));
-    expect(label.style?.color, isNot(theme.colorScheme.primary));
+    expect(label.style?.color, accent);
     final icons = tester.widgetList<Icon>(
       find.descendant(
         of: find.byType(MobileNavBar),
         matching: find.byType(Icon),
       ),
-    );
-    for (final icon in icons) {
-      expect(icon.color, isNot(theme.colorScheme.primary));
-    }
+    ).toList(growable: false);
+    expect(icons.first.color, accent);
+    expect(icons.skip(1).every((icon) => icon.color == muted), isTrue);
   });
 
   group('on a tablet', () {
