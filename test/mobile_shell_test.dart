@@ -241,21 +241,30 @@ void main() {
     expect(find.text('home 0 resets 1'), findsOneWidget);
   });
 
-  testWidgets('the selected dock item uses the product accent', (tester) async {
+  testWidgets('the selected dock item uses neutral foreground, not the brand accent', (tester) async {
     await _pumpShell(tester);
     final context = tester.element(find.byType(MobileNavBar));
-    final accent = AppPalette.of(context).accent;
-    final muted = AppPalette.of(context).mutedText;
+    final palette = AppPalette.of(context);
     final label = tester.widget<Text>(_navItem(MobileTab.home));
-    expect(label.style?.color, accent);
+    expect(label.style?.color, palette.foreground);
     final icons = tester.widgetList<Icon>(
       find.descendant(
         of: find.byType(MobileNavBar),
         matching: find.byType(Icon),
       ),
     ).toList(growable: false);
-    expect(icons.first.color, accent);
-    expect(icons.skip(1).every((icon) => icon.color == muted), isTrue);
+    expect(icons.first.color, palette.foreground);
+    expect(
+      icons.skip(1).every((icon) => icon.color == palette.mutedText),
+      isTrue,
+    );
+  });
+
+  testWidgets('the phone navigation spans edge to edge without a floating inset', (tester) async {
+    await _pumpShell(tester);
+    final rect = tester.getRect(find.byType(MobileNavBar));
+    expect(rect.left, 0);
+    expect(rect.right, 390);
   });
 
   group('on a tablet', () {
