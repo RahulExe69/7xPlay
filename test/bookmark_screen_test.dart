@@ -102,7 +102,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(GridView), findsOneWidget);
+    expect(find.byType(GridView), findsNWidgets(2));
     expect(find.textContaining('2'), findsWidgets);
     await tester.tap(find.text('tv_series'));
     await tester.pumpAndSettle();
