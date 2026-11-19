@@ -217,7 +217,9 @@ void main() {
       saved: <Movie>[Movie(id: 2, title: 'Saved')],
     );
 
-    double top(String text) => tester.getTopLeft(find.text(text).first).dy;
+    // The shortcut row repeats My List and Downloads labels; the section
+    // positions below refer to their later content headings.
+    double top(String text) => tester.getTopLeft(find.text(text).last).dy;
     final order = <String>[
       'continue_watching',
       'my_list',

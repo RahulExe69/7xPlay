@@ -117,6 +117,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
     final recent = context.watch<RecentProvider>();
     final bookmarks = context.watch<BookmarkProvider>();
     final downloads = context.watch<OfflineDownloadProvider>().downloads;
+    final playlists = context.watch<PlaylistProvider?>();
     final continueWatching = continueWatchingItems(
       movies: recent.movies,
       episodes: recent.episodes,
@@ -217,7 +218,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
         child: ListView(
           padding: EdgeInsets.only(
             top: AppSpace.md,
-            bottom: 112 + MediaQuery.paddingOf(context).bottom,
+            bottom: AppSpace.xxl + MediaQuery.paddingOf(context).bottom,
           ),
           children: <Widget>[
             Padding(
@@ -250,6 +251,36 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 plus: context.watch<PlusController?>()?.adFree ?? false,
               ),
             ),
+            const SizedBox(height: AppSpace.lg),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
+              child: Row(
+                children: <Widget>[
+                  _LibraryShortcut(
+                    key: const ValueKey<String>('library-shortcut-my-list'),
+                    label: tr('my_list'),
+                    icon: PhosphorIcons.bookmarkSimple(),
+                    onTap: () => _push(const BookmarkScreen()),
+                  ),
+                  const SizedBox(width: AppSpace.sm),
+                  _LibraryShortcut(
+                    key: const ValueKey<String>('library-shortcut-downloads'),
+                    label: tr('downloads'),
+                    icon: PhosphorIcons.downloadSimple(),
+                    onTap: () => _push(const DownloadsScreen()),
+                  ),
+                  if (playlists != null) ...<Widget>[
+                    const SizedBox(width: AppSpace.sm),
+                    _LibraryShortcut(
+                      key: const ValueKey<String>('library-shortcut-playlists'),
+                      label: tr('playlists'),
+                      icon: PhosphorIcons.queue(),
+                      onTap: () => _push(const PlaylistsScreen()),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             Padding(
               padding: EdgeInsets.fromLTRB(
                   AppSpace.gutter(context), AppSpace.xl, AppSpace.gutter(context), 0),
@@ -270,8 +301,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 onSeeAll: () => _push(const BookmarkScreen()),
               ),
             ],
-            if (context.watch<PlaylistProvider?>()
-                case final playlists?) ...<Widget>[
+            if (playlists != null) ...<Widget>[
               const SizedBox(height: AppSpace.xxl),
               SectionHeader(
                 title: tr('playlists'),
@@ -619,6 +649,67 @@ class _ProfileAvatar extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => asset(),
               ),
+      ),
+    );
+  }
+}
+
+class _LibraryShortcut extends StatelessWidget {
+  const _LibraryShortcut({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final radius = BorderRadius.circular(14);
+    return Expanded(
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: Material(
+          color: palette.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: palette.hairline),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: SizedBox(
+              height: 88,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(icon, size: 23, color: palette.foreground),
+                  const SizedBox(height: AppSpace.sm),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppType.metadata.copyWith(
+                        fontFamily: AppType.semiBold,
+                        color: palette.foreground,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

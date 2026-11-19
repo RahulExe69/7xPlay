@@ -215,7 +215,9 @@ class _NewAndHotScreenState extends State<NewAndHotScreen> {
                 controller:
                     _tabs?.scrollController(MobileTab.newAndHot) ?? _ownScroll,
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsetsDirectional.only(bottom: 100),
+                padding: EdgeInsetsDirectional.only(
+                  bottom: MediaQuery.paddingOf(context).bottom + AppSpace.xxl,
+                ),
                 children: <Widget>[
                   if ((feed == null && _loading.contains(_segment)) ||
                       (_segment == HotSegment.comingSoon && !_datesReady))
