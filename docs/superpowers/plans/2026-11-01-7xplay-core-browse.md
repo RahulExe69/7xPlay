@@ -10,6 +10,8 @@
 
 **Spec:** docs/superpowers/specs/2026-11-01-7xplay-mobile-redesign-design.md
 
+**Workstream boundary:** This is the handheld browse workstream only. The full-app master index also assigns the Android TV experience to its own plan and all movie/series, Live TV and TV player presentation to the player plan. These workstream boundaries do not exclude TV or player UI from the complete 7xPlay redesign.
+
 ## Global Constraints
 - Target Android handheld UI only; do not change lib/tv/**.
 - Keep the five root tab IDs: home, new, discover, search, mine.
