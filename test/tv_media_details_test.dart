@@ -279,7 +279,7 @@ void main() {
         dependencies: dependencies,
       );
 
-      expect(find.byType(NetworkBannerWidget), findsNothing);
+      expect(find.byType(BannerAdSlot), findsNothing);
       expect(hostedRequests, 0);
       expect(find.text('Play S1:E1'), findsOneWidget);
     },
