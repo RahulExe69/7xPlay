@@ -176,7 +176,7 @@ Future<void> _pump(
 
 void main() {
   setUpAll(() async {
-    dotenv.testLoad(fileInput: 'TMDB_API_KEY=key\\nFLIXQUEST_API_URL=x');
+    dotenv.testLoad(fileInput: 'TMDB_API_KEY=key\nFLIXQUEST_API_URL=x');
     SharedPreferences.setMockInitialValues(<String, Object>{});
     sharedPrefsSingleton = await SharedPreferences.getInstance();
     await EasyLocalization.ensureInitialized();
