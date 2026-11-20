@@ -727,9 +727,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
     final fallbackTitle = Text(
       _item.title,
       style: AppType.scaled(context, AppType.heroTitle).copyWith(
-        color: onArtwork && palette.dark
-            ? const Color(0xFFFFFFFF)
-            : palette.foreground,
+        color: onArtwork ? const Color(0xFFFFFFFF) : palette.foreground,
       ),
     );
     return Column(
@@ -790,9 +788,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
 
   Widget _facts(BuildContext context, {bool onArtwork = false}) {
     final palette = AppPalette.of(context);
-    final factColor = onArtwork && palette.dark
-        ? const Color(0xDFFFFFFF)
-        : palette.mutedText;
+    final factColor = onArtwork ? const Color(0xDFFFFFFF) : palette.mutedText;
     final style = AppType.metadata.copyWith(
       color: factColor,
       fontSize: 13,
@@ -865,7 +861,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
             .where((genre) => genre.genreID != null && genre.genreName != null)
             .toList(growable: false);
         if (genres.isEmpty) return const SizedBox.shrink();
-        final foreground = onArtwork && palette.dark
+        final foreground = onArtwork
             ? const Color(0xEFFFFFFF)
             : palette.secondaryText;
         return Padding(
@@ -1043,8 +1039,10 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
             alignment: AlignmentDirectional.topStart,
             child: Text(
               overview,
-              maxLines: _synopsisOpen ? null : 4,
-              overflow: _synopsisOpen ? null : TextOverflow.ellipsis,
+              maxLines: !expandable || _synopsisOpen ? null : 4,
+              overflow: !expandable || _synopsisOpen
+                  ? null
+                  : TextOverflow.ellipsis,
               style: AppType.body.copyWith(
                 color: palette.secondaryText,
                 height: 1.55,
@@ -1194,6 +1192,11 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
               label: tr('trailer'),
               onPressed: () => openVideo(trailer),
             ),
+          actionTile(
+            icon: PhosphorIcons.shareNetwork(),
+            label: tr('share'),
+            onPressed: () => unawaited(_share()),
+          ),
         ];
         return Row(
           children: <Widget>[
