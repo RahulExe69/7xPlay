@@ -56,7 +56,7 @@ class _TelegramChannelPromptGateState extends State<TelegramChannelPromptGate> {
   /// pushed over it.
   bool _onShow(BuildContext context) =>
       widget.enabled &&
-      TickerMode.of(context) &&
+      TickerMode.valuesOf(context).enabled &&
       (ModalRoute.of(context)?.isCurrent ?? true);
 
   /// The link and whether Home is on show, as of the last build; any change
