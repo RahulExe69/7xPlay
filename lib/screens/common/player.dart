@@ -252,7 +252,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late Map<String, Map<String, String>> _activeVideoHeaders;
   late Map<String, String> _activeVideoSizeTokens;
   late Map<String, String> _activeVideoAudioLanguages;
-  late Map<String, String> _activeVideoProviderCodes;
   late Map<String, String> _allVideoSources;
   late Map<String, BetterPlayerVideoFormat?>? _allVideoFormats;
   late Map<String, Map<String, String>> _allVideoHeaders;
@@ -325,7 +324,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _activeVideoHeaders = Map.of(widget.videoHeaders);
     _activeVideoSizeTokens = Map.of(widget.videoSizeTokens);
     _activeVideoAudioLanguages = Map.of(widget.videoAudioLanguages);
-    _activeVideoProviderCodes = Map.of(widget.videoProviderCodes);
     _allVideoSources = Map.of(widget.sources);
     _allVideoFormats =
         widget.videoFormats == null ? null : Map.of(widget.videoFormats!);
@@ -4003,10 +4001,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           _activeVideoHeaders = headers;
           _activeVideoSizeTokens = sizes;
           _activeVideoAudioLanguages = candidateAudioLanguages;
-          _activeVideoProviderCodes = {
-            if (_allVideoProviderCodes[key] != null)
-              key: _allVideoProviderCodes[key]!,
-          };
           _isSwitchingProvider = false;
         });
         unawaited(_loadIntroDbTimings());
@@ -4278,12 +4272,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final nextAudioLanguages = VideoUtils.reverseVideoQualityMap(
         VideoUtils.convertVideoAudioLanguagesToMap(nextSource.rawVideoLinks),
       );
-      final nextProviderCodes = VideoUtils.reverseVideoQualityMap(
-        VideoUtils.convertVideoProviderCodesToMap(
-          nextSource.rawVideoLinks,
-          defaultProviderCode: nextSource.providerCode,
-        ),
-      );
       replacementStarted = true;
       _preRollActive = false;
       await _betterPlayerController.setupDataSource(
@@ -4329,7 +4317,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _activeVideoHeaders = Map.of(nextSource.videoHeaders);
         _activeVideoSizeTokens = Map.of(nextSource.videoSizeTokens);
         _activeVideoAudioLanguages = nextAudioLanguages;
-        _activeVideoProviderCodes = nextProviderCodes;
         final switchedDuration = _betterPlayerController
             .videoPlayerController?.value.duration?.inSeconds;
         if (switchedDuration != null) duration = switchedDuration;
@@ -4456,7 +4443,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           value.duration! > Duration.zero;
       if (initialized && !expectPlaying) return true;
 
-      if (initialized && value!.isPlaying && !value.isBuffering) {
+      if (initialized && value.isPlaying && !value.isBuffering) {
         final previousPosition = lastPlayingPosition;
         if (previousPosition != null) {
           final delta = value.position - previousPosition;
