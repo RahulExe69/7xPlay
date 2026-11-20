@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flixquest/catalog/media_item.dart';
 import 'package:flixquest/catalog/season_source.dart';
+import 'package:flixquest/constants/app_constants.dart';
 import 'package:flixquest/data/ads/content_ads.dart';
 import 'package:flixquest/mobile/screens/episode_screen.dart';
 import 'package:flixquest/mobile/screens/season_screen.dart';
@@ -15,6 +16,7 @@ import 'package:flixquest/models/videos.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
 import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -174,7 +176,9 @@ Future<void> _pump(
 
 void main() {
   setUpAll(() async {
+    dotenv.testLoad(fileInput: 'TMDB_API_KEY=key\\nFLIXQUEST_API_URL=x');
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    sharedPrefsSingleton = await SharedPreferences.getInstance();
     await EasyLocalization.ensureInitialized();
   });
 
