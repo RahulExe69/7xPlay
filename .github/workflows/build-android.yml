@@ -74,6 +74,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/flix_ai_screen_test.dart
 
+      - name: Test the redesigned account entry and auth flows
+        working-directory: 7xPlay
+        run: flutter test test/presentation/auth_screens_test.dart
+
       - name: Test the redesigned mobile shell and navigation
         working-directory: 7xPlay
         run: flutter test test/mobile_shell_test.dart

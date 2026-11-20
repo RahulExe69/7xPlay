@@ -8,6 +8,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/error/failure.dart';
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../mobile/widgets/device_limit_sheet.dart';
@@ -34,17 +35,54 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final palette = AppPalette.of(context);
     return Scaffold(
+      backgroundColor: palette.page,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset('assets/images/grid_final.jpg', fit: BoxFit.cover),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x66000000), Color(0xF0000000)],
+          const ColoredBox(
+            key: ValueKey('landing-brand-canvas'),
+            color: AppBrand.background,
+          ),
+          // Soft, cropped brand light gives depth without the old grid image.
+          Positioned(
+            top: -190,
+            right: -150,
+            child: IgnorePointer(
+              child: Container(
+                width: 440,
+                height: 440,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppBrand.hotPink.withValues(alpha: .22),
+                      AppBrand.violet.withValues(alpha: .08),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -220,
+            left: -180,
+            child: IgnorePointer(
+              child: Container(
+                width: 500,
+                height: 500,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppBrand.amber.withValues(alpha: .20),
+                      AppBrand.orange.withValues(alpha: .07),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -57,14 +95,17 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final wide = constraints.maxWidth >= 760;
-                      const intro = _Intro();
+                      final intro = _Intro(wide: wide);
                       final actions = _actionsCard(settings);
                       return Flex(
                         direction: wide ? Axis.horizontal : Axis.vertical,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: wide
+                            ? CrossAxisAlignment.center
+                            : CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (wide) Expanded(child: intro) else intro,
-                          SizedBox(width: wide ? 56 : 0, height: wide ? 0 : 36),
+                          SizedBox(width: wide ? 56 : 0, height: wide ? 0 : 34),
                           if (wide)
                             SizedBox(width: 390, child: actions)
                           else
@@ -87,39 +128,95 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
 
   Widget _actionsCard(SettingsProvider settings) {
     final palette = AppPalette.of(context);
-    return DecoratedBox(
+    return Container(
+      key: const ValueKey('landing-access-card'),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(AppRadii.hero),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: palette.hairline),
+        boxShadow: [
+          BoxShadow(
+            color: AppBrand.hotPink.withValues(alpha: .08),
+            blurRadius: 40,
+            spreadRadius: 1,
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Welcome to 7xPlay',
-              style: AppType.sectionHeader.copyWith(
-                fontFamily: AppType.bold,
-                fontSize: 22,
-                color: palette.foreground,
+            Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    AppBrand.amber,
+                    AppBrand.orange,
+                    AppBrand.hotPink,
+                    AppBrand.violet,
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Browse and watch without creating an account.',
-              style: AppType.body.copyWith(color: palette.mutedText),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: PillButton(
-                primary: true,
-                height: 50,
-                busy: _loadingAnonymous,
-                icon: PhosphorIcons.userCircleDashed(),
-                label: 'Continue anonymously',
-                onPressed: _loadingAnonymous ? null : () => _continueAnonymously(settings),
+            Padding(
+              padding: const EdgeInsets.all(26),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: AppBrand.amber.withValues(alpha: .12),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Icon(
+                          PhosphorIcons.play(PhosphorIconsStyle.fill),
+                          color: AppBrand.amber,
+                          size: 21,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: Text(
+                          'Welcome to 7xPlay',
+                          style: AppType.sectionHeader.copyWith(
+                            fontFamily: AppType.bold,
+                            color: palette.foreground,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  Text(
+                    'Browse and watch without creating an account.',
+                    style: AppType.body.copyWith(
+                      color: palette.mutedText,
+                      height: 1.55,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.xxl),
+                  SizedBox(
+                    width: double.infinity,
+                    child: PillButton(
+                      primary: true,
+                      height: 52,
+                      busy: _loadingAnonymous,
+                      icon: PhosphorIcons.userCircleDashed(),
+                      label: tr('continue_anonymously'),
+                      onPressed: _loadingAnonymous
+                          ? null
+                          : () => _continueAnonymously(settings),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -211,43 +308,125 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
 }
 
 class _Intro extends StatelessWidget {
-  const _Intro();
+  const _Intro({required this.wide});
+
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
+    final alignment = wide ? CrossAxisAlignment.start : CrossAxisAlignment.center;
+    final textAlign = wide ? TextAlign.start : TextAlign.center;
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: alignment,
       children: [
         Container(
-          width: 92,
-          height: 92,
-          padding: const EdgeInsets.all(12),
+          key: const ValueKey('landing-brand-mark'),
+          width: 104,
+          height: 104,
+          padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(29),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppBrand.amber,
+                AppBrand.orange,
+                AppBrand.hotPink,
+                AppBrand.violet,
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppBrand.orange.withValues(alpha: .16),
+                blurRadius: 28,
+                spreadRadius: 1,
+              ),
+            ],
           ),
-          child: Hero(
-            tag: 'logo_shadow',
-            child: const AppLogo(),
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: AppBrand.background,
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: const Hero(
+              tag: 'logo_shadow',
+              child: AppLogo(),
+            ),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: AppSpace.xl),
+        ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              AppBrand.amber,
+              AppBrand.orange,
+              AppBrand.hotPink,
+              AppBrand.violet,
+            ],
+          ).createShader(bounds),
+          child: Text(
+            '7xPlay',
+            textAlign: textAlign,
+            style: AppType.scaled(context, AppType.heroTitle).copyWith(
+              fontSize: wide ? 48 : 42,
+              height: 1.04,
+              letterSpacing: -1.2,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpace.md),
         Text(
           tr('thousands_of'),
-          style: const TextStyle(
+          textAlign: textAlign,
+          style: AppType.sectionHeader.copyWith(
             color: Colors.white,
-            fontFamily: 'FigtreeBold',
-            fontSize: 40,
-            height: 1.05,
+            fontSize: wide ? 22 : 19,
           ),
         ),
-        const SizedBox(height: 12),
-        Text(
-          '${tr('trending_movies')} • ${tr('popular_tv_shows')}',
-          style: const TextStyle(color: Colors.white70, fontSize: 17),
+        const SizedBox(height: AppSpace.md),
+        Wrap(
+          alignment: wide ? WrapAlignment.start : WrapAlignment.center,
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
+          children: [
+            _IntroTag(label: tr('trending_movies')),
+            _IntroTag(label: tr('popular_tv_shows')),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _IntroTag extends StatelessWidget {
+  const _IntroTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.md,
+        vertical: AppSpace.sm,
+      ),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(AppRadii.chip),
+        border: Border.all(color: palette.hairline),
+      ),
+      child: Text(
+        label,
+        style: AppType.metadata.copyWith(color: palette.secondaryText),
+      ),
     );
   }
 }
