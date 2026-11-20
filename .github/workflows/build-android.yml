@@ -106,6 +106,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/settings_kit_test.dart test/app_mode_settings_test.dart test/data/bookmark_repository_test.dart test/data/bookmark_sync_engine_test.dart test/data/playlist_sync_engine_test.dart
 
+      - name: Test Viewing Insights and Wellness
+        working-directory: 7xPlay
+        run: flutter test test/wellness_chart_palette_test.dart test/wellness_charts_test.dart test/wellness_dashboard_metrics_test.dart test/wellness_dashboard_widgets_test.dart test/wellness_insights_test.dart test/wellness_recap_test.dart test/wellness_time_series_test.dart
+
       - name: Test the redesigned offline downloads library
         working-directory: 7xPlay
         run: flutter test test/downloads_screen_test.dart
