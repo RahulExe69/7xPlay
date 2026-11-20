@@ -42,7 +42,12 @@ class HeroCard extends StatefulWidget {
         : 0.0;
     final cardWidth = width - tabletInset;
     if (width < AppBreakpoints.tablet) {
-      return (cardWidth * .72).clamp(252.0, 288.0).toDouble();
+      final base = (cardWidth * .72).clamp(252.0, 288.0).toDouble();
+      final textScale = MediaQuery.textScalerOf(context).scale(1);
+      // Accessibility text scaling needs more vertical room for both actions.
+      return (base + ((textScale - 1).clamp(0.0, 1.0) * 120))
+          .clamp(base, 408.0)
+          .toDouble();
     }
     final stage = (cardWidth * .37).clamp(300.0, 360.0).toDouble();
     return AppBreakpoints.isTablet(context)
