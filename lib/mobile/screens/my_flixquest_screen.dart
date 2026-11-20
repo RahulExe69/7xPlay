@@ -712,6 +712,7 @@ class _LibraryShortcut extends StatelessWidget {
       child: Semantics(
         button: true,
         label: label,
+        onTap: onTap,
         excludeSemantics: true,
         child: Material(
           color: palette.surface,
