@@ -32,6 +32,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('local viewing insights remain available after sync failure',
+      (tester) async {
+    final provider = _ReportProvider(_sample().sessions);
+    provider.syncService.status.value = WellnessSyncStatus.error;
+    addTearDown(provider.dispose);
+
+    await tester.pumpWidget(_app(
+      ChangeNotifierProvider<WellnessProvider>.value(
+        value: provider,
+        child: const WellnessScreen(),
+      ),
+      scroll: false,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sync paused'), findsOneWidget);
+    expect(find.text('The Grand Budapest Hotel'), findsOneWidget);
+    expect(find.byKey(const Key('wellness-hero-card')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty viewing history has a deliberate first-use state',
+      (tester) async {
+    final provider = _ReportProvider(const []);
+    addTearDown(provider.dispose);
+
+    await tester.pumpWidget(_app(
+      ChangeNotifierProvider<WellnessProvider>.value(
+        value: provider,
+        child: const WellnessScreen(),
+      ),
+      scroll: false,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your viewing story starts here'), findsOneWidget);
+    expect(find.textContaining('Watch for at least 30 seconds'), findsOneWidget);
+    expect(find.byKey(const Key('wellness-hero-card')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final locale in ['en', 'ar']) {
     testWidgets('complete $locale report fits a narrow phone with larger text',
         (tester) async {
