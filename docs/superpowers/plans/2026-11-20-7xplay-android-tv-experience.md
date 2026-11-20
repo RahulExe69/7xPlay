@@ -1,6 +1,6 @@
 # 7xPlay Android TV Experience Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans) to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
 
 **Goal:** Redesign the entire Android TV experience as a cinematic, remote-first 7xPlay product while preserving TV navigation, focus, content, account and playback contracts.
 
@@ -36,7 +36,7 @@
 
 **Files**
 - Review: lib/tv/app/tv_design.dart, lib/design/app_brand.dart, lib/design/app_palette.dart, lib/design/app_tokens.dart.
-- Review: all current lib/tv/widgets/*.dart and lib/tv/screens/*.dart.
+- Review: all current lib/tv/controllers/*.dart, lib/tv/focus/*.dart, lib/tv/models/*.dart, lib/tv/navigation/*.dart, lib/tv/platform/*.dart, lib/tv/widgets/*.dart and lib/tv/screens/*.dart.
 - Test: test/tv_palette_test.dart, test/tv_loading_skeletons_test.dart, test/app_palette_test.dart.
 - Create: docs/superpowers/audits/2026-11-20-android-tv-component-map.md.
 
@@ -44,7 +44,7 @@
 - Consumes current TV palette/design tokens, brand roles and TV-specific widget APIs.
 - Produces a map of existing TV components and call sites, identifying retain/revise/replace decisions without coupling TV layouts to mobile.
 
-- [ ] Inventory every file under lib/tv/app, navigation, focus, screens, widgets, and player; map each widget to a screen and relevant tests.
+- [ ] Inventory every file under lib/tv/app, controllers, focus, models, navigation, platform, screens, widgets, and player; map each widget to a screen and relevant tests.
 - [ ] Map TvDesign, TvPageHeader, TvNavigationRail, TvSpotlight, TvContentGrid, TvContentRow, TvPosterWall, TvStatePanel, TvBrowseSkeleton, TvDialog, TvPillButton and form/keyboard widgets.
 - [ ] Add palette/contrast assertions for approved 7xPlay warm brand roles on the TV canvas and confirm shared token changes do not regress phone/tablet themes.
 - [ ] Define TV visual rules for viewing distance, content density, spotlight/backdrop use, row/grid rhythm, focus rings, selected/disabled states, safe-area spacing and motion.
