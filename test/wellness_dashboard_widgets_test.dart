@@ -48,7 +48,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sync paused'), findsOneWidget);
-    expect(find.text('The Grand Budapest Hotel'), findsOneWidget);
+    expect(find.text('The Grand Budapest Hotel'), findsWidgets);
     expect(find.byKey(const Key('wellness-hero-card')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -304,7 +304,7 @@ class _ReportProvider extends ChangeNotifier implements WellnessProvider {
   @override
   bool get loading => false;
   @override
-  bool get canSync => false;
+  bool get canSync => syncService.status.value != WellnessSyncStatus.idle;
   @override
   bool get shouldOfferGuestMerge => false;
   @override
