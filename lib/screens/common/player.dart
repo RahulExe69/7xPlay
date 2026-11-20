@@ -3884,6 +3884,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     List<String> sourceKeys, {
     bool userInitiated = true,
     bool preserveExplicitSelection = false,
+    bool requirePlaybackAdvance = false,
   }) async {
     if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return false;
 
@@ -3902,7 +3903,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         index: index,
         languageCode: languageCode,
       );
-      return true;
+      if (!requirePlaybackAdvance) return true;
+      // A matching native track is not proof that a stalled source recovered.
+      return _waitForSourceReady(expectPlaying: true);
     }
 
     final orderedKeys = _orderedAudioSourceKeys(sourceKeys);
@@ -4587,11 +4590,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         } catch (error) {
           debugPrint('[Player] Same-provider refresh failed: $error');
         }
+        // Discovery may finish while same-provider refresh is awaiting readiness.
+        // Re-read the catalogue so new same-language providers are not skipped.
+        final refreshedLanguageSourceKeys =
+            _audioSourceKeysByLanguage[selectedLanguage] ?? const <String>[];
+        if (refreshedLanguageSourceKeys.isEmpty) {
+          _trackPlaybackEvent(
+            'automatic_provider_fallback_blocked_no_eligible_source',
+            error: reason,
+          );
+          return false;
+        }
         if (failedProviderCode != null) {
           _providerErrors[failedProviderCode] = tr('provider_playback_failed');
           // Penalize only sources belonging to the provider that just failed;
           // keep the other same-language providers eligible.
-          for (final key in languageSourceKeys) {
+          for (final key in refreshedLanguageSourceKeys) {
             if (_allVideoProviderCodes[key] == failedProviderCode) {
               _recordAudioSourceFailure(
                 key,
@@ -4604,9 +4618,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
         final switched = await _switchToAudioLanguage(
           selectedLanguage,
-          languageSourceKeys,
+          refreshedLanguageSourceKeys,
           userInitiated: false,
           preserveExplicitSelection: true,
+          requirePlaybackAdvance: true,
         );
         if (switched) {
           playbackRecovered = true;
