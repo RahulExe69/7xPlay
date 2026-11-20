@@ -205,7 +205,6 @@ class _CollectionGridState extends State<_CollectionGrid> {
       : _grid(context);
 
   Widget _grid(BuildContext context) {
-    final palette = AppPalette.of(context);
     final gutter = widget.gutter;
     final columns = posterGridColumns(context);
     return NotificationListener<ScrollNotification>(
