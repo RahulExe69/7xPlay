@@ -138,7 +138,9 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
     }
 
     providers.add(VideoProvider.directVixSrc);
-    final orderedProviders = settings.orderStreamProviders(providers);
+    final orderedProviders = VideoProviderOrder.prioritizeKaramara(
+      settings.orderStreamProviders(providers),
+    );
     if (!mounted) return;
     setState(() {
       videoProviders = orderedProviders;
@@ -426,8 +428,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
         );
       },
       loadExpanded: (provider, fastResult) {
-        if (widget.download ||
-            provider.type == VideoProviderType.directVixSrc) {
+        if (provider.type == VideoProviderType.directVixSrc) {
           return Future<ProviderLoadResult>.value(fastResult);
         }
         return ProviderLoader.loadTVFromProvider(
@@ -647,6 +648,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
                 apiBaseUrl: _scraperApiUrl,
                 links: tvVideoLinks ?? const [],
                 url: url,
+                headers: downloadHeaders,
               ),
               contentId: widget.metadata.tvId,
               seasonNumber: season,

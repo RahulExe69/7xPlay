@@ -25,14 +25,14 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
-    expect(find.text('Exit FlixQuest?'), findsOneWidget);
+    expect(find.text('Exit 7xPlay?'), findsOneWidget);
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'Cancel');
     expect(exitCount, 0);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
-    expect(find.text('Exit FlixQuest?'), findsNothing);
+    expect(find.text('Exit 7xPlay?'), findsNothing);
     expect(find.text('TV home'), findsOneWidget);
     expect(exitCount, 0);
 
@@ -61,7 +61,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
-    expect(find.text('Exit FlixQuest?'), findsNothing);
+    expect(find.text('Exit 7xPlay?'), findsNothing);
     expect(find.text('Nested TV screen'), findsOneWidget);
   });
 }

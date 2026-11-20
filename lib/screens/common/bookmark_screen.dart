@@ -21,9 +21,18 @@ import '/screens/common/sync_screen.dart';
 import '../../widgets/hosted_ads_banner.dart';
 
 class BookmarkScreen extends StatefulWidget {
-  const BookmarkScreen({this.embedded = false, super.key});
+  const BookmarkScreen({
+    this.embedded = false,
+    this.onDiscover,
+    super.key,
+  });
 
   final bool embedded;
+
+  /// Returns to the root shell's Discover destination when the viewer chooses
+  /// to browse from an empty list. The caller owns the tab controller because
+  /// pushed routes do not inherit MobileTabScope from the page below them.
+  final VoidCallback? onDiscover;
 
   @override
   State<BookmarkScreen> createState() => _BookmarkScreenState();
@@ -57,7 +66,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
       appBar: widget.embedded
           ? null
           : PageAppBar(
-              title: tr('bookmarks'),
+              title: tr('my_list'),
               actions: <Widget>[
                 IconButton(
                   tooltip: tr('sync'),
@@ -83,7 +92,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        tr('bookmarks'),
+                        tr('my_list'),
                         style: AppType.scaled(context, AppType.pageTitle)
                             .copyWith(color: palette.foreground),
                       ),
@@ -96,6 +105,18 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                   ],
                 ),
               ),
+            Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(
+                AppSpace.gutter(context),
+                widget.embedded ? AppSpace.xs : AppSpace.md,
+                AppSpace.gutter(context),
+                AppSpace.md,
+              ),
+              child: _MyListOverview(
+                movies: bookmarkProvider.movies.length,
+                series: bookmarkProvider.tvShows.length,
+              ),
+            ),
             Padding(
               padding:
                   EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
@@ -122,11 +143,13 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                     items: MyList.items(context, filter: HomeFilter.movies),
                     loading: bookmarkProvider.isLoading,
                     emptyMessage: tr('no_movies_bookmarked'),
+                    onDiscover: widget.onDiscover,
                   ),
                   _SavedGrid(
                     items: MyList.items(context, filter: HomeFilter.series),
                     loading: bookmarkProvider.isLoading,
                     emptyMessage: tr('no_tv_bookmarked'),
+                    onDiscover: widget.onDiscover,
                   ),
                 ],
               ),
@@ -161,6 +184,61 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
   }
 }
 
+
+/// The saved library's snapshot and filter context. Counts come directly
+/// from the local bookmark provider, so they remain accurate offline.
+class _MyListOverview extends StatelessWidget {
+  const _MyListOverview({required this.movies, required this.series});
+
+  final int movies;
+  final int series;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final total = movies + series;
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(AppRadii.hero),
+        border: Border.all(color: palette.hairline),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  '$total',
+                  style: AppType.heroTitle.copyWith(
+                    fontSize: 28,
+                    color: palette.foreground,
+                  ),
+                ),
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  '${tr('movies')}: $movies  ·  ${tr('tv_series')}: $series',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.metadata.copyWith(color: palette.mutedText),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpace.md),
+          Icon(
+            PhosphorIcons.bookmarkSimple(PhosphorIconsStyle.bold),
+            size: 30,
+            color: palette.accent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// One kind of saved titles: the browse grid while there are any, its
 /// skeleton while the first read is on its way, and the empty state after.
 class _SavedGrid extends StatelessWidget {
@@ -168,11 +246,13 @@ class _SavedGrid extends StatelessWidget {
     required this.items,
     required this.loading,
     required this.emptyMessage,
+    this.onDiscover,
   });
 
   final List<MediaItem> items;
   final bool loading;
   final String emptyMessage;
+  final VoidCallback? onDiscover;
 
   @override
   Widget build(BuildContext context) {
@@ -180,8 +260,18 @@ class _SavedGrid extends StatelessWidget {
     if (items.isEmpty) {
       return EmptyState(
         icon: PhosphorIcons.bookmarkSimple(),
-        title: tr('bookmarks'),
-        message: emptyMessage,
+        title: emptyMessage,
+        message: tr('my_list_empty_hint'),
+        actionLabel: onDiscover == null ? null : tr('discover'),
+        actionIcon:
+            onDiscover == null ? null : PhosphorIcons.compass(),
+        onAction: onDiscover == null
+            ? null
+            : () {
+                onDiscover!();
+                final navigator = Navigator.of(context);
+                if (navigator.canPop()) navigator.pop();
+              },
       );
     }
     return PosterGrid(items: items);

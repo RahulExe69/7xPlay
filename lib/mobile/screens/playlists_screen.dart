@@ -1,17 +1,22 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/playlists/playlist.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../provider/playlist_provider.dart';
 import '../playlists.dart';
+import '../widgets/media_art.dart' show tmdbImageUrl;
 import '../widgets/page_kit.dart';
 import '../widgets/pill_button.dart';
 import 'playlist_import_screen.dart';
 
-/// Every custom list, newest first, with new and import at the top.
+/// Every custom list, newest first, presented as a visual collection rather
+/// than a settings-style row. Creation, import, opening and sync keep their
+/// existing provider and route contracts.
 class PlaylistsScreen extends StatefulWidget {
   const PlaylistsScreen({super.key});
 
@@ -42,6 +47,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     final palette = AppPalette.of(context);
     final provider = context.watch<PlaylistProvider>();
     final lists = provider.lists;
+    final gutter = AppSpace.gutter(context);
     return Scaffold(
       backgroundColor: palette.page,
       appBar: PageAppBar(
@@ -71,19 +77,27 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             : RefreshIndicator(
                 onRefresh: provider.sync,
                 child: ReadableWidth(
-                  child: ListView.builder(
-                    padding: EdgeInsets.only(
-                      top: AppSpace.sm,
-                      bottom:
-                          AppSpace.xxl + MediaQuery.paddingOf(context).bottom,
+                  child: GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsetsDirectional.fromSTEB(
+                      gutter,
+                      AppSpace.sm,
+                      gutter,
+                      AppSpace.xxl + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 230,
+                      mainAxisSpacing: AppSpace.lg,
+                      crossAxisSpacing: AppSpace.md,
+                      childAspectRatio: .82,
                     ),
                     itemCount: lists.length,
                     itemBuilder: (context, index) {
                       final list = lists[index];
-                      return ListRow(
-                        leading: PlaylistCover(list: list, width: 44),
-                        label: list.name,
-                        subtitle: playlistSummary(list),
+                      return _PlaylistCard(
+                        key: ValueKey<String>(list.id),
+                        playlist: list,
                         onTap: () => openPlaylist(context, list.id),
                       );
                     },
@@ -91,6 +105,130 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _PlaylistCard extends StatelessWidget {
+  const _PlaylistCard({
+    required this.playlist,
+    required this.onTap,
+    super.key,
+  });
+
+  final Playlist playlist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Material(
+      color: palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        side: BorderSide(color: palette.hairline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: _PlaylistArtwork(playlist: playlist)),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                playlist.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.scaled(context, AppType.cardTitle).copyWith(
+                  color: palette.foreground,
+                  fontFamily: AppType.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                playlistSummary(playlist),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.metadata.copyWith(color: palette.mutedText),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A four-title mosaic gives a list its own cover without requiring a new
+/// upload or changing the playlist data model. Missing artwork stays quiet
+/// and branded through the shared theme rather than showing a broken image.
+class _PlaylistArtwork extends StatelessWidget {
+  const _PlaylistArtwork({required this.playlist});
+
+  final Playlist playlist;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final items = playlist.items.take(4).toList(growable: false);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = constraints.maxWidth / 2;
+        Widget cell(int index) {
+          Widget fallback() => ColoredBox(
+                color: palette.raisedSurface,
+                child: Center(
+                  child: Icon(
+                    PhosphorIcons.listBullets(),
+                    color: palette.mutedText,
+                    size: 22,
+                  ),
+                ),
+              );
+          if (index >= items.length) return fallback();
+          final url = tmdbImageUrl(context, items[index].posterPath);
+          if (url == null) return fallback();
+          return CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.cover,
+            memCacheWidth:
+                (cellWidth * MediaQuery.devicePixelRatioOf(context)).round(),
+            fadeInDuration: const Duration(milliseconds: 140),
+            placeholder: (_, __) => fallback(),
+            errorWidget: (_, __, ___) => fallback(),
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          child: Column(
+            children: <Widget>[
+              Expanded(
+                child: Row(
+                  children: <Widget>[
+                    Expanded(child: cell(0)),
+                    const SizedBox(width: 2),
+                    Expanded(child: cell(1)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Expanded(
+                child: Row(
+                  children: <Widget>[
+                    Expanded(child: cell(2)),
+                    const SizedBox(width: 2),
+                    Expanded(child: cell(3)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

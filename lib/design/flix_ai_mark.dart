@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-/// FlixAI's mark: the FlixQuest outline mark, untouched, with two sparks
+/// 7x AI's mark: the existing outline mark, with two sparks
 /// beside it. While [thinking], the sparks twinkle in turn.
 ///
 /// Drawn in [color], or the ambient [IconTheme]'s, so it sits in an

@@ -77,6 +77,30 @@ class VideoProvider {
 /// the preference retain their custom relative order. Provider codes, rather
 /// than display names, keep the preference stable when names change.
 abstract final class VideoProviderOrder {
+  /// Keeps Karamara at the front of the runtime provider list regardless
+  /// of a previously saved manual order. The provider may be identified by
+  /// its API id, canonical name, or user-facing alias.
+  static List<VideoProvider> prioritizeKaramara(
+    Iterable<VideoProvider> providers,
+  ) {
+    final ordered = List<VideoProvider>.of(providers);
+    final index = ordered.indexWhere((provider) {
+      final identifiers = <String>[
+        provider.apiId ?? '',
+        provider.fullName,
+        provider.alias ?? '',
+      ];
+      return identifiers.any(
+        (value) => value.toLowerCase().contains('karamara'),
+      );
+    });
+    if (index > 0) {
+      final karamara = ordered.removeAt(index);
+      ordered.insert(0, karamara);
+    }
+    return ordered;
+  }
+
   static List<VideoProvider> apply(
     Iterable<VideoProvider> availableProviders,
     Iterable<String> preferredCodes,

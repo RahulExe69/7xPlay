@@ -36,9 +36,10 @@ void main() {
 
   testWidgets('guests see a sign in prompt and cannot send', (tester) async {
     final chat = await pumpChat(tester, owner: null);
+    expect(find.text('7x AI'), findsOneWidget);
     expect(
         find.text(
-            'Sign in or create a free account to discover your next favorite with FlixAI.'),
+            'Sign in or create a free account to discover your next favorite with 7x AI.'),
         findsOneWidget);
     expect(chat.canSend, false);
     expect(tester.takeException(), isNull);

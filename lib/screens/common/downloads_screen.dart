@@ -26,28 +26,76 @@ class DownloadsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<OfflineDownloadProvider>();
     final palette = AppPalette.of(context);
+    final downloads = provider.downloads;
+    final inProgress = downloads.where((item) => item.isActive).toList();
+    final ready = downloads.where((item) => item.isComplete).toList();
+    final attention = downloads
+        .where((item) => !item.isActive && !item.isComplete)
+        .toList();
     final content = RefreshIndicator(
       color: palette.foreground,
       backgroundColor: palette.raisedSurface,
       onRefresh: provider.refresh,
-      child: provider.downloads.isEmpty
+      child: downloads.isEmpty
           ? _EmptyDownloads(loading: provider.loading)
           : CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: <Widget>[
                 SliverReadableWidth(
                   slivers: <Widget>[
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
                         AppSpace.gutter(context),
-                        embedded ? 20 : 12,
+                        embedded ? 20 : AppSpace.lg,
                         AppSpace.gutter(context),
                         112 + MediaQuery.paddingOf(context).bottom,
                       ),
-                      sliver: SliverList.separated(
-                        itemCount: provider.downloads.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) =>
-                            _DownloadCard(download: provider.downloads[index]),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate(
+                          <Widget>[
+                            _DownloadsOverview(
+                              inProgress: inProgress.length,
+                              ready: ready.length,
+                              attention: attention.length,
+                            ),
+                            const SizedBox(height: AppSpace.xxl),
+                            if (inProgress.isNotEmpty) ...<Widget>[
+                              _DownloadSectionHeading(
+                                title: tr('downloads_in_progress'),
+                                count: inProgress.length,
+                              ),
+                              const SizedBox(height: AppSpace.md),
+                              for (final download in inProgress) ...<Widget>[
+                                _DownloadCard(download: download),
+                                const SizedBox(height: AppSpace.md),
+                              ],
+                              const SizedBox(height: AppSpace.md),
+                            ],
+                            if (ready.isNotEmpty) ...<Widget>[
+                              _DownloadSectionHeading(
+                                title: tr('downloads_ready'),
+                                count: ready.length,
+                              ),
+                              const SizedBox(height: AppSpace.md),
+                              for (final download in ready) ...<Widget>[
+                                _DownloadCard(download: download),
+                                const SizedBox(height: AppSpace.md),
+                              ],
+                              const SizedBox(height: AppSpace.md),
+                            ],
+                            if (attention.isNotEmpty) ...<Widget>[
+                              _DownloadSectionHeading(
+                                title: tr('downloads_attention'),
+                                count: attention.length,
+                              ),
+                              const SizedBox(height: AppSpace.md),
+                              for (final download in attention) ...<Widget>[
+                                _DownloadCard(download: download),
+                                const SizedBox(height: AppSpace.md),
+                              ],
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -91,6 +139,160 @@ class DownloadsScreen extends StatelessWidget {
           Expanded(child: content),
         ],
       ),
+    );
+  }
+}
+
+
+/// A compact, truthful snapshot of the device's offline library. The groups
+/// below use the provider's actual states; this is presentation only and does
+/// not change the native download queue or local file records.
+class _DownloadsOverview extends StatelessWidget {
+  const _DownloadsOverview({
+    required this.inProgress,
+    required this.ready,
+    required this.attention,
+  });
+
+  final int inProgress;
+  final int ready;
+  final int attention;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 18),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(AppRadii.hero),
+        border: Border.all(color: palette.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: palette.idleFill,
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                ),
+                child: Icon(
+                  PhosphorIcons.downloadSimple(PhosphorIconsStyle.bold),
+                  color: palette.accent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Text(
+                  tr('offline_library'),
+                  style: AppType.sectionHeader.copyWith(
+                    color: palette.foreground,
+                    fontFamily: AppType.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.lg),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _DownloadStat(
+                  label: tr('downloads_in_progress'),
+                  count: inProgress,
+                ),
+              ),
+              Container(width: 1, height: 38, color: palette.hairline),
+              Expanded(
+                child: _DownloadStat(
+                  label: tr('downloads_ready'),
+                  count: ready,
+                ),
+              ),
+              Container(width: 1, height: 38, color: palette.hairline),
+              Expanded(
+                child: _DownloadStat(
+                  label: tr('downloads_attention'),
+                  count: attention,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DownloadStat extends StatelessWidget {
+  const _DownloadStat({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpace.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            '$count',
+            maxLines: 1,
+            style: AppType.sectionHeader.copyWith(
+              fontSize: 22,
+              color: palette.foreground,
+              fontFamily: AppType.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppType.metadata.copyWith(color: palette.mutedText),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DownloadSectionHeading extends StatelessWidget {
+  const _DownloadSectionHeading({required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            title,
+            style: AppType.sectionHeader.copyWith(
+              color: palette.foreground,
+              fontFamily: AppType.semiBold,
+            ),
+          ),
+        ),
+        Text(
+          '$count',
+          style: AppType.metadata.copyWith(
+            color: palette.mutedText,
+            fontFamily: AppType.semiBold,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -242,7 +444,12 @@ class _DownloadCard extends StatelessWidget {
                               ? 1
                               : download.progress > 0
                                   ? download.progress / 100
-                                  : null,
+                                  : download.state ==
+                                              OfflineDownloadState.downloading ||
+                                          download.state ==
+                                              OfflineDownloadState.restarting
+                                      ? null
+                                      : 0,
                       minHeight: 5,
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -335,12 +542,18 @@ class _DownloadMetadata extends StatelessWidget {
       children: [
         Icon(icon, size: 13, color: colors.onSurfaceVariant),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text(
+            label,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
         ),
       ],
     );

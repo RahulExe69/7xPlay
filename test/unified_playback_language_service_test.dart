@@ -136,7 +136,7 @@ void main() {
       sourceKeysByLanguage: {
         for (final language in ['en', 'hi', 'bn'])
           language: {
-            provider.codeName: LinkedHashSet<String>.of([identity]),
+            provider.codeName: {identity},
           },
       },
     );

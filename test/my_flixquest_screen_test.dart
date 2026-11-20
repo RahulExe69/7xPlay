@@ -201,6 +201,13 @@ void main() {
     expect(bars.every((bar) => bar.value != null), isTrue);
   });
 
+  testWidgets('My List and Downloads have dedicated library shortcuts', (tester) async {
+    await _pump(tester);
+
+    expect(find.byKey(const ValueKey<String>('library-shortcut-my-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('library-shortcut-downloads')), findsOneWidget);
+  });
+
   testWidgets('sections and account rows appear in the guide order',
       (tester) async {
     await _pump(
@@ -210,12 +217,16 @@ void main() {
       saved: <Movie>[Movie(id: 2, title: 'Saved')],
     );
 
-    double top(String text) => tester.getTopLeft(find.text(text).first).dy;
+    // The shortcut row repeats My List and Downloads labels; the section
+    // positions below refer to their later content headings.
+    double top(String text) => tester.getTopLeft(find.text(text).last).dy;
+    // Viewing Insights is exposed as the "wellness" library shortcut above
+    // the activity sections, not as a separate lower-page heading.
+    expect(find.text('wellness'), findsOneWidget);
     final order = <String>[
       'continue_watching',
       'my_list',
       'downloads',
-      'viewing_insights',
       'settings',
       'sync',
       'check_server',
