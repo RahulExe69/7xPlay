@@ -110,6 +110,10 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/wellness_chart_palette_test.dart test/wellness_charts_test.dart test/wellness_dashboard_metrics_test.dart test/wellness_dashboard_widgets_test.dart test/wellness_insights_test.dart test/wellness_recap_test.dart test/wellness_time_series_test.dart
 
+      - name: Test standalone Season and Episode screens
+        working-directory: 7xPlay
+        run: flutter test test/season_episode_screens_test.dart
+
       - name: Test the redesigned offline downloads library
         working-directory: 7xPlay
         run: flutter test test/downloads_screen_test.dart
