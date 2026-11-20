@@ -10,6 +10,8 @@
 
 **Spec:** docs/superpowers/specs/2026-11-01-7xplay-mobile-redesign-design.md
 
+**Workstream boundary:** This is the handheld content-journey workstream only. Android TV equivalents are covered in the dedicated TV plan; playback presentation is covered in the dedicated player plan. Audit legacy movie/series route wrappers and preserve any live route entry points.
+
 ## Global Constraints
 - Target handheld presentation only; do not change lib/tv/**.
 - Keep current route names, deep-link formats, MediaItem identifiers and catalogue data contracts.
