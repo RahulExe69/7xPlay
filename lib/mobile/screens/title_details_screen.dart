@@ -15,6 +15,7 @@ import '../../catalog/media_item.dart';
 import '../../catalog/title_details_source.dart';
 import '../../catalog/title_logos.dart';
 import '../../controllers/bookmark_database_controller.dart';
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../design/media_badge.dart';
@@ -700,7 +701,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
                       const Color(0x70000000),
                       const Color(0x00000000),
                       const Color(0xDC000000),
-                      palette.page,
+                      AppBrand.background,
                     ],
                   ),
                 ),
