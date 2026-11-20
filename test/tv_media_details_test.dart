@@ -12,7 +12,7 @@ import 'package:flixquest/services/video_launcher.dart';
 import 'package:flixquest/tv/controllers/tv_media_details_controller.dart';
 import 'package:flixquest/tv/models/tv_media_item.dart';
 import 'package:flixquest/tv/screens/tv_media_details_screen.dart';
-import 'package:flixquest/widgets/network_banner_widget.dart';
+import 'package:flixquest/widgets/hosted_ads_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -241,10 +241,10 @@ void main() {
         ..setBannerAdsConfig(testAdsterraConfig());
       await _pumpDetails(tester, dependencies: dependencies);
 
-      final banner = find.byType(NetworkBannerWidget);
+      final banner = find.byType(BannerAdSlot);
       expect(banner, findsOneWidget);
       expect(
-          tester.widget<NetworkBannerWidget>(banner).placement, 'title_detail');
+          tester.widget<BannerAdSlot>(banner).placement, 'title_detail');
       final slot = tester.widget<Positioned>(
         find.ancestor(of: banner, matching: find.byType(Positioned)).first,
       );

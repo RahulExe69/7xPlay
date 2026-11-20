@@ -192,11 +192,11 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
-    expect(find.text('Choose how FlixQuest looks on this TV.'), findsOneWidget);
+    expect(find.text('Choose how 7xPlay looks on this TV.'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(find.text('Choose how FlixQuest looks on this TV.'), findsNothing);
+    expect(find.text('Choose how 7xPlay looks on this TV.'), findsNothing);
     expect(
       FocusManager.instance.primaryFocus?.debugLabel,
       'TV setting theme mode',
