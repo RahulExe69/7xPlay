@@ -1,23 +1,16 @@
 import 'package:flixquest/presentation/session/session_view_model.dart';
-import 'package:flixquest/services/flixquest_auth_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/error/failure.dart';
 import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
-import '../../mobile/widgets/device_limit_sheet.dart';
 import '../../mobile/widgets/pill_button.dart';
 import '../../provider/settings_provider.dart';
 import '../../services/globle_method.dart';
-import '../../widgets/google_sign_in_button.dart';
-import '../user/login_screen.dart';
-import '../user/signup_screen.dart';
 
 class LaravelLandingScreen extends StatefulWidget {
   const LaravelLandingScreen({super.key});
@@ -27,9 +20,7 @@ class LaravelLandingScreen extends StatefulWidget {
 }
 
 class _LandingScreenState extends State<LaravelLandingScreen> {
-  final _authService = FlixQuestAuthService();
   bool _loadingAnonymous = false;
-  bool _loadingGoogle = false;
 
   @override
   Widget build(BuildContext context) {
@@ -238,62 +229,6 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
     }
   }
 
-  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
-      mounted ? showDeviceLimitSheet(context, limit) : null;
-
-  Future<void> _continueWithGoogle(SettingsProvider settings) async {
-    if (_loadingAnonymous) return;
-    setState(() => _loadingGoogle = true);
-    try {
-      final credential = await _authService.withinDeviceLimit(
-          (replaceDeviceId) =>
-              _authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
-          pick: _pickDeviceToSignOut);
-      if (credential == null) return;
-      settings.analytics.trackLogin('google');
-      // UserState's session gate swaps this landing screen for the app shell.
-    } on AuthActionException catch (error) {
-      if (mounted) _showError(_googleAuthMessage(error));
-    } on PlatformException catch (error) {
-      if (mounted && !_isGoogleSignInCancel(error)) {
-        _showError(_googlePlatformMessage(error));
-      }
-    } catch (_) {
-      if (mounted) _showError(tr('google_signin_failed'));
-    } finally {
-      if (mounted) setState(() => _loadingGoogle = false);
-    }
-  }
-
-  String _googleAuthMessage(AuthActionException error) {
-    return switch (error.code) {
-      'account-exists-with-different-credential' => error.message,
-      'network-request-failed' => tr('check_connection'),
-      'invalid-credential' || 'invalid-email' => tr('invalid_credential'),
-      'user-disabled' => tr('banned_user'),
-      _ => error.message,
-    };
-  }
-
-  bool _isGoogleSignInCancel(PlatformException error) {
-    final code = error.code.toLowerCase();
-    return code.contains('canceled') ||
-        code.contains('cancelled') ||
-        code.contains('interrupted') ||
-        code.contains('user_cancelled');
-  }
-
-  String _googlePlatformMessage(PlatformException error) {
-    final code = error.code.toLowerCase();
-    if (code == 'network_error' ||
-        error.message?.toLowerCase().contains('network') == true) {
-      return tr('check_connection');
-    }
-    final detail =
-        (error.message?.isNotEmpty ?? false) ? error.message! : error.code;
-    return '${tr('google_signin_failed')}\n$detail';
-  }
-
   void _showError(String message) {
     GlobalMethods.showCustomScaffoldMessage(
       SnackBar(content: Text(message, maxLines: 3)),
@@ -301,9 +236,7 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
     );
   }
 
-  void _push(Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-  }
+
 }
 
 class _Intro extends StatelessWidget {
