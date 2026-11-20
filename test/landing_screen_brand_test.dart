@@ -1,4 +1,4 @@
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flixquest/provider/settings_provider.dart';
 import 'package:flixquest/screens/common/landing_screen.dart';
 import 'package:flixquest/translations/codegen_loader.g.dart';
