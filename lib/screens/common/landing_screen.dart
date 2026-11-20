@@ -18,7 +18,6 @@ import '../../services/globle_method.dart';
 import '../../widgets/google_sign_in_button.dart';
 import '../user/login_screen.dart';
 import '../user/signup_screen.dart';
-import '../../widgets/app_logo.dart';
 
 class LaravelLandingScreen extends StatefulWidget {
   const LaravelLandingScreen({super.key});
@@ -320,65 +319,14 @@ class _Intro extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: alignment,
       children: [
-        Container(
-          key: const ValueKey('landing-brand-mark'),
-          width: 104,
-          height: 104,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(29),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppBrand.amber,
-                AppBrand.orange,
-                AppBrand.hotPink,
-                AppBrand.violet,
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppBrand.orange.withValues(alpha: .16),
-                blurRadius: 28,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: AppBrand.background,
-              borderRadius: BorderRadius.circular(26),
-            ),
-            child: const Hero(
-              tag: 'logo_shadow',
-              child: AppLogo(),
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpace.xl),
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              AppBrand.amber,
-              AppBrand.orange,
-              AppBrand.hotPink,
-              AppBrand.violet,
-            ],
-          ).createShader(bounds),
-          child: Text(
-            '7xPlay',
-            textAlign: textAlign,
-            style: AppType.scaled(context, AppType.heroTitle).copyWith(
-              fontSize: wide ? 48 : 42,
-              height: 1.04,
-              letterSpacing: -1.2,
-              color: Colors.white,
-            ),
+        SizedBox(
+          width: wide ? 320 : 270,
+          height: 86,
+          child: Image.asset(
+            'assets/images/7xplay_wordmark.png',
+            key: const ValueKey('landing-brand-mark'),
+            fit: BoxFit.contain,
+            semanticLabel: '7xPlay',
           ),
         ),
         const SizedBox(height: AppSpace.md),
