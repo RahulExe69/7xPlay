@@ -31,7 +31,7 @@ class _FileLoader extends AssetLoader {
 
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async =>
-      jsonDecode(File('$path/\${locale.languageCode}.json').readAsStringSync())
+      jsonDecode(File('$path/${locale.languageCode}.json').readAsStringSync())
           as Map<String, dynamic>;
 }
 
