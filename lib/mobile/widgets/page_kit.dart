@@ -316,7 +316,11 @@ class SegmentSwitch<T> extends StatelessWidget {
                     child: _SegmentLabel(
                       segment: segment,
                       color: segment.value == selected
-                          ? Theme.of(context).colorScheme.onPrimary
+                          ? (ThemeData.estimateBrightnessForColor(
+                                      Theme.of(context).colorScheme.primary) ==
+                                  Brightness.dark
+                              ? Colors.white
+                              : const Color(0xFF171017))
                           : palette.secondaryText,
                     ),
                   ),
@@ -380,7 +384,11 @@ class TogglePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final foreground = selected ? scheme.onPrimary : palette.foreground;
+    final foreground = selected
+        ? (ThemeData.estimateBrightnessForColor(scheme.primary) == Brightness.dark
+            ? Colors.white
+            : const Color(0xFF171017))
+        : palette.foreground;
     final marked = selected && check;
     void tap() {
       HapticFeedback.selectionClick();
