@@ -55,7 +55,7 @@
 ### Task 2: Redesign Downloads and My List/bookmarks
 
 **Files**
-- Modify: lib/screens/common/downloads_screen.dart, bookmark_screen.dart.
+- Modify: lib/screens/common/downloads_screen.dart, bookmark_screen.dart, download_selection_sheets.dart.
 - Review/modify: lib/mobile/my_list.dart, lib/mobile/widgets/poster_grid.dart, settings_kit.dart.
 - Test: test/offline_download_test.dart; create test/downloads_screen_test.dart and test/bookmark_screen_test.dart if absent.
 
