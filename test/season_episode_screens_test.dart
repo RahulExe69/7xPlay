@@ -204,9 +204,9 @@ void main() {
 
       expect(find.byType(EpisodeScreen), findsOneWidget);
       expect(find.text('The Future'), findsWidgets);
-      expect(find.text('play'), findsNothing);
-      expect(find.text('download_action'), findsNothing);
-      expect(find.byTooltip('download_episode'), findsNothing);
+      expect(find.text('Play'), findsNothing);
+      expect(find.text('Download'), findsNothing);
+      expect(find.byTooltip('Download episode'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -226,9 +226,9 @@ void main() {
       ),
     );
 
-    expect(find.text('episodes_load_failed'), findsOneWidget);
+    expect(find.text("Episodes couldn't be loaded."), findsOneWidget);
     source.failEpisodes = false;
-    await tester.tap(find.text('retry'));
+    await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
 
     expect(source.episodeRequests, <int>[1, 1]);
