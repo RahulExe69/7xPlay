@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Tablet rail loses destinations at 800×360 | `lib/mobile/app/mobile_nav_bar.dart` now puts the destination Column in an Expanded, bounded `SingleChildScrollView` with a minimum viewport height. | Fix already present in current branch. | Add/retain a compact landscape regression test proving the last destination can be reached at 800×360. |
 | My 7xPlay shortcut loses semantic tap action | `_LibraryShortcut` in `lib/mobile/screens/my_flixquest_screen.dart` now has `Semantics(onTap: onTap)` in addition to `InkWell(onTap: onTap)`. | Fix already present in current branch. | Existing test checks labels and target size; consider a SemanticsAction.tap activation test. |
-| Artwork title/facts/genres contrast in Light theme | `_heroIdentity` now uses explicit white artwork foreground, and `_facts` / `_genrePills` use translucent white when `onArtwork` is true. However, the flexible-space gradient still ends with `palette.page`, which is light in Light mode. | Still needs a focused correction/verification: white artwork text can reach a light final gradient stop. | Add a Light-theme regression test for the actual scrim/identity contrast, then keep the artwork identity over a sufficiently dark scrim independent of `palette.dark`. |
+| Artwork title/facts/genres contrast in Light theme | `test/title_details_screen_test.dart` failed first with the old Light-theme gradient end luminance of `0.9740810301656981`. Commit `f797084` imports `AppBrand` and changes the final artwork gradient colour to `AppBrand.background`. The same test now passes in Actions run `44704315977`. | Fixed and regression-tested. | Keep the Light-theme luminance assertion and validate the rendered page in the visual review matrix. |
 | Short overview truncated without Read more | `_synopsis` sets `maxLines` and ellipsis only when the text is expandable and closed. | Fix already present in current branch. | No code change needed unless a regression test exposes a mismatch. |
 | Share action missing in wide title details | The wide `_twoColumns` layout includes `_summary`; `_summary` includes `_actions`; `_actions` includes the Share action tile. | Fix already present in current branch. | Add a wide-layout action assertion only if current widget test coverage does not already prove it. |
 | Hero details overflow at 2× text scale | `HeroCard.heightFor` increases height with text scale (up to 408px), but the title still sits in a fixed 58px slot. `test/hero_card_layout_test.dart` currently tests the height helper and backdrop choice, not rendered controls at 2×. | Not yet proven fixed. | Add a rendered HeroCard test at compact phone width and 2× text scale with Play and My List both visible and no layout exception; change the component only if the test reproduces overflow. |
@@ -21,13 +21,15 @@
 
 ## Verification boundary
 
-- These are source-level triage results, not a substitute for widget tests or rendered visual review.
+- These are code and test-level triage results, not a substitute for rendered visual review.
 - The current pull-request CI workflow does not yet run the full TV/player test inventory in the full-app roadmap.
 - The current PR workflow installs Flutter 3.41.5 while `.fvmrc` pins 3.35.7. This drift is recorded for a deliberate toolchain decision; it must not be silently changed as part of a visual fix.
-- The latest CI run before the landing-test correction failed to compile `test/landing_screen_brand_test.dart` because `TextDirection.rtl` resolved to the wrong imported symbol. The test import has since been changed to hide the conflicting Easy Localization symbol; the follow-up CI result is pending at the time of this audit.
+- `test/landing_screen_brand_test.dart` originally failed to compile because the Easy Localization import shadowed Flutter's `TextDirection`; `hide TextDirection` was added to that import in commit `284a2a5`, and the landing-screen test passed in run `44704315977`.
+- The Light-theme contrast test went red as intended in run `44703930399` (32 title tests passed, the new regression failed at luminance 0.974); the presentation fix in `f797084` made the same test group pass in run `44704315977`.
+- Run `44704315977` completed successfully on `f797084e44d37739bbe367c228ea79e29b49b21f`. All existing mobile/provider/playlist/library groups in the workflow passed. The optimized APK job was intentionally skipped for pull requests.
 
 ## Next verified actions
 
-1. Prove the Light-theme artwork/scrim contrast failure with a widget regression test, then correct only the artwork presentation.
-2. Add rendered 2× HeroCard coverage before changing its fixed title slot.
-3. Extend CI coverage for Android TV and player tests after their owning test tasks exist.
+1. Add rendered 2× HeroCard coverage before changing its fixed title slot.
+2. Run the newly added Android TV and player regression batches plus `flutter analyze`; record any pre-existing failures separately from regressions.
+3. Complete rendered phone/tablet/TV and player-state reviews; source and CI results alone do not prove visual acceptance.
