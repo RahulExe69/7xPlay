@@ -2035,5 +2035,8 @@
   "provider_available_count": "{count} fuentes disponibles",
   "provider_not_checked": "Sin comprobar",
   "provider_language_unavailable": "Este proveedor no ofrece el idioma de audio seleccionado",
-  "provider_playback_failed": "Error de reproducción"
+  "provider_playback_failed": "Error de reproducción",
+  "ins_private_pending": "Tu historial de visualización está guardado en este dispositivo. Aparecerá en tus otros dispositivos después de la primera sincronización correcta.",
+  "ins_private_syncing": "Tu historial de visualización está guardado en este dispositivo mientras se sincroniza con tu cuenta de 7xPlay.",
+  "ins_private_sync_error": "Tu historial de visualización sigue guardado en este dispositivo. La sincronización está en pausa, por lo que el historial más reciente puede diferir entre tus dispositivos."
 }

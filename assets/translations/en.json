@@ -2036,5 +2036,8 @@
   "provider_language_unavailable": "This provider does not expose the selected audio language",
   "provider_playback_failed": "Playback failed",
   "bengali": "Bengali",
-  "urdu": "Urdu"
+  "urdu": "Urdu",
+  "ins_private_pending": "Your viewing history is saved on this device. It will appear on your other devices after the first successful sync.",
+  "ins_private_syncing": "Your viewing history is saved on this device while it syncs to your 7xPlay account.",
+  "ins_private_sync_error": "Your viewing history is still saved on this device. Sync is paused, so the latest history may differ across your devices."
 }

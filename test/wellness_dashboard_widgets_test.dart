@@ -35,6 +35,7 @@ void main() {
   testWidgets('local viewing insights remain available after sync failure',
       (tester) async {
     final provider = _ReportProvider(_sample().sessions);
+    provider.syncEnabled = true;
     provider.syncService.status.value = WellnessSyncStatus.error;
     addTearDown(provider.dispose);
 
@@ -48,8 +49,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sync paused'), findsOneWidget);
+    expect(find.textContaining('still saved on this device'), findsOneWidget);
+    expect(find.textContaining('latest history may differ'), findsOneWidget);
+    expect(find.textContaining('synced to your 7xPlay account'), findsNothing);
     expect(find.text('The Grand Budapest Hotel'), findsWidgets);
     expect(find.byKey(const Key('wellness-hero-card')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('first cloud sync is described as pending, not already synced',
+      (tester) async {
+    final provider = _ReportProvider(_sample().sessions);
+    provider.syncEnabled = true;
+    addTearDown(provider.dispose);
+
+    await tester.pumpWidget(_app(
+      ChangeNotifierProvider<WellnessProvider>.value(
+        value: provider,
+        child: const WellnessScreen(),
+      ),
+      scroll: false,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('first successful sync'), findsOneWidget);
+    expect(find.textContaining('synced to your 7xPlay account'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -303,8 +327,9 @@ class _ReportProvider extends ChangeNotifier implements WellnessProvider {
   WellnessRange range = WellnessRange.month;
   @override
   bool get loading => false;
+  bool syncEnabled = false;
   @override
-  bool get canSync => syncService.status.value != WellnessSyncStatus.idle;
+  bool get canSync => syncEnabled;
   @override
   bool get shouldOfferGuestMerge => false;
   @override
