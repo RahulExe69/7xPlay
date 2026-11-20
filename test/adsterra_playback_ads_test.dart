@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flixquest/constants/app_constants.dart';
+import 'package:flixquest/data/ads/ads_policy.dart';
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
 import 'package:flixquest/provider/app_dependency_provider.dart';
 import 'package:flixquest/services/adsterra_playback_ads_service.dart';
@@ -78,6 +79,7 @@ void main() {
     sharedPrefsSingleton = await SharedPreferences.getInstance();
   });
   setUp(() async {
+    AdsPolicy.setForTesting(adFree: false);
     SharedPreferences.setMockInitialValues({});
     sharedPrefsSingleton = await SharedPreferences.getInstance();
     platform = FakeAdsterraWebViewPlatform()..signalLoaded = false;
@@ -93,6 +95,7 @@ void main() {
     service = AdsterraPlaybackAdsService(storeLauncher: recordStoreLaunch);
   });
   tearDown(() {
+    AdsPolicy.setForTesting(adFree: true);
     DevicePresentationService.instance.isTelevision = false;
     TestWidgetsFlutterBinding.instance
         .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
