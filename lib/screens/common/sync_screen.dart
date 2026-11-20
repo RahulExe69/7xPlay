@@ -71,8 +71,8 @@ class LaravelSyncScreen extends StatelessWidget {
         child: AnimatedBuilder(
           animation: Listenable.merge([
             session,
-            for (final runner in runners) runner.status,
-            for (final runner in runners) runner.lastSynced,
+            for (final section in runners) section.runner.status,
+            for (final section in runners) section.runner.lastSynced,
           ]),
           builder: (context, _) {
             final busy = runners.any(
