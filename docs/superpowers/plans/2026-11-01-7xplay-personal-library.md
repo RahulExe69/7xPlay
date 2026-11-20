@@ -10,6 +10,8 @@
 
 **Spec:** docs/superpowers/specs/2026-11-01-7xplay-mobile-redesign-design.md
 
+**Workstream boundary:** This is the handheld personal-library workstream only. Android TV library/profile/playlist equivalents are covered in the dedicated TV plan. The overall redesign still includes every TV destination.
+
 ## Global Constraints
 - Target handheld presentation only; do not change lib/tv/**.
 - Preserve My 7xPlay's root tab ID mine and current tab restoration semantics.
