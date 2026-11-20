@@ -138,9 +138,13 @@ jobs:
         working-directory: 7xPlay
         run: flutter test test/tv_back_dispatcher_test.dart test/tv_back_key_guard_test.dart test/tv_browse_view_test.dart test/tv_collection_screen_test.dart test/tv_continue_watching_removal_test.dart test/tv_form_keyboard_test.dart test/tv_library_screen_test.dart test/tv_loading_skeletons_test.dart test/tv_localization_test.dart test/tv_media_details_test.dart test/tv_navigation_rail_test.dart test/tv_palette_test.dart test/tv_poster_wall_test.dart test/tv_profile_screen_test.dart test/tv_provider_order_dialog_test.dart test/tv_remote_navigation_test.dart test/tv_search_history_controller_test.dart test/tv_search_keyboard_test.dart test/tv_search_screen_test.dart test/tv_settings_screen_test.dart test/tv_shell_layout_test.dart test/tv_sport_picker_test.dart test/tv_subtitle_timing_panel_test.dart test/tv_telegram_channel_prompt_test.dart test/tv_title_logos_test.dart test/tv_update_test.dart test/tv_wellness_screen_test.dart
 
-      - name: Test production ad policy and popup ad services
+      - name: Test the permanent ad-free production policy
         working-directory: 7xPlay
-        run: flutter test test/ads_policy_test.dart test/adsterra_playback_ads_test.dart test/vast_preroll_test.dart
+        run: flutter test test/ads_policy_test.dart
+
+      - name: Test VAST parsing, ad selection and playback lifecycle primitives
+        working-directory: 7xPlay
+        run: flutter test test/vast_preroll_test.dart
 
       - name: Test movie, series, Live TV and offline player behavior
         working-directory: 7xPlay
