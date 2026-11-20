@@ -119,7 +119,7 @@
 ## Task 5: Redesign Live TV player and channel overlays
 
 **Files**
-- Modify presentation only: lib/screens/common/live_player.dart, plus TV-specific UI in lib/tv/player/tv_player_screen.dart where that widget owns live playback presentation.
+- Modify presentation only: lib/screens/common/live_player.dart, Keep TV-specific presentation changes to lib/tv/player/tv_player_screen.dart in Task 6 so the file has one task owner.
 - Review: lib/screens/common/live_tv_screen.dart, lib/tv/screens/tv_live_screen.dart for player hand-off only; browse-page composition belongs to the core-browse and Android-TV plans.
 - Test: test/live_playback_policy_test.dart, daddylive_service_test.dart, live_stream_discovery_test.dart, tv_remote_navigation_test.dart; create test/live_player_presentation_test.dart.
 
