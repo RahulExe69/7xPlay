@@ -18,7 +18,6 @@ import '../my_list.dart';
 import '../playback.dart';
 import 'media_art.dart';
 import 'pill_button.dart';
-import 'poster_card.dart';
 
 /// Home's featured title as a card: its artwork, its logo, what it is, and
 /// Play and My List under it. The card is artwork, so it looks the same in
@@ -411,7 +410,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
   /// Whether a turn would be seen and welcome right now.
   bool get _canTurn {
     if (!mounted || _held) return false;
-    if (!TickerMode.of(context)) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
     if (MediaQuery.disableAnimationsOf(context)) return false;
     final page = Scrollable.maybeOf(context)?.position;
     final height = context.size?.height ?? 0;
