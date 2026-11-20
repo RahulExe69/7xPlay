@@ -2038,5 +2038,16 @@
   "provider_playback_failed": "Error de reproducción",
   "ins_private_pending": "Tu historial de visualización está guardado en este dispositivo. Aparecerá en tus otros dispositivos después de la primera sincronización correcta.",
   "ins_private_syncing": "Tu historial de visualización está guardado en este dispositivo mientras se sincroniza con tu cuenta de 7xPlay.",
-  "ins_private_sync_error": "Tu historial de visualización sigue guardado en este dispositivo. La sincronización está en pausa, por lo que el historial más reciente puede diferir entre tus dispositivos."
+  "ins_private_sync_error": "Tu historial de visualización sigue guardado en este dispositivo. La sincronización está en pausa, por lo que el historial más reciente puede diferir entre tus dispositivos.",
+  "sync_local_title": "Tu biblioteca permanece en este dispositivo",
+  "sync_guest_message": "Inicia sesión para sincronizar favoritos, progreso e información de visualización entre dispositivos.",
+  "sync_unavailable_message": "La sincronización en la nube no está disponible. Tus datos locales siguen disponibles.",
+  "sync_hero_title": "Mantén tu experiencia 7xPlay sincronizada",
+  "sync_hero_message": "Elige cuándo sincronizar tus títulos guardados, el progreso y la información de visualización.",
+  "sync_sections_heading": "ESTADO DE SINCRONIZACIÓN",
+  "sync_progress_detail": "Tu progreso de reproducción entre dispositivos",
+  "sync_insights_detail": "Tus estadísticas e historial de visualización",
+  "sync_status_waiting_retry": "La sincronización necesita atención. Inténtalo de nuevo cuando tengas conexión.",
+  "sync_all_success": "Todo está sincronizado.",
+  "sync_all_partial_failure": "No se pudieron sincronizar algunas secciones. Tus datos locales están a salvo."
 }
