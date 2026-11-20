@@ -1,6 +1,6 @@
 # 7xPlay Full Android Application Redesign — Master Plan
 
-**Status:** Design approved by Rahul on 2026-11-20; full-app planning completed on 2026-11-20; implementation not yet started from this expanded plan  
+**Status:** Design approved by Rahul on 2026-11-20; full-app planning completed on 2026-11-20; baseline regression remediation and CI coverage expansion underway  
 **Design:** docs/superpowers/specs/2026-11-01-7xplay-mobile-redesign-design.md  
 **Repository:** RahulExe69/7xPlay  
 **Working branch:** redesign/phase-2-catalog-experience  
@@ -126,13 +126,15 @@ The workstream executors must inspect the actual route graph and callers before 
 
 As checked after the full-app planning commits on 2026-11-20:
 - PR #24 is open, not merged, and still a draft. It targets main from redesign/phase-2-catalog-experience.
-- After adding the expanded full-app specification and master/player/TV plans, PR metadata reports 68 changed files, 5,444 additions and 1,047 deletions across the consolidated branch.
-- The PR description reports workflow run 44516087368 passed selected groups covering provider aggregation/fallback, 7x AI, shared headers, brand/palette, Home/feed, catalogue/New & Hot/Discover/Search and collection/poster-grid tests. The APK job was skipped under the existing draft/PR policy. This is a historical selected-test report, not proof that the expanded full-app plan passes or that the current head has been fully verified.
+- After adding the expanded full-app specification and master/player/TV plans, PR metadata reports 69 changed files, 5,512 additions and 1,047 deletions on commit `f797084e44d37739bbe367c228ea79e29b49b21f`; newer CI/plan/audit commits may change these counts.
+- GitHub Actions run `44704315977` completed successfully on `f797084e44d37739bbe367c228ea79e29b49b21f`. It passed the configured provider/audio/offline tests, 7x AI, landing/RTL, mobile shell, library, headers, palette, Home, catalogue/search, title details (including the new Light-theme contrast regression), account/settings/sync, Wellness, season/episode, downloads, My List, playlist and collection tests. The APK job was skipped under the existing draft/PR policy. The workflow is now being expanded to run all existing TV tests, player regression tests and Flutter analysis; those new gates are not yet verified.
 - The diff includes brand/launcher/wordmark work, mobile shell and screens, a substantial title-details experiment, bookmarks/downloads/sync/wellness changes, player recovery/download metadata changes, Karamara-first provider ordering, translations and tests.
 - Keep the useful PR #24 implementation. Audit it screen by screen, retaining, revising or reverting only with a reason. Do not rebuild the same work in parallel or treat palette/heading edits as completion.
 - PR #24 changed both UI and playback/provider behaviour. The player plan must protect the existing recovery/provider work while separating player UI from playback-engine responsibilities.
 
 ## CodeRabbit review triage
+
+- The manually verified findings and current evidence are recorded in `docs/superpowers/audits/2026-11-20-coderabbit-triage.md`. This is a manual source/test audit of prior CodeRabbit comments, not a newly executed CodeRabbit CLI review.
 
 The current PR discussion contains nine actionable findings and review comments around mobile rail height, semantic shortcut activation, title artwork contrast, overview expansion, wide-layout sharing, hero-card text overflow, custom-theme selected-label contrast, provider recovery freshness/stalled-track handling and missing runtime sync translations.
 
