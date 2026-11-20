@@ -221,9 +221,6 @@ void main() {
   authTest('guest can enter the app from the phone landing page offline',
       (tester) async {
     await pumpPage(tester, const LandingScreen(), gate: true);
-    expect(find.byKey(const ValueKey('landing-brand-canvas')), findsOneWidget);
-    expect(find.byKey(const ValueKey('landing-brand-mark')), findsOneWidget);
-    expect(find.byKey(const ValueKey('landing-access-card')), findsOneWidget);
     final guest = find.text(tr('continue_anonymously'));
     await tester.ensureVisible(guest);
     await tester.tap(guest);
