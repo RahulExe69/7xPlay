@@ -13,6 +13,7 @@ import 'package:flixquest/tv/controllers/tv_media_details_controller.dart';
 import 'package:flixquest/tv/models/tv_media_item.dart';
 import 'package:flixquest/tv/screens/tv_media_details_screen.dart';
 import 'package:flixquest/widgets/hosted_ads_banner.dart';
+import 'package:flixquest/widgets/network_banner_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -279,7 +280,7 @@ void main() {
         dependencies: dependencies,
       );
 
-      expect(find.byType(BannerAdSlot), findsNothing);
+      expect(find.byType(NetworkBannerWidget), findsNothing);
       expect(hostedRequests, 0);
       expect(find.text('Play S1:E1'), findsOneWidget);
     },
