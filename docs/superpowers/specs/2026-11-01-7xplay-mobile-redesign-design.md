@@ -1,9 +1,9 @@
 # 7xPlay Full-App Experience Redesign — Design
 
-**Status:** Proposed; awaiting product-owner approval  
-**Date:** 2026-11-01  
+**Status:** Revised scope; awaiting product-owner approval  
+**Date:** 2026-11-20  
 **Repository:** `RahulExe69/7xPlay`  
-**Target:** Entire Android application
+**Target:** Entire Android application — phones, tablets, Android TV, and all player/shell surfaces
 
 ## Intent
 
