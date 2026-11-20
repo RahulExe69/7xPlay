@@ -265,6 +265,11 @@ void main() {
 
       expect(find.text('The Beginning'), findsWidgets);
       expect(find.text('1. The Beginning'), findsOneWidget);
+      await tester.ensureVisible(find.text('2. The Future'));
+      await tester.tap(find.text('2. The Future'));
+      await tester.pumpAndSettle();
+      expect(find.text('The Future'), findsWidgets);
+      expect(find.text('2. The Future'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
