@@ -124,9 +124,9 @@ The workstream executors must inspect the actual route graph and callers before 
 
 ## PR #24 baseline and audit status
 
-As checked on 2026-11-20:
+As checked after the full-app planning commits on 2026-11-20:
 - PR #24 is open, not merged, and still a draft. It targets main from redesign/phase-2-catalog-experience.
-- PR metadata reports 66 changed files, 4,978 additions and 1,047 deletions across the consolidated branch. The branch also contains the full-app design-spec and plan-document updates.
+- After adding the expanded full-app specification and master/player/TV plans, PR metadata reports 68 changed files, 5,444 additions and 1,047 deletions across the consolidated branch.
 - The PR description reports workflow run 44516087368 passed selected groups covering provider aggregation/fallback, 7x AI, shared headers, brand/palette, Home/feed, catalogue/New & Hot/Discover/Search and collection/poster-grid tests. The APK job was skipped under the existing draft/PR policy. This is a historical selected-test report, not proof that the expanded full-app plan passes or that the current head has been fully verified.
 - The diff includes brand/launcher/wordmark work, mobile shell and screens, a substantial title-details experiment, bookmarks/downloads/sync/wellness changes, player recovery/download metadata changes, Karamara-first provider ordering, translations and tests.
 - Keep the useful PR #24 implementation. Audit it screen by screen, retaining, revising or reverting only with a reason. Do not rebuild the same work in parallel or treat palette/heading edits as completion.
