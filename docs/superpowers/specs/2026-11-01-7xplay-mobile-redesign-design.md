@@ -1,13 +1,13 @@
-# 7xPlay Mobile Experience Redesign — Design
+# 7xPlay Full-App Experience Redesign — Design
 
 **Status:** Proposed; awaiting product-owner approval  
 **Date:** 2026-11-01  
 **Repository:** `RahulExe69/7xPlay`  
-**Target:** Android handheld UI (phones and tablets)
+**Target:** Entire Android application
 
 ## Intent
 
-Turn the 7xPlay Android app into a recognisable, premium streaming experience rather than a FlixQuest interface with a new colour palette. The redesign must change page composition, information hierarchy, content presentation, navigation details where appropriate, and interaction patterns across the mobile app.
+Turn the entire 7xPlay Android app into a recognisable, premium streaming experience rather than a FlixQuest interface with a new colour palette. The redesign must change page composition, information hierarchy, content presentation, navigation, interaction patterns, player experiences, and platform-specific layouts across phones, tablets, and Android TV.
 
 The five primary destinations and all existing capabilities remain. Each page should have its own layout suited to its job while sharing one coherent 7xPlay visual language. Consistency comes from design rules and reusable primitives—not from repeating the same header, card, pill, and grid on every screen.
 
@@ -15,17 +15,17 @@ The movie-details screenshots supplied by the product owner illustrate the probl
 
 ## Goals
 
-1. Establish one maintainable mobile design system using the existing Flutter foundations.
-2. Give every primary destination a distinct information architecture and visual composition.
+1. Establish one maintainable, platform-aware 7xPlay design system using the existing Flutter foundations.
+2. Give every destination on every Android form factor a distinct information architecture and visual composition.
 3. Redesign secondary/supporting destinations and surfaces so they do not fall back to legacy styling.
 4. Make the 7xPlay identity deliberate: dark, cinematic, artwork-led, spacious, and restrained.
-5. Preserve current app capabilities, data contracts, navigation restoration, localization, accessibility, offline behaviours, ads, and playback.
-6. Validate actual rendered screens across themes, phone/tablet sizes, and right-to-left layout—not just successful compilation.
+5. Redesign both movie/series and Live TV player interfaces while preserving playback engines, provider/audio logic, stream behaviour, and playback capabilities.
+6. Preserve current app capabilities, data contracts, navigation restoration, localization, accessibility, offline behaviours, ads, and playback.
+7. Validate actual rendered screens across themes, phone/tablet/TV layouts, player states, and right-to-left layout—not just successful compilation.
 
 ## Non-goals
 
-- Redesigning Android TV or changing files under `lib/tv/**`.
-- Changing the player, BetterPlayer controls, playback resolution, provider aggregation, unified audio selection, subtitles, source fallback, or download playback.
+- Changing playback engines, BetterPlayer internals, stream resolution, provider aggregation, unified audio selection, subtitles, source fallback, download playback, or backend playback contracts.
 - Changing API/backend contracts, catalogue ranking, account/authentication semantics, persistence schemas, analytics event identifiers, deep-link formats, or notification behaviour.
 - Removing existing product features to make layouts simpler.
 - Replacing Flutter, changing dependencies without a demonstrated need, or renaming internal legacy package identifiers as part of a visual project.
@@ -84,9 +84,9 @@ Redesign each page separately, allowing every page to invent its own controls an
 
 ## App-wide scope
 
-The redesign covers the full mobile experience, not only the five root tabs. The following inventory is based on the current repository and should be verified again when the implementation plan is written.
+The redesign covers the entire Android application: handheld, tablet, TV, movie/series player, and Live TV player. No application destination is excluded. The following inventory is based on the current repository and must be verified against the current tree when the implementation plan is written.
 
-### Primary destinations
+### Primary destinations — phones and tablets
 
 - **Home** — a distinctive editorial landing page with a deliberate featured title, clear Continue Watching access, varied content modules, curated rows, and useful shortcuts. Avoid a generic stack of identical rails.
 - **New & Hot** — release and trend-first presentation: upcoming titles organised by release timing, currently popular content, and ranked lists where actual ranking data exists.
@@ -94,7 +94,7 @@ The redesign covers the full mobile experience, not only the five root tabs. The
 - **Search** — a dedicated search experience with a prominent query field, recent searches, useful suggestions, mixed result types, clear empty/no-result states, and access to advanced filters.
 - **My 7xPlay** — a personal library/account hub with profile state, Continue Watching, saved titles, playlists, downloads, and account/settings actions. It must remain useful offline.
 
-### Content and catalogue destinations
+### Content and catalogue destinations — all Android form factors
 
 - Movie and series details.
 - Collections and filtered catalogue result grids.
@@ -103,7 +103,7 @@ The redesign covers the full mobile experience, not only the five root tabs. The
 - Credits and artwork/trailer galleries.
 - Playlist listing, playlist detail, playlist import, and shared playlist views.
 
-### Library, account, and utility destinations
+### Library, account, and utility destinations — all Android form factors
 
 - Downloads and offline content.
 - My List/bookmarks and watch history/continue-watching surfaces.
@@ -114,11 +114,25 @@ The redesign covers the full mobile experience, not only the five root tabs. The
 
 Each in-scope page must be reviewed and given a deliberate layout decision. A global palette or shared header change alone does not satisfy the requirement.
 
+### Player experiences — movie/series and Live TV
+
+- Redesign the complete player presentation: playback surface framing, controls, seek/progress UI, transport actions, settings and selection sheets, audio/subtitle/language selection, provider/source selection, episode navigation, recommendations, feedback, ads, loading/buffering/error/recovery states, and accessibility/focus behaviour.
+- Redesign mini-player, expanded player, fullscreen, orientation changes, system bars, back navigation, picture-in-picture/foreground transitions where currently supported, and player-to-page gestures as a coherent experience.
+- Redesign Live TV playback presentation and its channel/programme overlays, channel switching, schedule context, and player states.
+- Preserve BetterPlayer and native playback engines, stream/provider resolution, provider aggregation and fallback, unified cross-provider audio selection, subtitle timing/selection, download playback, watch history/resume policy, ad contracts, analytics identifiers, and all existing playback callbacks. UI changes must consume existing interfaces; any necessary engine change requires a separate explicit decision.
+
+### Android TV destinations and interaction
+
+- Include every screen and flow under `lib/tv/**`, the TV navigation shell, TV landing/home/catalogue/detail/library/settings surfaces, TV-specific account and utility flows, TV dialogs/sheets, and TV player-control surfaces.
+- Preserve TV-specific focus traversal, D-pad/remote semantics, focus restoration, overscan/safe areas, readable viewing-distance typography, remote/back behaviour, and existing TV navigation contracts.
+- Use TV-specific composition and interaction patterns where a handheld component would be inappropriate; visual consistency does not mean forcing touch-first layouts onto TV.
+
 ## Navigation and responsive behaviour
 
 - Preserve the current five destinations in `MobileTab`: Home, New & Hot, Discover, Search, and My 7xPlay. Do not apply the older four-tab proposal in `docs/mobile_redesign_guide.md`.
 - Preserve destination IDs, tab restoration, lazy construction/keep-alive behaviour, back-to-Home behaviour, per-tab scroll retention, and reselect-to-top/reset semantics.
 - Preserve the current tablet navigation-rail model. Refine its visual treatment only where needed to match the new design system.
+- Preserve the Android TV navigation and focus model; redesign its appearance without replacing D-pad navigation with touch-first controls.
 - Use the existing responsive breakpoints as a starting point. Re-evaluate phone portrait, phone landscape, tablet, and wide layouts page by page.
 - Keep directional layout correct in Arabic. Prefer directional padding/alignment APIs for new layout code.
 
@@ -132,14 +146,17 @@ Each in-scope page must be reviewed and given a deliberate layout decision. A gl
 - `lib/mobile/widgets/page_kit.dart` — shared page/control primitives, to be evolved selectively.
 - `lib/mobile/widgets/media_art.dart`, `media_rows.dart`, `hero_card.dart`, `poster_card.dart`, `episodes_section.dart`, and adjacent mobile widgets — current artwork and content building blocks.
 - `lib/mobile/app/mobile_shell.dart`, `mobile_nav_bar.dart`, and `mobile_tabs.dart` — current mobile shell and five-tab navigation.
+- `lib/tv/**` — current Android TV shells, screens, navigation, focus handling, and TV-specific presentation.
+- `lib/screens/common/player.dart`, `lib/screens/common/live_player.dart`, and `lib/screens/common/player/**` — current movie/series and Live TV player UI and playback orchestration; separate presentation-only changes from engine behaviour.
 
 These are foundations, not an instruction to reuse every existing component. Retire or replace a primitive when its current shape prevents the desired page design.
 
 ### Boundaries
 
 - Keep catalogue, provider, playback, account, and persistence logic behind their current interfaces.
-- Keep mobile presentation changes in `lib/mobile/**` where practical. Shared code may change only after confirming the effect on both handheld and TV callers.
-- Do not make a mobile-only visual decision in a theme default that unintentionally changes Android TV.
+- Keep platform-specific presentation in the relevant `lib/mobile/**` and `lib/tv/**` areas. Shared code may change only after confirming the effect on every caller.
+- Do not make a phone-only or TV-only visual decision in a shared theme default that unintentionally changes another platform.
+- Keep player UI refactors separated from playback engine/provider/audio state logic; no engine changes are implied by a presentation task.
 - Retain existing ad placement identifiers and required ad placements. They may move only to intentional, non-obstructive positions; do not remove placements.
 - Do not rename localization keys or delete translations to simplify a redesign.
 
@@ -157,22 +174,25 @@ The redesign is accepted only when all of the following hold:
 8. Text scale up to at least 1.3 does not clip primary actions or critical information. Tap targets for primary interactive controls are at least 48 logical pixels where applicable.
 9. My 7xPlay and Downloads preserve offline-first behaviour; one failed remote section must not replace the whole page with an error.
 10. Ads remain present according to their existing contracts and do not obstruct primary actions or the first useful content.
-11. Android TV behaviour is unchanged; existing TV tests pass.
-12. Deep-link, home-widget, navigation-restoration, catalogue, search, playlist, download, and player tests relevant to touched code pass.
-13. Each implementation phase receives visual review on a phone in Dark, AMOLED, and Light, plus an Arabic RTL pass. Tablet screenshots are required for responsive navigation and layouts.
-14. Touched files are formatted and Flutter analysis reports no new issues. Known pre-existing failures must be distinguished from regressions.
+11. Android TV screens receive a complete visual redesign while TV navigation, D-pad focus, remote behaviour, and supported playback behaviour remain functional.
+12. Movie/series and Live TV player interfaces are redesigned across supported states; playback engines, provider/audio selection, subtitles, recovery, resume, and download playback remain behaviourally unchanged.
+13. Deep-link, home-widget, navigation-restoration, catalogue, search, playlist, download, player, TV focus/navigation, and platform-specific tests relevant to touched code pass.
+14. Each implementation phase receives visual review on phones/tablets in Dark, AMOLED, and Light, plus an Arabic RTL pass; TV screenshots and remote/focus walkthroughs are required.
+15. Touched files are formatted and Flutter analysis reports no new issues. Known pre-existing failures must be distinguished from regressions.
 
 ## Implementation sequencing proposal
 
 The work is intentionally phased so each group can be reviewed as a coherent, runnable increment:
 
-1. **Design-system foundation and audit:** document current component reuse, establish missing semantic tokens/primitives, define page-level design rules and a visual review checklist.
-2. **Primary discovery experience:** Home and shared media presentation, then New & Hot and Discover.
-3. **Search and personal hub:** Search and My 7xPlay, including the library entry points they own.
-4. **Content journey:** movie/series details, collections, seasons, episodes, people, credits, and galleries.
-5. **Library and account surfaces:** downloads, bookmarks, playlists, profile/settings, sync, server/update/about, Plus/payment/wallet, and auxiliary screens.
-6. **System-wide refinement:** supporting sheets/dialogs/empty/loading/error states, tablet adaptation, RTL, text scaling, accessibility, motion and performance.
-7. **Verification and integration:** behaviour tests, theme and screenshot matrix, TV/deep-link checks, review of the complete PR, and only then merge/build decisions.
+1. **Full-app inventory and design-system foundation:** audit every mobile, tablet, TV, and player screen; map shared components and platform-specific systems; establish semantic tokens/primitives and a visual review checklist.
+2. **Handheld discovery and personal hub:** Home, New & Hot, Discover, Search, My 7xPlay, and their complete secondary flows.
+3. **Content journey:** movie/series details, collections, seasons, episodes, people, credits, galleries, and all catalogue result destinations.
+4. **Library, account, and utility surfaces:** downloads, bookmarks, playlists, profile/settings, sync, server/update/about, Plus/payment/wallet, 7x AI, and every auxiliary screen.
+5. **Movie/series player experience:** redesign all player UI, sheets, overlays, mini-player/fullscreen transitions, and playback states while preserving the playback engine and behaviour.
+6. **Live TV experience:** redesign Live TV browsing and player UI, channel/programme overlays, remote controls, and recovery states while preserving stream resolution and playback behaviour.
+7. **Android TV experience:** redesign TV shell, destinations, catalogue/content pages, library/account/utility flows, dialogs, and player presentation with D-pad/focus-first interaction.
+8. **System-wide refinement:** supporting sheets/dialogs/empty/loading/error states, responsive layouts, RTL, text scaling, accessibility, motion and performance.
+9. **Verification and integration:** behaviour tests, theme/screenshot matrix, TV remote/focus walkthroughs, player regression checks, review of the complete PR, and only then merge/build decisions.
 
 This sequencing is a proposal for the implementation plan; exact file-level tasks, interfaces, and test commands belong in the plan after this design is approved.
 
