@@ -588,4 +588,38 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+  testWidgets('light theme keeps artwork identity on a dark scrim',
+      (tester) async {
+    await tester.pumpWidget(_app(_movie, mode: 'light'));
+    await tester.pumpAndSettle();
+
+    final scrim = find.byWidgetPredicate((widget) {
+      if (widget is! DecoratedBox) return false;
+      final decoration = widget.decoration;
+      if (decoration is! BoxDecoration ||
+          decoration.gradient is! LinearGradient) {
+        return false;
+      }
+      final gradient = decoration.gradient! as LinearGradient;
+      return gradient.colors.contains(const Color(0xDC000000));
+    });
+    expect(scrim, findsOneWidget);
+
+    final decoration =
+        tester.widget<DecoratedBox>(scrim).decoration as BoxDecoration;
+    final gradient = decoration.gradient! as LinearGradient;
+    // White title/facts/genre text must never fade onto a Light-theme page
+    // colour. The artwork scrim remains dark until the identity has passed.
+    expect(gradient.colors.last.computeLuminance(),
+        lessThanOrEqualTo(0.18));
+
+    final artworkTitle = find.byWidgetPredicate(
+      (widget) =>
+          widget is Text &&
+          widget.data == 'Heat' &&
+          widget.style?.color == Colors.white,
+    );
+    expect(artworkTitle, findsOneWidget);
+  });
+
 }
