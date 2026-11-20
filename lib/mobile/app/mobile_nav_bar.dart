@@ -122,18 +122,31 @@ class MobileNavRail extends StatelessWidget {
                   color: palette.hairline,
                 ),
                 const SizedBox(height: 12),
-                for (final tab in MobileTab.values)
-                  SizedBox(
-                    width: width,
-                    height: _itemHeight,
-                    child: _RailItem(
-                      tab: tab,
-                      selected: tab == current,
-                      reduceMotion: reduceMotion,
-                      onTap: () => onSelect(tab),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            for (final tab in MobileTab.values)
+                              SizedBox(
+                                width: width,
+                                height: _itemHeight,
+                                child: _RailItem(
+                                  tab: tab,
+                                  selected: tab == current,
+                                  reduceMotion: reduceMotion,
+                                  onTap: () => onSelect(tab),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                const Spacer(),
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
