@@ -1,20 +1,14 @@
 import 'package:flixquest/presentation/session/session_view_model.dart';
-import 'package:flixquest/services/flixquest_auth_service.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/error/failure.dart';
 import '../../provider/settings_provider.dart';
 import '../app/tv_design.dart';
 import '../focus/tv_focusable.dart';
-import '../widgets/tv_device_limit_picker.dart';
-import '../widgets/tv_dialog.dart';
 import '../widgets/tv_poster_wall.dart';
-import 'tv_auth_screen.dart';
 import '../../widgets/app_logo.dart';
 
 class LaravelTvLandingScreen extends StatefulWidget {
@@ -27,71 +21,7 @@ class LaravelTvLandingScreen extends StatefulWidget {
 }
 
 class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
-  final _authService = FlixQuestAuthService();
   bool _isEnteringAsGuest = false;
-  bool _isGoogleSigningIn = false;
-
-  Future<void> _continueWithGoogle() async {
-    if (_isEnteringAsGuest || _isGoogleSigningIn) return;
-
-    setState(() => _isGoogleSigningIn = true);
-    try {
-      await _authService.withinDeviceLimit(
-        (replaceDeviceId) =>
-            _authService.signInWithGoogle(replaceDeviceId: replaceDeviceId),
-        pick: _pickDeviceToSignOut,
-      );
-      if (!mounted) return;
-      Provider.of<SettingsProvider>(context, listen: false)
-          .analytics
-          .trackLogin('google');
-      // UserState owns the destination. Its session gate replaces this landing
-      // screen with TvHomeShell when the Google session becomes active.
-    } on AuthActionException catch (error) {
-      if (mounted) {
-        _showError(_googleAuthMessage(error));
-      }
-    } on PlatformException catch (error) {
-      if (mounted && !_isGoogleSignInCancel(error)) {
-        _showError(_googlePlatformMessage(error));
-      }
-    } catch (_) {
-      if (mounted) {
-        _showError(tr('tv_unable_to_sign_in_with_google_please_try_again'));
-      }
-    } finally {
-      if (mounted) setState(() => _isGoogleSigningIn = false);
-    }
-  }
-
-  /// Guests are asked once more, with what an account adds, since a guest's
-  /// list never leaves this TV.
-  Future<void> _confirmGuest() async {
-    if (_isEnteringAsGuest || _isGoogleSigningIn) return;
-    final choice = await showTvDialog<bool>(
-      context: context,
-      title: tr('tv_guest_confirm_title'),
-      content: Text(tr('tv_guest_confirm_body')),
-      actions: <TvDialogAction>[
-        TvDialogAction(
-          label: tr('tv_create_free_account'),
-          isPrimary: true,
-          autofocus: true,
-          onPressed: () => Navigator.of(context).pop(false),
-        ),
-        TvDialogAction(
-          label: tr('tv_continue_as_guest'),
-          onPressed: () => Navigator.of(context).pop(true),
-        ),
-      ],
-    );
-    if (!mounted || choice == null) return;
-    if (choice) {
-      await _continueAsGuest();
-    } else {
-      _open(const TvAuthScreen.createAccount());
-    }
-  }
 
   Future<void> _continueAsGuest() async {
     if (_isEnteringAsGuest) return;
@@ -111,59 +41,10 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
     }
   }
 
-  Future<int?> _pickDeviceToSignOut(DeviceLimitFailure limit) async =>
-      mounted ? showTvDeviceLimitPicker(context, limit) : null;
-
-  void _open(Widget screen) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => screen),
-    );
-  }
-
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message, maxLines: 2)),
     );
-  }
-
-  String _googleAuthMessage(AuthActionException error) {
-    return switch (error.code) {
-      'account-exists-with-different-credential' => error.message,
-      'network-request-failed' =>
-        tr('tv_check_your_internet_connection_and_retry'),
-      'operation-not-allowed' =>
-        tr('tv_google_sign_in_is_currently_unavailable'),
-      'invalid-credential' => tr('google_signin_failed'),
-      _ => error.message,
-    };
-  }
-
-  bool _isGoogleSignInCancel(PlatformException error) {
-    final code = error.code.toLowerCase();
-    return code.contains('canceled') ||
-        code.contains('cancelled') ||
-        code.contains('interrupted') ||
-        code.contains('user_cancelled');
-  }
-
-  String _googlePlatformMessage(PlatformException error) {
-    final code = error.code.toLowerCase();
-    if (code == 'network_error' ||
-        error.message?.toLowerCase().contains('network') == true) {
-      return tr('tv_check_your_internet_connection_and_retry');
-    }
-    final detail =
-        (error.message?.isNotEmpty ?? false) ? error.message! : error.code;
-    return tr('tv_google_unavailable_device', namedArgs: {'detail': detail});
-  }
-
-  String _authMessage(AuthActionException error) {
-    return switch (error.code) {
-      'operation-not-allowed' => tr('tv_guest_access_is_currently_unavailable'),
-      'network-request-failed' =>
-        tr('tv_check_your_internet_connection_and_retry'),
-      _ => error.message,
-    };
   }
 
   @override
@@ -279,8 +160,7 @@ class _TvLandingScreenState extends State<LaravelTvLandingScreen> {
                                     icon: PhosphorIcons.userCircleDashed(),
                                     autofocus: true,
                                     primary: true,
-                                    enabled: !_isGoogleSigningIn &&
-                                        !_isEnteringAsGuest,
+                                    enabled: !_isEnteringAsGuest,
                                     onActivate: _continueAsGuest,
                                   ),
                                 ],
