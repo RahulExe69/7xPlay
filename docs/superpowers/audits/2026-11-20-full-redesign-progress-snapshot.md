@@ -96,7 +96,7 @@ This is a factual checkpoint, not a completion claim. The approved scope is a fu
 
 ### Regression follow-up
 
-The regression job in run `44916095271` still failed because the language service fixture used a plain `Set<String>` where the implementation requires `LinkedHashSet<String>`. The fixture has now been changed to `LinkedHashSet<String>.of([identity])` in commit `dd78fedc55338712f9790d118fe87954fb69b261`. The new PR run will validate this fix and provide the first warm-cache build measurement.
+The regression job in run `44916095271` failed because the language service fixture used a plain `Set<String>` where the implementation requires `LinkedHashSet<String>`. That was corrected, then a lint finding was addressed with a targeted `// ignore: prefer_collection_literals` on `LinkedHashSet<String>.of([identity])`; the concrete ordered set is required by the service test contract. The final fix is in commit `6cf32e2710796e4fea302144334f415044715d36`, and run `44917663866` passed the provider tests, all configured regression groups and Flutter analysis.
 
 ### Further performance boundary
 
@@ -111,7 +111,7 @@ GitHub-hosted runners are ephemeral. Repository caching can preserve SDKs and Gr
 - Pub restore plus dependency resolution was 7s versus 8s on the first run.
 - ARM64 debug compile fell from 200s to 118s (82s / 41% faster).
 - Artifact upload took 4s; the artifact was available 3m42s after job start, down from 5m27s (about 32% faster time-to-artifact).
-- Regression coverage progressed past the provider aggregation group after the LinkedHashSet type fix: **145 tests passed**. Flutter analysis then failed on one info-level `prefer_collection_literals` lint at the explicit `LinkedHashSet.of` constructor in the fixture. The fixture has since been switched to `LinkedHashSet.fromIterable` to keep the required concrete type without that lint; the following workflow run must confirm the analyzer result.
+- Regression coverage in the next run progressed through the provider tests and all other configured groups; Flutter analysis found one `prefer_collection_literals` info lint. An attempted `LinkedHashSet.fromIterable` constructor was invalid and was reverted. The final test fixture retains `LinkedHashSet<String>.of([identity])` with a targeted lint suppression because the concrete ordered set type is required. The corrected run [44917663866](https://github.com/RahulExe69/7xPlay/actions/runs/44917663866) passed all configured regression groups and `flutter analyze`.
 - Current artifact `7xPlay-debug-arm64-51054577d4f821ba0a81ec54c3b43adb4ddba423` is successful and downloadable from run 44916704829. It is ARM64-only, app ID `com.sevenx.play`, version `4.3.0+10`, and about 114 MB (debug build).
 
 ### Further optimisation priorities
@@ -120,3 +120,14 @@ GitHub-hosted runners are ephemeral. Repository caching can preserve SDKs and Gr
 2. Measure further cache restore time, especially Gradle transforms and dependency archives, before excluding any cache categories.
 3. Do not switch the build to Gradle configuration cache without verifying Flutter 3.41.5 and every applied plugin are compatible. Gradle warns that ignoring configuration-cache problems can cause incorrect task state; Android's official guide says to verify plugin compatibility first.
 4. The repository is public and currently uses GitHub's standard `ubuntu-24.04` runner. GitHub documents 4 vCPU / 16 GB for that public-repo runner; simply changing to `ubuntu-latest` is not a larger compute tier. A persistent or larger runner may improve repeat builds further but requires infrastructure or an eligible paid runner entitlement; it has not been enabled.
+
+
+### Latest validated PR head — 2026-11-21
+
+- PR head: `6cf32e2710796e4fea302144334f415044715d36`.
+- Workflow run: [44917663866](https://github.com/RahulExe69/7xPlay/actions/runs/44917663866).
+- ARM64 debug job succeeded; regression job succeeded; the optimized multi-ABI release job was skipped as intended for a PR.
+- ARM64 debug compile: 85s. Flutter SDK setup: 14s. Gradle cache setup: 48s. Pub cache plus dependency resolution: 4s. Artifact upload: 2s.
+- The regression job passed all configured groups, including provider/audio, mobile screens, Android TV, ads policy, VAST/playback primitives, movie/series, Live TV and offline player behaviour; `flutter analyze` also passed.
+- Latest artifact: `7xPlay-debug-arm64-6cf32e2710796e4fea302144334f415044715d36`, artifact ID `14712910120`, available through run 44917663866 and expiring 2026-12-05.
+- This validates the CI speed path and configured regression set; it does **not** mark the full approved UI redesign complete. PR #24 remains draft and unmerged.
