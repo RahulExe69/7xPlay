@@ -52,7 +52,7 @@ Widget _app(Widget child) {
 
 void main() {
   testWidgets('builds a new featured home from the existing feed contract', (tester) async {
-    await tester.pumpWidget(_app(const ExperienceHomeScreen(source: _HomeSource())));
+    await tester.pumpWidget(_app(ExperienceHomeScreen(source: _HomeSource())));
     await tester.pumpAndSettle();
     expect(find.text('7xPlay'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
@@ -62,7 +62,7 @@ void main() {
   });
 
   testWidgets('switches between movie and series feed filters', (tester) async {
-    await tester.pumpWidget(_app(const ExperienceHomeScreen(source: _HomeSource())));
+    await tester.pumpWidget(_app(ExperienceHomeScreen(source: _HomeSource())));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Movies'));
     await tester.pumpAndSettle();
