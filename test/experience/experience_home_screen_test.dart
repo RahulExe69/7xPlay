@@ -57,8 +57,10 @@ void main() {
     expect(find.text('7xPlay'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Trending Feature'), findsWidgets);
-    expect(find.text('Trending now'), findsOneWidget);
     expect(find.text('SPOTLIGHT'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -560));
+    await tester.pumpAndSettle();
+    expect(find.text('Trending now'), findsOneWidget);
   });
 
   testWidgets('switches between movie and series feed filters', (tester) async {
