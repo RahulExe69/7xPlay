@@ -51,13 +51,13 @@ class _ExperienceHomeScreenState extends State<ExperienceHomeScreen> {
     setState(() => _loading.add(filter));
     try {
       final feed = await HomeFeedController(_source()).load(filter);
-      if (!mounted || generation != _generations[filter]) return;
+      if (!mounted || generation != _generations[filter]s[filter]) return;
       setState(() {
         _feeds[filter] = feed;
         _loading.remove(filter);
       });
     } catch (_) {
-      if (!mounted || generation != _generation) return;
+      if (!mounted || generation != _generations[filter]) return;
       setState(() {
         _loading.remove(filter);
         _failed.add(filter);
