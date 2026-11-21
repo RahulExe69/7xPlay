@@ -33,14 +33,18 @@ class VideoFeedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final gutter = AppSpace.gutter(context);
-    final width = MediaQuery.sizeOf(context).width - gutter * 2;
+    final availableWidth = MediaQuery.sizeOf(context).width - gutter * 2;
+    final width = availableWidth > 960 ? 960.0 : availableWidth;
     final id = item.stableId;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: gutter),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
+      child: Center(
+        child: SizedBox(
+          width: width,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
           GestureDetector(
             key: ValueKey<String>('video-feed-thumbnail-$id'),
             behavior: HitTestBehavior.opaque,
@@ -188,7 +192,9 @@ class VideoFeedCard extends StatelessWidget {
               ),
             ],
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
