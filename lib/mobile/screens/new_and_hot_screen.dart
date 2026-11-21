@@ -173,20 +173,31 @@ class _NewAndHotScreenState extends State<NewAndHotScreen> {
           child: Padding(
             padding: EdgeInsetsDirectional.fromSTEB(
                 gutter, AppSpace.lg, gutter, AppSpace.lg),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    tr('new_and_hot'),
-                    style: AppType.pageTitle.copyWith(color: palette.foreground),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        tr('new_and_hot'),
+                        style: AppType.pageTitle.copyWith(
+                          color: palette.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const BrandAccentRule(width: 36),
+                    ],
                   ),
-                  const SizedBox(height: 5),
-                  const BrandAccentRule(width: 36),
-                ],
-              ),
+                ),
+                IconButton(
+                  tooltip: tr('search'),
+                  color: palette.foreground,
+                  onPressed: () => _tabs?.select(MobileTab.search),
+                  icon: Icon(PhosphorIcons.magnifyingGlass()),
+                ),
+              ],
             ),
           ),
         ),
