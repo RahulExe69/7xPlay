@@ -211,7 +211,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             ),
             const SizedBox(height: 2),
             Text(
-              tr('discover'),
+              tr('explore'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppType.scaled(context, AppType.pageTitle).copyWith(
