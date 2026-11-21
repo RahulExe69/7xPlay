@@ -123,7 +123,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         _app(
-          const ExperienceArtwork(
+          ExperienceArtwork(
             semanticLabel: 'Unavailable poster',
             imageProvider: MemoryImage(Uint8List.fromList(<int>[0])),
           ),

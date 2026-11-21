@@ -30,16 +30,8 @@ class ExperienceArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = ExperienceThemeExtension.of(context).palette;
-    final fallback = _fallback(
-      context,
-      palette,
-      error: false,
-    );
-    final failed = _fallback(
-      context,
-      palette,
-      error: true,
-    );
+    final fallback = _fallback(palette, error: false);
+    final failed = _fallback(palette, error: true);
 
     Widget content;
     if (imageProvider == null) {
@@ -76,7 +68,6 @@ class ExperienceArtwork extends StatelessWidget {
   }
 
   Widget _fallback(
-    BuildContext context,
     ExperiencePalette palette, {
     required bool error,
   }) {
