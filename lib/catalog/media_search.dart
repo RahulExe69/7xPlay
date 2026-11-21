@@ -131,6 +131,12 @@ abstract final class MediaSearch {
         _matchRank(query, a.title),
       );
       if (byMatch != 0) return byMatch;
+      if (_matchRank(query, a.title) == 1) {
+        final byDistance = _fuzzyDistance(query, a.title).compareTo(
+          _fuzzyDistance(query, b.title),
+        );
+        if (byDistance != 0) return byDistance;
+      }
       final byPopularity =
           (b.popularity ?? 0).compareTo(a.popularity ?? 0);
       if (byPopularity != 0) return byPopularity;
