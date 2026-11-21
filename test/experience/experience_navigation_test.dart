@@ -4,7 +4,6 @@ import 'package:flixquest/experience/design/experience_theme_extension.dart';
 import 'package:flixquest/experience/app/experience_navigation.dart';
 import 'package:flixquest/mobile/app/mobile_tabs.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _app(Widget child) {
@@ -92,7 +91,7 @@ void main() {
           matching: find.byType(Semantics),
         ).first,
       );
-      expect(selected.flagsCollection.isSelected, Tristate.isTrue);
+      expect(selected.flagsCollection.isSelected.toString(), 'Tristate.isTrue');
     });
   });
 }
