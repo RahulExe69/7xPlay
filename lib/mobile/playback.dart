@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,7 @@ import '../catalog/episode_choice.dart';
 import '../catalog/media_item.dart';
 import '../catalog/up_next.dart';
 import '../functions/function.dart';
+import '../experience/screens/experience_title_details_screen.dart';
 import '../models/movie.dart';
 import '../models/movie_stream_metadata.dart';
 import '../models/recently_watched.dart';
@@ -15,9 +17,7 @@ import '../models/tv_stream_metadata.dart';
 import '../provider/app_dependency_provider.dart';
 import '../provider/recently_watched_provider.dart';
 import '../provider/settings_provider.dart';
-import '../screens/movie/movie_detail.dart';
 import '../screens/movie/movie_video_loader.dart';
-import '../screens/tv/tv_detail.dart';
 import '../screens/tv/tv_video_loader.dart';
 
 /// Opening and playing titles from the phone's browse pages.
@@ -38,37 +38,17 @@ abstract final class MobilePlayback {
   }
 
   static Future<void> openDetails(BuildContext context, MediaItem item) {
-    final heroId = 'mobile-${item.stableId}';
-    final Widget page = item.kind == MediaKind.movie
-        ? MovieDetailPage(
-            movie: item.movie ??
-                Movie(
-                  id: item.id,
-                  title: item.title,
-                  posterPath: item.posterPath,
-                  backdropPath: item.backdropPath,
-                  overview: item.overview,
-                  releaseDate: item.releaseDate,
-                  voteAverage: item.rating,
-                ),
-            heroId: heroId,
-          )
-        : TVDetailPage(
-            tvSeries: item.series ??
-                TV(
-                  id: item.id,
-                  name: item.title,
-                  originalName: item.title,
-                  posterPath: item.posterPath,
-                  backdropPath: item.backdropPath,
-                  overview: item.overview,
-                  firstAirDate: item.releaseDate,
-                  voteAverage: item.rating,
-                ),
-            heroId: heroId,
-          );
     return Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => page),
+      MaterialPageRoute<void>(
+        builder: (_) => ExperienceTitleDetailsScreen(
+          item: item,
+          canPlay: canPlay(context),
+          onPlay: (detailsContext) => MobilePlayback.play(detailsContext, item),
+          onOpenTitle: (detailsContext, related) {
+            unawaited(MobilePlayback.openDetails(detailsContext, related));
+          },
+        ),
+      ),
     );
   }
 
