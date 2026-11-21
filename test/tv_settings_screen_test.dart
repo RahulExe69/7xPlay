@@ -145,7 +145,7 @@ void main() {
       'PLAYBACK',
       'SUBTITLES',
       'STORAGE',
-      'ABOUT FLIXQUEST',
+      'ABOUT 7xPlay',
     ];
     for (var index = 1; index < headings.length; index++) {
       expect(tester.getTopLeft(find.text(headings[index])).dy,

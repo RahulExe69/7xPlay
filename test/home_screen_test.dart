@@ -483,7 +483,16 @@ void main() {
           .map((text) => text.data);
       expect(accentTexts, isEmpty);
       expect(find.text('CONTINUE_WATCHING'), findsOneWidget);
-      expect(find.text('FLIXQUEST'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'assets/images/7xplay_wordmark.png',
+        ),
+        findsOneWidget,
+      );
       final accentIcons = tester
           .widgetList<Icon>(find.byType(Icon))
           .where((icon) => icon.color == accent);

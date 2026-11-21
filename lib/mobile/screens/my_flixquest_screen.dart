@@ -13,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../catalog/continue_watching.dart';
 import '../../catalog/media_item.dart';
 import '../../data/playlists/playlist.dart';
+import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../../models/offline_download.dart';
@@ -34,6 +35,7 @@ import '../../presentation/billing/plus_controller.dart';
 import '../../services/auth_navigation_service.dart';
 import '../../services/plus_navigation.dart';
 import '../../widgets/plus/plus_visuals.dart';
+import '../app/mobile_tabs.dart';
 import '../playlists.dart';
 import '../widgets/media_rows.dart';
 import '../widgets/page_kit.dart';
@@ -42,6 +44,7 @@ import '../widgets/plus_card.dart';
 import '../widgets/verified_badge.dart';
 import '../widgets/section_header.dart';
 import 'playlists_screen.dart';
+import 'flix_ai_screen.dart';
 
 /// The phone library and account tab. Local media is useful immediately and
 /// remote profile data only enhances the header when it is available.
@@ -116,6 +119,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
     final recent = context.watch<RecentProvider>();
     final bookmarks = context.watch<BookmarkProvider>();
     final downloads = context.watch<OfflineDownloadProvider>().downloads;
+    final playlists = context.watch<PlaylistProvider?>();
     final continueWatching = continueWatchingItems(
       movies: recent.movies,
       episodes: recent.episodes,
@@ -148,26 +152,19 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
             download: download,
             onTap: () => _push(const DownloadsScreen()),
           ),
-      const SizedBox(height: AppSpace.xxl),
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
-        child: WellnessPreviewCard(
-          onTap: () => _push(const WellnessScreen()),
-        ),
-      ),
     ];
     final links = <Widget>[
+      ListRow(
+        icon: PhosphorIcons.slidersHorizontal(),
+        label: tr('settings'),
+        onTap: () => _push(const app_settings.Settings()),
+      ),
       if (_isSignedIn)
         ListRow(
           leading: PlusMark(size: 22, color: palette.mutedText),
           label: tr('plus_name'),
           onTap: () => unawaited(openPlus(context)),
         ),
-      ListRow(
-        icon: PhosphorIcons.slidersHorizontal(),
-        label: tr('settings'),
-        onTap: () => _push(const app_settings.Settings()),
-      ),
       ListRow(
         icon: PhosphorIcons.arrowsDownUp(),
         label: tr('sync'),
@@ -216,17 +213,30 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
         child: ListView(
           padding: EdgeInsets.only(
             top: AppSpace.md,
-            bottom: 112 + MediaQuery.paddingOf(context).bottom,
+            bottom: AppSpace.xxl + MediaQuery.paddingOf(context).bottom,
           ),
           children: <Widget>[
             Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
-              child: Text(
-                tr('my_flixquest'),
-                style: AppType.scaled(context, AppType.pageTitle).copyWith(
-                  color: palette.foreground,
-                ),
+              padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      tr('my_flixquest'),
+                      style: AppType.scaled(context, AppType.pageTitle).copyWith(
+                        color: palette.foreground,
+                      ),
+                    ),
+                  ),
+                  Image.asset(
+                    'assets/images/7xplay_wordmark.png',
+                    width: 88,
+                    height: 30,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: AppSpace.xl),
@@ -239,6 +249,68 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 onSignIn: _leaveGuestSession,
                 signingIn: _signingIn,
                 plus: context.watch<PlusController?>()?.adFree ?? false,
+              ),
+            ),
+            const SizedBox(height: AppSpace.lg),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpace.gutter(context)),
+              child: Column(
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      _LibraryShortcut(
+                        key: const ValueKey<String>('library-shortcut-my-list'),
+                        label: tr('my_list'),
+                        icon: PhosphorIcons.bookmarkSimple(),
+                        onTap: () => _openMyList(),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      _LibraryShortcut(
+                        key: const ValueKey<String>('library-shortcut-downloads'),
+                        label: tr('downloads'),
+                        icon: PhosphorIcons.downloadSimple(),
+                        onTap: () => _push(const DownloadsScreen()),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      if (playlists != null)
+                        _LibraryShortcut(
+                          key: const ValueKey<String>('library-shortcut-playlists'),
+                          label: tr('playlists'),
+                          icon: PhosphorIcons.queue(),
+                          onTap: () => _push(const PlaylistsScreen()),
+                        )
+                      else
+                        const Spacer(),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  Row(
+                    children: <Widget>[
+                      _LibraryShortcut(
+                        label: tr('wellness'),
+                        icon: PhosphorIcons.chartLineUp(),
+                        onTap: () => _push(const WellnessScreen()),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      _LibraryShortcut(
+                        label: '7x AI',
+                        icon: PhosphorIcons.sparkle(),
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            settings: const RouteSettings(name: '/flix-ai'),
+                            builder: (_) => const FlixAiScreen(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      _LibraryShortcut(
+                        label: tr('settings'),
+                        icon: PhosphorIcons.slidersHorizontal(),
+                        onTap: () => _push(const app_settings.Settings()),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -258,11 +330,10 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
               PosterRow(
                 title: tr('my_list'),
                 items: saved,
-                onSeeAll: () => _push(const BookmarkScreen()),
+                onSeeAll: () => _openMyList(),
               ),
             ],
-            if (context.watch<PlaylistProvider?>()
-                case final playlists?) ...<Widget>[
+            if (playlists != null) ...<Widget>[
               const SizedBox(height: AppSpace.xxl),
               SectionHeader(
                 title: tr('playlists'),
@@ -351,6 +422,12 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
     await FlixQuestAuthService().signOut();
     if (!mounted) return;
     await AuthNavigationService.returnToSignedOutRoot(context);
+  }
+
+  void _openMyList() {
+    _push(BookmarkScreen(
+      onDiscover: () => MobileTabScope.of(context).select(MobileTab.discover),
+    ));
   }
 
   void _push(Widget page) {
@@ -445,74 +522,124 @@ class _ProfileHeaderContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // The pill may take everything but the avatar and its gaps, so it
-        // stays against the far end and gives way only when it must.
-        final maxPill = (constraints.maxWidth -
-                _ProfileAvatar.size -
-                AppSpace.lg -
-                AppSpace.md)
-            .clamp(0.0, double.infinity);
-        return Row(
-          children: <Widget>[
-            _ProfileAvatar(profile: profile, plus: plus),
-            const SizedBox(width: AppSpace.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Flexible(
-                        child: Text(
-                          profile.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppType.sectionHeader.copyWith(
-                            color: palette.foreground,
+    final cardTint = Color.alphaBlend(
+      AppBrand.violet.withValues(alpha: .075),
+      palette.surface,
+    );
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: <Color>[palette.surface, cardTint, palette.raisedSurface],
+          stops: const <double>[0, .58, 1],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppBrand.magenta.withValues(alpha: .22),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppBrand.ember.withValues(alpha: .08),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              _ProfileAvatar(profile: profile, plus: plus),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Flexible(
+                          child: Text(
+                            profile.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppType.sectionHeader.copyWith(
+                              color: palette.foreground,
+                              fontSize: 19,
+                            ),
                           ),
                         ),
-                      ),
-                      if (verified) ...<Widget>[
-                        const SizedBox(width: 5),
-                        const VerifiedBadge(size: 19),
+                        if (verified) ...<Widget>[
+                          const SizedBox(width: 5),
+                          const VerifiedBadge(size: 18),
+                        ],
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  if (plus)
-                    PlusSheen(
-                      child: Text(
-                        status,
-                        style: AppType.metadata.copyWith(
-                          fontFamily: AppType.semiBold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      status,
-                      style:
-                          AppType.metadata.copyWith(color: palette.mutedText),
                     ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: <Widget>[
+                        if (plus) ...<Widget>[
+                          Icon(
+                            PhosphorIcons.crownSimple(PhosphorIconsStyle.fill),
+                            size: 13,
+                            color: AppBrand.amber,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                        Flexible(
+                          child: plus
+                              ? PlusSheen(
+                                  child: Text(
+                                    status,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppType.metadata.copyWith(
+                                      fontFamily: AppType.semiBold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  status,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppType.metadata.copyWith(
+                                    color: palette.mutedText,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: <Color>[
+                  AppBrand.ember.withValues(alpha: .42),
+                  AppBrand.magenta.withValues(alpha: .24),
+                  Colors.transparent,
                 ],
               ),
             ),
-            const SizedBox(width: AppSpace.md),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxPill),
-              child: PillButton(
-                label: actionLabel,
-                icon: actionIcon,
-                busy: busy,
-                onPressed: onAction,
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+          const SizedBox(height: 12),
+          PillButton(
+            label: actionLabel,
+            icon: actionIcon,
+            busy: busy,
+            onPressed: onAction,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -560,6 +687,68 @@ class _ProfileAvatar extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => asset(),
               ),
+      ),
+    );
+  }
+}
+
+class _LibraryShortcut extends StatelessWidget {
+  const _LibraryShortcut({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    final radius = BorderRadius.circular(14);
+    return Expanded(
+      child: Semantics(
+        button: true,
+        label: label,
+        onTap: onTap,
+        excludeSemantics: true,
+        child: Material(
+          color: palette.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: palette.hairline),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: SizedBox(
+              height: 88,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(icon, size: 23, color: palette.foreground),
+                  const SizedBox(height: AppSpace.sm),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppType.metadata.copyWith(
+                        fontFamily: AppType.semiBold,
+                        color: palette.foreground,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -121,7 +121,12 @@ class _PersonScreenState extends State<PersonScreen> {
     )..ignore();
   }
 
-  void _retry() => setState(_load);
+  void _retry() => setState(() {
+        // A failed filmography Future is cached per kind; discard it so Retry
+        // actually makes a fresh request rather than rebuilding the same error.
+        _titleCache.clear();
+        _load();
+      });
 
   @override
   Widget build(BuildContext context) {

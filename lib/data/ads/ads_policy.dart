@@ -28,6 +28,13 @@ abstract final class AdsPolicy {
   /// 7xCinema is permanently ad-free; remote values cannot re-enable ads.
   static void update({required bool adFree}) => _adFree.value = true;
 
+  /// Lets ad-service tests exercise the otherwise unavailable free-viewer path.
+  /// This hook is not called by production code; [update] remains permanently
+  /// ad-free for the shipped 7xCinema application.
+  @visibleForTesting
+  static void setForTesting({required bool adFree}) =>
+      _adFree.value = adFree;
+
   static void addListener(VoidCallback listener) =>
       _adFree.addListener(listener);
 

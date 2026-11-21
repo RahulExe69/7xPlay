@@ -224,9 +224,22 @@ class _AudioSelectionSheetState extends State<_AudioSelectionSheet> {
             ),
           const SizedBox(height: AppSpace.md),
           Text(tr(_failed ? 'download_audio_error' : 'download_audio_loading')),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr('cancel')),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(tr('cancel')),
+              ),
+              if (_failed)
+                TextButton(
+                  onPressed: () => Navigator.pop(
+                    context,
+                    const DownloadAudioSelection(null),
+                  ),
+                  child: Text(tr('player_default_audio')),
+                ),
+            ],
           ),
         ],
       ),

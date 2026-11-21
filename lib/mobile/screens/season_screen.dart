@@ -130,7 +130,9 @@ class _SeasonScreenState extends State<SeasonScreen>
     if (cached != null) return cached;
     final load = _source.episodes(_seriesId, season);
     _episodes[season] = load;
-    load.then<void>((_) {}, onError: (Object _) => _episodes.remove(season));
+    load.then<void>((_) {}, onError: (Object _) {
+      _episodes.remove(season);
+    });
     return load;
   }
 
@@ -213,6 +215,10 @@ class _SeasonScreenState extends State<SeasonScreen>
           episode: episode,
           seasonEpisodes: seasonEpisodes,
           seasons: widget.seasons,
+          source: widget.source,
+          history: widget.history,
+          adBuilder: widget.adBuilder,
+          now: widget.now,
         ),
       ),
     );

@@ -152,13 +152,12 @@ class AppDependencyProvider extends ChangeNotifier {
     return;
   }
 
-  AdsterraPlaybackAdsConfig _adsterraPlaybackAds =
-      const AdsterraPlaybackAdsConfig();
   AdsterraPlaybackAdsConfig get adsterraPlaybackAds =>
       const AdsterraPlaybackAdsConfig();
 
   void setAdsterraPlaybackAdsConfig(AdsterraPlaybackAdsConfig config) {
-    _adsterraPlaybackAds = config;
+    // The production catalog remains permanently disabled. Retain this setter
+    // as a compatibility hook for callers that still publish remote config.
     notifyListeners();
   }
 

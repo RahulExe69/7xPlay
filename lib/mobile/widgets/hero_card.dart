@@ -18,7 +18,6 @@ import '../my_list.dart';
 import '../playback.dart';
 import 'media_art.dart';
 import 'pill_button.dart';
-import 'poster_card.dart';
 
 /// Home's featured title as a card: its artwork, its logo, what it is, and
 /// Play and My List under it. The card is artwork, so it looks the same in
@@ -31,9 +30,9 @@ class HeroCard extends StatefulWidget {
   /// The title's genre names, shown after its year.
   final List<String> genres;
 
-  /// The card's height on [context]'s page: tall like a poster on phones,
-  /// a wide frame on wider pages. On a tablet it keeps to half the screen,
-  /// so a landscape one still shows the rows below.
+  /// The card's height on [context]'s page: a compact featured frame on
+  /// phones, and a wide frame on larger pages. On a tablet it keeps to half
+  /// the screen, so a landscape one still shows the rows below.
   static double heightFor(BuildContext context) {
     final media = MediaQuery.sizeOf(context);
     final width = media.width;
@@ -42,24 +41,29 @@ class HeroCard extends StatefulWidget {
         : 0.0;
     final cardWidth = width - tabletInset;
     if (width < AppBreakpoints.tablet) {
-      return (cardWidth * 1.22).clamp(0, 520).toDouble();
+      final base = (cardWidth * .72).clamp(252.0, 288.0).toDouble();
+      final textScale = MediaQuery.textScalerOf(context).scale(1);
+      // Accessibility text scaling needs more vertical room for both actions.
+      return (base + ((textScale - 1).clamp(0.0, 1.0) * 120))
+          .clamp(base, 408.0)
+          .toDouble();
     }
-    final frame = (cardWidth * 9 / 16).clamp(0, 460).toDouble();
+    final stage = (cardWidth * .37).clamp(300.0, 360.0).toDouble();
     return AppBreakpoints.isTablet(context)
-        ? math.min(frame, media.height * .5)
-        : frame;
+        ? math.min(stage, media.height * .45)
+        : stage;
   }
 
   /// The widest the Play and My List pair grows on a tablet.
   static const tabletButtonsWidth = 520.0;
 
-  /// The artwork the card shows for [item] on this screen: the poster on
-  /// phones, the backdrop on tablets or when there's no poster.
+  /// The featured card uses backdrop artwork wherever it exists, on phones
+  /// and tablets alike. A poster is the fallback when no backdrop is supplied.
   static (String?, String?) artworkFor(BuildContext context, MediaItem item) {
-    final wide = MediaQuery.sizeOf(context).width >= AppBreakpoints.tablet;
-    return wide || item.posterPath == null
-        ? (item.backdropPath ?? item.posterPath, ArtSize.backdrop)
-        : (item.posterPath, null);
+    final backdrop = item.backdropPath;
+    return backdrop == null
+        ? (item.posterPath, null)
+        : (backdrop, ArtSize.backdrop);
   }
 
   /// Where that artwork is, for loading it ahead. Outside build.
@@ -113,13 +117,12 @@ class _HeroCardState extends State<HeroCard> {
     final item = _item;
     final media = MediaQuery.sizeOf(context);
     final isTablet = AppBreakpoints.isTablet(context);
-    final edgeInset = isTablet ? AppSpace.gutter(context) : 0.0;
+    final edgeInset = AppSpace.gutter(context);
     final artworkWidth = media.width - edgeInset * 2;
     final height = HeroCard.heightFor(context);
     final art = HeroCard.artworkFor(context, item);
     final saved = MyList.contains(context, item);
-    // What FlixQuest's hero always said: the year, the rating, and now the
-    // genres too.
+    final posterWidth = (artworkWidth * .38).clamp(100.0, 142.0).toDouble();
     final facts = <String>[
       if (item.year case final year?) year,
       ...widget.genres.take(2),
@@ -129,26 +132,35 @@ class _HeroCardState extends State<HeroCard> {
     final kicker = widget.hero.continuing
         ? tr('continue_watching')
         : tr(item.kind == MediaKind.movie ? 'movie' : 'series_one');
-    const white = Color(0xFFFFFFFF);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: edgeInset),
-      // Keep the actions as independent semantic controls over the artwork.
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => MobilePlayback.openDetails(context, item),
         child: SizedBox(
           height: height,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(isTablet ? AppRadii.hero : 0),
-            child: Stack(
-              fit: StackFit.expand,
-              children: <Widget>[
-                Semantics(
-                  button: true,
-                  label: mediaSemanticLabel(item),
-                  onTapHint: tr('details'),
-                  child: MediaArt(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppBrand.magenta.withValues(alpha: .22),
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: AppBrand.ember.withValues(alpha: .08),
+                  blurRadius: 24,
+                  spreadRadius: -8,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  MediaArt(
                     item: item,
                     path: art.$1,
                     width: artworkWidth,
@@ -156,130 +168,132 @@ class _HeroCardState extends State<HeroCard> {
                     alignment: Alignment.topCenter,
                     placeholder: MediaArt.darkPlaceholder,
                   ),
-                ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: <Color>[
-                        Color(0x00000000),
-                        Color(0x26000000),
-                        Color(0xF0000000),
-                      ],
-                      stops: <double>[.28, .55, 1],
-                    ),
-                  ),
-                ),
-                if (isTablet)
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: AlignmentDirectional.centerStart,
                         end: AlignmentDirectional.centerEnd,
                         colors: <Color>[
-                          Color(0x88000000),
-                          Color(0x33000000),
-                          Color(0x00000000),
+                          Color(0xEE09050B),
+                          Color(0xD909050B),
+                          Color(0xED09050B),
                         ],
-                        stops: <double>[0, .42, .78],
+                        stops: <double>[0, .56, 1],
                       ),
                     ),
                   ),
-                Positioned.fill(
-                  child: Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(
-                      isTablet ? AppSpace.xxl : 24,
-                      20,
-                      isTablet ? AppSpace.xxl : 24,
-                      24,
-                    ),
-                    child: Align(
-                      alignment: AlignmentDirectional.bottomStart,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: isTablet
-                              ? 560
-                              : (media.width - 48).clamp(0, 520).toDouble(),
+                  Padding(
+                    padding: EdgeInsets.all(isTablet ? 20 : 14),
+                    child: Row(
+                      children: <Widget>[
+                        Container(
+                          width: posterWidth,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0x66FFFFFF),
+                            ),
+                            boxShadow: const <BoxShadow>[
+                              BoxShadow(
+                                color: Color(0x66000000),
+                                blurRadius: 14,
+                                offset: Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: AspectRatio(
+                            aspectRatio: 2 / 3,
+                            child: Semantics(
+                              image: true,
+                              label: '${item.title} poster',
+                              child: MediaArt(
+                                item: item,
+                                path: item.posterPath,
+                                width: posterWidth,
+                                placeholder: MediaArt.darkPlaceholder,
+                              ),
+                            ),
+                          ),
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: <Widget>[
-                            _HeroKicker(label: kicker),
-                            const SizedBox(height: AppSpace.md),
-                            SizedBox(
-                              height: 76,
-                              child: Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: TitleLogo(
-                                  item: item,
-                                  maxHeight: 76,
+                        SizedBox(width: isTablet ? 20 : 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              _HeroKicker(label: kicker),
+                              const SizedBox(height: AppSpace.sm),
+                              SizedBox(
+                                height: 58,
+                                child: Align(
                                   alignment: AlignmentDirectional.centerStart,
-                                  fallback: Align(
+                                  child: TitleLogo(
+                                    item: item,
+                                    maxHeight: 58,
                                     alignment: AlignmentDirectional.centerStart,
-                                    child: Text(
+                                    fallback: Text(
                                       item.title,
                                       maxLines: 2,
                                       textAlign: TextAlign.start,
                                       overflow: TextOverflow.ellipsis,
                                       style: AppType.heroTitle.copyWith(
-                                        color: white,
+                                        color: Colors.white,
+                                        fontSize: 25,
+                                        height: 1.05,
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: AppSpace.sm),
-                            Text(
-                              facts,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.start,
-                              style: AppType.metadata.copyWith(
-                                color: const Color(0xD9FFFFFF),
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpace.lg),
-                            Row(
-                              children: <Widget>[
-                                if (MobilePlayback.canPlay(context)) ...<Widget>[
-                                  Expanded(
-                                    child: PillButton(
-                                      onArtwork: true,
-                                      primary: true,
-                                      busy: _starting,
-                                      icon: PhosphorIcons.play(
-                                        PhosphorIconsStyle.fill,
-                                      ),
-                                      label: _playLabel(),
-                                      onPressed: _play,
-                                    ),
+                              const SizedBox(height: AppSpace.sm),
+                              if (facts.isNotEmpty)
+                                Text(
+                                  facts,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppType.metadata.copyWith(
+                                    color: const Color(0xD9FFFFFF),
+                                    fontSize: 12,
                                   ),
-                                  const SizedBox(width: AppSpace.sm),
-                                ],
-                                Expanded(
+                                ),
+                              const SizedBox(height: AppSpace.md),
+                              if (MobilePlayback.canPlay(context))
+                                SizedBox(
+                                  width: double.infinity,
                                   child: PillButton(
                                     onArtwork: true,
-                                    icon: saved
-                                        ? PhosphorIcons.check()
-                                        : PhosphorIcons.plus(),
-                                    label: tr('my_list'),
-                                    onPressed: () => MyList.toggle(context, item),
+                                    primary: true,
+                                    busy: _starting,
+                                    icon: PhosphorIcons.play(
+                                      PhosphorIconsStyle.fill,
+                                    ),
+                                    label: _playLabel(),
+                                    onPressed: _play,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
+                              if (MobilePlayback.canPlay(context))
+                                const SizedBox(height: AppSpace.sm),
+                              SizedBox(
+                                width: double.infinity,
+                                child: PillButton(
+                                  onArtwork: true,
+                                  icon: saved
+                                      ? PhosphorIcons.check()
+                                      : PhosphorIcons.plus(),
+                                  label: tr('my_list'),
+                                  onPressed: () => MyList.toggle(context, item),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -396,7 +410,7 @@ class _HeroCarouselState extends State<HeroCarousel> {
   /// Whether a turn would be seen and welcome right now.
   bool get _canTurn {
     if (!mounted || _held) return false;
-    if (!TickerMode.of(context)) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
     if (MediaQuery.disableAnimationsOf(context)) return false;
     final page = Scrollable.maybeOf(context)?.position;
     final height = context.size?.height ?? 0;

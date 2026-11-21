@@ -311,7 +311,14 @@ class _WellnessScreenState extends State<WellnessScreen> {
                       const SizedBox(height: 14),
                       InsightsPlaybackPanel(insights: insights),
                       const SizedBox(height: 26),
-                      _PrivacyNote(canSync: wellness.canSync),
+                      _PrivacyNote(
+                        canSync: wellness.canSync,
+                        syncStatus: wellness.syncService.status.value,
+                        lastSynced: wellness.syncService.lastSynced.value,
+                        hasUnsyncedChanges: wellness.sessions.any(
+                          (session) => !session.synced,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -3533,12 +3540,30 @@ class _GuestMergeCard extends StatelessWidget {
 }
 
 class _PrivacyNote extends StatelessWidget {
-  const _PrivacyNote({required this.canSync});
+  const _PrivacyNote({
+    required this.canSync,
+    required this.syncStatus,
+    required this.lastSynced,
+    required this.hasUnsyncedChanges,
+  });
 
   final bool canSync;
+  final WellnessSyncStatus syncStatus;
+  final DateTime? lastSynced;
+  final bool hasUnsyncedChanges;
 
   @override
   Widget build(BuildContext context) {
+    // Sync capability alone does not mean this device's history is synced.
+    final message = !canSync
+        ? tr('ins_private_local')
+        : syncStatus == WellnessSyncStatus.error
+            ? tr('ins_private_sync_error')
+            : syncStatus == WellnessSyncStatus.syncing
+                ? tr('ins_private_syncing')
+                : hasUnsyncedChanges || lastSynced == null
+                    ? tr('ins_private_pending')
+                    : tr('ins_private_synced');
     // A quiet note in the page's own tones; Material's tonal containers
     // would tint it with the accent.
     final palette = AppPalette.of(context);
@@ -3575,7 +3600,7 @@ class _PrivacyNote extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  canSync ? tr('ins_private_synced') : tr('ins_private_local'),
+                  message,
                   style: AppType.metadata.copyWith(
                     fontSize: 13,
                     height: 1.4,

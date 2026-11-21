@@ -148,9 +148,9 @@ class _MobileShellState extends State<MobileShell>
             final bodies = _tabStack(current);
             return Scaffold(
               backgroundColor: AppPalette.of(context).page,
-              // The page runs under the translucent bar; tabs pad their ends
-              // by MediaQuery's bottom padding, which includes the bar.
-              extendBody: !rail,
+              // Keep page content above navigation rather than letting the
+              // translucent destination bar obscure the final feed items.
+              extendBody: false,
               bottomNavigationBar: rail
                   ? null
                   : MobileNavBar(current: current, onSelect: _tabs.select),

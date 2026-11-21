@@ -1,5 +1,6 @@
 import 'package:flixquest/catalog/home_feed_controller.dart';
 import 'package:flixquest/constants/app_constants.dart';
+import 'package:flixquest/design/app_palette.dart';
 import 'package:flixquest/mobile/app/mobile_nav_bar.dart';
 import 'package:flixquest/mobile/app/mobile_shell.dart';
 import 'package:flixquest/mobile/app/mobile_tabs.dart';
@@ -240,20 +241,38 @@ void main() {
     expect(find.text('home 0 resets 1'), findsOneWidget);
   });
 
-  testWidgets('the selected tab is ink, with no accent', (tester) async {
+  testWidgets('the selected dock item uses neutral foreground, not the brand accent', (tester) async {
     await _pumpShell(tester);
-    final theme = Theme.of(tester.element(find.byType(MobileNavBar)));
+    final context = tester.element(find.byType(MobileNavBar));
+    final palette = AppPalette.of(context);
     final label = tester.widget<Text>(_navItem(MobileTab.home));
-    expect(label.style?.color, isNot(theme.colorScheme.primary));
+    expect(label.style?.color, palette.foreground);
     final icons = tester.widgetList<Icon>(
       find.descendant(
         of: find.byType(MobileNavBar),
         matching: find.byType(Icon),
       ),
+    ).toList(growable: false);
+    expect(icons.first.color, palette.foreground);
+    expect(
+      icons.skip(1).every((icon) => icon.color == palette.mutedText),
+      isTrue,
     );
-    for (final icon in icons) {
-      expect(icon.color, isNot(theme.colorScheme.primary));
-    }
+  });
+
+  testWidgets('the phone navigation spans edge to edge without a floating inset', (tester) async {
+    await _pumpShell(tester);
+    final surface = find.descendant(
+      of: find.byType(MobileNavBar),
+      matching: find.byType(DecoratedBox),
+    ).first;
+    final rect = tester.getRect(surface);
+    expect(rect.left, greaterThan(0));
+    expect(rect.right, lessThan(390));
+    final decoration = tester.widget<DecoratedBox>(surface).decoration
+        as BoxDecoration;
+    expect(decoration.borderRadius, isNotNull);
+    expect(decoration.boxShadow, isNotEmpty);
   });
 
   group('on a tablet', () {
@@ -272,6 +291,16 @@ void main() {
         tester.getSize(find.byType(ListView)).width,
         tablet.width - MobileNavRail.width,
       );
+    });
+
+    testWidgets('the selected rail item uses neutral foreground', (tester) async {
+      await _pumpShell(tester, size: tablet);
+      final context = tester.element(find.byType(MobileNavRail));
+      final palette = AppPalette.of(context);
+      final label = tester.widget<Text>(
+        _navItem(MobileTab.home, bar: MobileNavRail),
+      );
+      expect(label.style?.color, palette.foreground);
     });
 
     testWidgets('the rail switches tabs',

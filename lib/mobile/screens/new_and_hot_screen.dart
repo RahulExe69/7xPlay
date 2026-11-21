@@ -21,6 +21,7 @@ import '../app/mobile_tabs.dart';
 import '../my_list.dart';
 import '../playback.dart';
 import '../widgets/filter_chips.dart';
+import '../widgets/page_kit.dart';
 import '../widgets/media_art.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/poster_card.dart';
@@ -174,8 +175,18 @@ class _NewAndHotScreenState extends State<NewAndHotScreen> {
                 gutter, AppSpace.lg, gutter, AppSpace.lg),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
-              child: Text(tr('new_and_hot'),
-                  style: AppType.pageTitle.copyWith(color: palette.foreground)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    tr('new_and_hot'),
+                    style: AppType.pageTitle.copyWith(color: palette.foreground),
+                  ),
+                  const SizedBox(height: 5),
+                  const BrandAccentRule(width: 36),
+                ],
+              ),
             ),
           ),
         ),
@@ -204,7 +215,9 @@ class _NewAndHotScreenState extends State<NewAndHotScreen> {
                 controller:
                     _tabs?.scrollController(MobileTab.newAndHot) ?? _ownScroll,
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsetsDirectional.only(bottom: 100),
+                padding: EdgeInsetsDirectional.only(
+                  bottom: MediaQuery.paddingOf(context).bottom + AppSpace.xxl,
+                ),
                 children: <Widget>[
                   if ((feed == null && _loading.contains(_segment)) ||
                       (_segment == HotSegment.comingSoon && !_datesReady))
