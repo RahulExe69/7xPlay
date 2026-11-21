@@ -42,9 +42,9 @@ class _FakeSource implements SearchSource {
     await _wait(query);
     return <MediaItem>[
       if ('dune'.startsWith(query.toLowerCase()))
-        _movie(1, 'Dune', popularity: 90),
-      if ('dune'.startsWith(query.toLowerCase()))
         _movie(2, 'Dune: Part Two', popularity: 99),
+      if ('dune'.startsWith(query.toLowerCase()))
+        _movie(1, 'Dune', popularity: 90),
       if (query.toLowerCase() == 'du') _movie(3, 'Duel'),
     ];
   }
@@ -141,6 +141,39 @@ void main() {
       isNull,
     );
     expect(MediaSearch.normalize('  Dune:  Part Two! '), 'dune part two');
+  });
+
+  test('returned titles rank an exact match above a more popular prefix',
+      () async {
+    final results = await MediaSearch.run(_FakeSource(), 'dune');
+
+    expect(
+      results.movies.map((item) => item.title).take(2),
+      <String>['Dune', 'Dune: Part Two'],
+    );
+  });
+
+  test('a unique close typo match can be promoted as the top result', () {
+    final result = MediaSearch.topResultFor(
+      'avatr',
+      movies: [_movie(8, 'Avatar', popularity: 50)],
+      series: [],
+    );
+
+    expect(result?.id, 8);
+  });
+
+  test('equally close typo matches are not guessed as the top result', () {
+    final result = MediaSearch.topResultFor(
+      'catt',
+      movies: [
+        _movie(1, 'Cart', popularity: 500),
+        _movie(2, 'Cast', popularity: 100),
+      ],
+      series: [],
+    );
+
+    expect(result, isNull);
   });
 
   testWidgets('a burst of typing sends one search, after the pause',
