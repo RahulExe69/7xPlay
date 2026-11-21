@@ -6,6 +6,7 @@ import '../../catalog/media_item.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../playback.dart';
+import '../../widgets/playback_action.dart';
 import 'media_art.dart';
 import 'section_header.dart';
 import 'title_sheet.dart';
@@ -78,18 +79,32 @@ class VideoFeedCard extends StatelessWidget {
                       ),
                     ),
                     Center(
-                      child: Material(
-                        color: const Color(0xB8000000),
-                        shape: const CircleBorder(),
-                        child: IconButton(
-                          key: ValueKey<String>('video-feed-play-$id'),
-                          tooltip: tr('play'),
-                          onPressed:
-                              onPlay ?? () => MobilePlayback.play(context, item),
-                          icon: Icon(
-                            PhosphorIcons.play(PhosphorIconsStyle.fill),
-                            color: Colors.white,
-                            size: 25,
+                      child: PlaybackAction(
+                        onStart:
+                            onPlay ?? () => MobilePlayback.play(context, item),
+                        builder: (context, busy, start) => Material(
+                          color: const Color(0xB8000000),
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            key: ValueKey<String>('video-feed-play-$id'),
+                            tooltip: tr('play'),
+                            onPressed: busy ? null : start,
+                            icon: busy
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    PhosphorIcons.play(PhosphorIconsStyle.fill),
+                                    color: Colors.white,
+                                    size: 25,
+                                  ),
                           ),
                         ),
                       ),
