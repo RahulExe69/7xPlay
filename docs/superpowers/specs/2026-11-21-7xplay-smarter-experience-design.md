@@ -21,14 +21,15 @@ Make 7xPlay feel more personal and helpful without adding a mandatory account, h
 
 ### 1. Picked for you
 
-Add a local deterministic recommendation row, separately for movies and series, using genre affinity inferred from the viewer's saved titles.
+Add a local deterministic recommendation row, separately for movies and series, using genre affinity inferred from the viewer's saved titles and active Continue Watching titles when matching catalogue metadata is already present in the loaded Home feed.
 
-- Count saved-title genre IDs by media kind.
+- Count saved-title genre IDs by media kind, enriching older saved records from matching feed items when available.
+- Use active Continue Watching titles as additional taste signals when their matching feed items provide genre metadata.
 - Score items already present in the loaded Home feed by overlap with that kind's saved-title genres.
 - Use catalogue popularity and rating only as tie-breakers, not as substitutes for taste overlap.
 - Exclude titles already in My List or Continue Watching.
 - Deduplicate candidates and cap the row at 12 items.
-- Do not show a personalized row when there is no usable saved-title genre profile. Existing curated Home sections remain the cold-start experience.
+- Do not show a personalized row when there is no usable saved-title or active-history genre profile. Existing curated Home sections remain the cold-start experience.
 - Persist genre IDs when a title is added through the fallback MyList conversion path; existing bookmark schema already supports this.
 
 ### 2. Updates to My List
@@ -74,7 +75,7 @@ Add a local Home shelf for saved titles that appear in the feed's currently-airi
 
 ## Acceptance criteria
 
-1. A user with genre-tagged saved titles sees relevant non-saved catalogue items in a Picked for you row.
+1. A user with genre-tagged saved titles or active watched titles whose metadata is in the feed sees relevant non-saved catalogue items in a Picked for you row.
 2. A user with no genre-tagged saved titles sees no empty or fabricated personalized row.
 3. Saved and in-progress titles do not appear in Picked for you.
 4. Items appearing in Home new-release/on-air or upcoming feed rows are surfaced in an updates shelf only when saved by the viewer.
