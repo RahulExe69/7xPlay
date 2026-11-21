@@ -4,7 +4,7 @@
 
 **Goal:** Add local personalized Home recommendations, saved-title release updates, and more relevant typo-tolerant universal search to 7xPlay.
 
-**Architecture:** A pure SmartHome helper scores the already-loaded feed using genre IDs from the local bookmark library. Home renders recommendation and watchlist-update rows through existing PosterRow components. MediaSearch gains deterministic title relevance ranking and conservative typo matching without changing its source/API contract.
+**Architecture:** A pure SmartHome helper scores the already-loaded feed using genre IDs from the local bookmark library and active Continue Watching items whose matching catalogue metadata is already loaded. Home renders recommendation and watchlist-update rows through existing PosterRow components. MediaSearch gains deterministic title relevance ranking and conservative typo matching without changing its source/API contract.
 
 **Tech Stack:** Flutter, Dart, Provider, existing TMDB-backed catalogue models, Flutter Test, GitHub Actions.
 
@@ -44,7 +44,7 @@
 
 - [ ] **Step 1: Write the failing unit tests.** Cover weighted genre overlap and tie-breakers, exclusion of saved/currently-watched items, empty legacy genre profiles, deduplication and limit, and saved-only matching across current/upcoming lists.
 - [ ] **Step 2: Run the test to verify RED.** Run flutter test test/smart_home_test.dart. Expected: the test cannot compile because the new SmartHome contract does not exist yet; this is the expected missing-feature signal.
-- [ ] **Step 3: Implement the minimal pure helper.** Derive genre weights per MediaKind, filter excluded/invalid/no-overlap candidates, deduplicate, sort by genre overlap then popularity/rating/title, and cap at the requested limit. Watchlist updates are the ordered intersection of saved IDs with current and upcoming items.
+- [ ] **Step 3: Implement the minimal pure helper.** Derive genre weights per MediaKind from saved titles and active Continue Watching records (looking up missing genres only in the already-loaded feed), filter excluded/invalid/no-overlap candidates, deduplicate, sort by genre overlap then popularity/rating/title, and cap at the requested limit. Watchlist updates are the ordered intersection of saved IDs with current and upcoming items.
 - [ ] **Step 4: Run the targeted test to verify GREEN.** Run flutter test test/smart_home_test.dart. Expected: all new tests pass.
 - [ ] **Step 5: Add the new test to CI.** Extend the existing catalogue/search workflow test command to include test/smart_home_test.dart.
 
@@ -63,7 +63,7 @@
 - Consumes: SmartHome.personalized, SmartHome.watchlistUpdates.
 - Produces: per-kind Picked for you and Updates to your list PosterRow sections, only when non-empty.
 
-- [ ] **Step 1: Add failing Home behavior tests.** Use a saved movie/series with genre metadata and a feed with overlapping and non-overlapping candidates. Assert the per-kind Picked for you row is present with the correctly ordered non-saved items. Add a separate case where saved titles overlap the feed's current/upcoming lists and assert the updates row contains only saved matches, with duplicates removed. Assert cold-start users have neither row.
+- [ ] **Step 1: Add failing Home behavior tests.** Use saved and active-history movie/series records with genre metadata available directly or through matching feed items, plus a feed with overlapping and non-overlapping candidates. Assert the per-kind Picked for you row is present with the correctly ordered non-saved items. Add a separate case where saved titles overlap the feed's current/upcoming lists and assert the updates row contains only saved matches, with duplicates removed. Assert cold-start users have neither row.
 - [ ] **Step 2: Run the relevant tests to verify RED.** Run flutter test test/home_screen_test.dart. Expected: the new row assertions fail because homeRows does not yet render them.
 - [ ] **Step 3: Persist available genre metadata in fallback MyList conversions.** Set genreIds: item.genreIds when constructing fallback Movie and TV objects.
 - [ ] **Step 4: Build recommendation/update candidates from the existing HomeFeed.** Rank already-loaded spotlight, top-ten, trending, popular, new-release, top-rated, upcoming and service-shelf items; exclude My List and Continue Watching. Include both new-release/on-air and upcoming rows when finding watchlist updates. Do not issue another network request.
