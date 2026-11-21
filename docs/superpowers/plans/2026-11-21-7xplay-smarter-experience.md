@@ -10,6 +10,9 @@
 
 **Spec:** docs/superpowers/specs/2026-11-21-7xplay-smarter-experience-design.md
 
+
+**Execution status (2026-11-21):** Implementation and regression-test source are committed on `feat/smarter-experience`. Four locale JSON files have been parsed successfully. Flutter tests and analysis have **not** been run: no Flutter/Dart SDK is available in the current execution environment, and this stacked draft PR does not match the repository workflow's `pull_request: branches: [main]` trigger. Do not treat unchecked RED/GREEN or full-regression steps as verified.
+
 ## Global Constraints
 
 - Base branch: redesign/phase-2-catalog-experience; work on feat/smarter-experience, never on main.
@@ -42,11 +45,11 @@
 - Produces: SmartHome.personalized({required Iterable<MediaItem> candidates, required Iterable<MediaItem> saved, Iterable<MediaItem> continueWatching = const [], int limit = 12}) -> List<MediaItem>.
 - Produces: SmartHome.watchlistUpdates({required Iterable<MediaItem> saved, required Iterable<MediaItem> current, required Iterable<MediaItem> upcoming, int limit = 12}) -> List<MediaItem>.
 
-- [ ] **Step 1: Write the failing unit tests.** Cover weighted genre overlap and tie-breakers, exclusion of saved/currently-watched items, empty legacy genre profiles, deduplication and limit, and saved-only matching across current/upcoming lists.
+- [x] **Step 1: Author regression tests (RED execution remains unverified).** Cover weighted genre overlap and tie-breakers, exclusion of saved/currently-watched items, empty legacy genre profiles, deduplication and limit, and saved-only matching across current/upcoming lists.
 - [ ] **Step 2: Run the test to verify RED.** Run flutter test test/smart_home_test.dart. Expected: the test cannot compile because the new SmartHome contract does not exist yet; this is the expected missing-feature signal.
-- [ ] **Step 3: Implement the minimal pure helper.** Derive genre weights per MediaKind from saved titles and active Continue Watching records (looking up missing genres only in the already-loaded feed), filter excluded/invalid/no-overlap candidates, deduplicate, sort by genre overlap then popularity/rating/title, and cap at the requested limit. Watchlist updates are the ordered intersection of saved IDs with current and upcoming items.
+- [x] **Step 3: Implement the minimal pure helper.** Derive genre weights per MediaKind from saved titles and active Continue Watching records (looking up missing genres only in the already-loaded feed), filter excluded/invalid/no-overlap candidates, deduplicate, sort by genre overlap then popularity/rating/title, and cap at the requested limit. Watchlist updates are the ordered intersection of saved IDs with current and upcoming items.
 - [ ] **Step 4: Run the targeted test to verify GREEN.** Run flutter test test/smart_home_test.dart. Expected: all new tests pass.
-- [ ] **Step 5: Add the new test to CI.** Extend the existing catalogue/search workflow test command to include test/smart_home_test.dart.
+- [x] **Step 5: Add the new test to CI.** Extend the existing catalogue/search workflow test command to include test/smart_home_test.dart.
 
 ### Task 2: Wire smart Home shelves and preserve saved genre metadata
 
@@ -63,12 +66,12 @@
 - Consumes: SmartHome.personalized, SmartHome.watchlistUpdates.
 - Produces: per-kind Picked for you and Updates to your list PosterRow sections, only when non-empty.
 
-- [ ] **Step 1: Add failing Home behavior tests.** Use saved and active-history movie/series records with genre metadata available directly or through matching feed items, plus a feed with overlapping and non-overlapping candidates. Assert the per-kind Picked for you row is present with the correctly ordered non-saved items. Add a separate case where saved titles overlap the feed's current/upcoming lists and assert the updates row contains only saved matches, with duplicates removed. Assert cold-start users have neither row.
+- [x] **Step 1: Author Home behavior regression tests (RED execution remains unverified).** Use saved and active-history movie/series records with genre metadata available directly or through matching feed items, plus a feed with overlapping and non-overlapping candidates. Assert the per-kind Picked for you row is present with the correctly ordered non-saved items. Add a separate case where saved titles overlap the feed's current/upcoming lists and assert the updates row contains only saved matches, with duplicates removed. Assert cold-start users have neither row.
 - [ ] **Step 2: Run the relevant tests to verify RED.** Run flutter test test/home_screen_test.dart. Expected: the new row assertions fail because homeRows does not yet render them.
-- [ ] **Step 3: Persist available genre metadata in fallback MyList conversions.** Set genreIds: item.genreIds when constructing fallback Movie and TV objects.
-- [ ] **Step 4: Build recommendation/update candidates from the existing HomeFeed.** Rank already-loaded spotlight, top-ten, trending, popular, new-release, top-rated, upcoming and service-shelf items; exclude My List and Continue Watching. Include both new-release/on-air and upcoming rows when finding watchlist updates. Do not issue another network request.
-- [ ] **Step 5: Integrate both rows into the existing lead repetition budget.** Keep rows per media kind and use existing PosterRow; maintain the first-feed repetition cap and mixed-kind My List behavior.
-- [ ] **Step 6: Add translated row labels.** Use picked_for_you and my_list_updates keys in all four supported locale files.
+- [x] **Step 3: Persist available genre metadata in fallback MyList conversions.** Set genreIds: item.genreIds when constructing fallback Movie and TV objects.
+- [x] **Step 4: Build recommendation/update candidates from the existing HomeFeed.** Rank already-loaded spotlight, top-ten, trending, popular, new-release, top-rated, upcoming and service-shelf items; exclude My List and Continue Watching. Include both new-release/on-air and upcoming rows when finding watchlist updates. Do not issue another network request.
+- [x] **Step 5: Integrate both rows into the existing lead repetition budget.** Keep rows per media kind and use existing PosterRow; maintain the first-feed repetition cap and mixed-kind My List behavior.
+- [x] **Step 6: Add translated row labels.** Use picked_for_you and my_list_updates keys in all four supported locale files.
 - [ ] **Step 7: Run the targeted tests to verify GREEN.** Run flutter test test/home_screen_test.dart test/smart_home_test.dart. Expected: all tests pass.
 
 ### Task 3: Improve universal-search relevance and conservative typo matching
@@ -81,11 +84,11 @@
 - Produces: MediaSearch.rankTitles(String query, List<MediaItem> items) -> List<MediaItem>.
 - Preserves: MediaSearch.run, topResultFor, source interfaces, debounce and UI generation handling.
 
-- [ ] **Step 1: Write failing tests.** Assert an exact title is ranked ahead of a more popular prefix/substring candidate; a single-edit typo such as avatr uniquely promotes Avatar; and two equally close typo candidates do not produce a speculative top result.
+- [x] **Step 1: Author search regression tests (RED execution remains unverified).** Assert an exact title is ranked ahead of a more popular prefix/substring candidate; a single-edit typo such as avatr uniquely promotes Avatar; and two equally close typo candidates do not produce a speculative top result.
 - [ ] **Step 2: Run the targeted test to verify RED.** Run flutter test test/search_screen_test.dart. Expected: the fuzzy-match assertion fails because current topResultFor supports exact and prefix only.
-- [ ] **Step 3: Implement deterministic relevance ranking.** Normalize titles using the existing normalize; score exact, starts-with, contains and bounded token edit-distance matches in descending order; break ties with popularity, rating and stable title ordering.
-- [ ] **Step 4: Keep fuzzy top-result promotion conservative.** Promote a fuzzy-only result only when it is the unique candidate at the smallest accepted edit distance; leave ambiguous candidates in the normal result list without a top-result guess.
-- [ ] **Step 5: Apply ranking independently to movie and series results.** Keep people ordering unchanged and retain per-kind error isolation.
+- [x] **Step 3: Implement deterministic relevance ranking.** Normalize titles using the existing normalize; score exact, starts-with, contains and bounded token edit-distance matches in descending order; break ties with popularity, rating and stable title ordering.
+- [x] **Step 4: Keep fuzzy top-result promotion conservative.** Promote a fuzzy-only result only when it is the unique candidate at the smallest accepted edit distance; leave ambiguous candidates in the normal result list without a top-result guess.
+- [x] **Step 5: Apply ranking independently to movie and series results.** Keep people ordering unchanged and retain per-kind error isolation.
 - [ ] **Step 6: Run the targeted tests to verify GREEN.** Run flutter test test/search_screen_test.dart. Expected: all tests pass.
 
 ### Task 4: Focused regression verification
