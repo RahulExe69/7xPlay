@@ -67,3 +67,37 @@ This is a factual checkpoint, not a completion claim. The approved scope is a fu
 4. Run the complete screen and interaction acceptance matrix.
 5. Build and publish a debug APK artifact from the exact verified PR head; provide Rahul the artifact and test checklist.
 6. Keep PR #24 draft/unmerged until the full approved scope is done and reviewed.
+
+
+## Build-speed optimisation addendum — 2026-11-21
+
+### Changes now implemented in `.github/workflows/build-android.yml`
+
+- Enabled Flutter SDK caching in the regression and release jobs; retained the existing lockfile-keyed Pub cache without double-caching Pub packages through the Flutter action.
+- Enabled Gradle cache writes for trusted same-repository PR runs and manual branch runs. Fork-originated PRs remain read-only.
+- Added an independent PR-only `build-debug-apk` job. It targets `android-arm64` only, builds the `prod` debug variant, skips a duplicate Pub resolution with `--no-pub`, checks that the APK exists and has package ID `com.sevenx.play`, then uploads one artifact with compression disabled.
+- The full optimised multi-ABI release build remains separate and keeps minification, resource shrinking, obfuscation, icon tree shaking and split-debug symbols.
+- Gradle parallel execution and build cache were already enabled in `android/gradle.properties`; no unverified compiler or configuration-cache flags were added.
+
+### Measured comparison
+
+- Previous full split-release job, run [44735255828](https://github.com/RahulExe69/7xPlay/actions/runs/44735255828): 7m43s end-to-end; its APK build step took 5m41s for three ABIs.
+- New PR debug job, run [44916095271](https://github.com/RahulExe69/7xPlay/actions/runs/44916095271), source SHA `ccd8e6e7c65adb44fca8498e8a3d59ce905a655c`: ARM64 debug build step took 3m20s; artifact upload took 3s. The artifact became available about 5m27s after the job started; full job cleanup completed at about 6m22s.
+- The first run paid cold setup/cache costs: Flutter setup 53s and Gradle cache setup 52s. It restored existing Gradle caches and wrote new PR-branch build/dependency/transform cache entries during job cleanup. The next run is required to measure warm-cache performance.
+- This is not an apples-to-apples benchmark: the new job is a single-ABI debug APK; the old job produced three minified/obfuscated release APKs.
+
+### Current debug artifact
+
+- Workflow run: [44916095271](https://github.com/RahulExe69/7xPlay/actions/runs/44916095271)
+- Artifact name: `7xPlay-debug-arm64-ccd8e6e7c65adb44fca8498e8a3d59ce905a655c`
+- Package ID verified by `aapt`: `com.sevenx.play`; version `4.3.0+10`.
+- Artifact expiry: 2026-12-05.
+- APK build and upload jobs succeeded independently of the regression job.
+
+### Regression follow-up
+
+The regression job in run `44916095271` still failed because the language service fixture used a plain `Set<String>` where the implementation requires `LinkedHashSet<String>`. The fixture has now been changed to `LinkedHashSet<String>.of([identity])` in commit `dd78fedc55338712f9790d118fe87954fb69b261`. The new PR run will validate this fix and provide the first warm-cache build measurement.
+
+### Further performance boundary
+
+GitHub-hosted runners are ephemeral. Repository caching can preserve SDKs and Gradle dependencies/build-cache entries, but not a live Gradle daemon or a persistent workspace between jobs. Lower, repeatable build times beyond this require a persistent self-hosted or larger runner; that would need separately provisioned compute and cost approval. Do not enable Gradle configuration cache without verifying Flutter/AGP/plugin compatibility for the pinned toolchain.
