@@ -58,7 +58,7 @@ void main() {
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Trending Feature'), findsWidgets);
     expect(find.text('SPOTLIGHT'), findsOneWidget);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -560));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -560));
     await tester.pumpAndSettle();
     expect(find.text('Trending now'), findsOneWidget);
   });
