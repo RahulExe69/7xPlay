@@ -3,7 +3,7 @@ import '../../presentation/session/session_gate.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../flixquest_main.dart';
+import '../../experience/app/experience_mobile_shell.dart';
 import '../../services/auth_session_controller.dart';
 import '../../tv/app/tv_home_shell.dart';
 import '../../tv/platform/device_presentation.dart';
@@ -72,7 +72,7 @@ Widget presentationShellFor({
   return switch ((devicePresentation, isAuthenticated)) {
     (DevicePresentation.television, true) => const TvHomeShell(),
     (DevicePresentation.television, false) => const TvLandingScreen(),
-    (DevicePresentation.handheld, true) => const FlixQuestHomePage(),
+    (DevicePresentation.handheld, true) => const ExperienceMobileShell(),
     (DevicePresentation.handheld, false) => const LandingScreen(),
   };
 }
