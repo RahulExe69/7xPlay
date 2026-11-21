@@ -11,7 +11,10 @@
 **Spec:** docs/superpowers/specs/2026-11-21-7xplay-smarter-experience-design.md
 
 
-**Execution status (2026-11-21):** Implementation and regression-test source are committed on `feat/smarter-experience`. Four locale JSON files have been parsed successfully. Flutter tests and analysis have **not** been run: no Flutter/Dart SDK is available in the current execution environment, and this stacked draft PR does not match the repository workflow's `pull_request: branches: [main]` trigger. Do not treat unchecked RED/GREEN or full-regression steps as verified.
+**Execution status (2026-11-21):** The feature implementation and regression-test source are committed on `feat/smarter-experience`. CodeRabbit reviewed the first implementation and identified four issues; all four have been addressed in subsequent commits: Home tests are now registered inside `main`, fuzzy ranking compares edit distance before popularity, candidate deduplication happens only after a positive score, and the watchlist-updates shelf is kept independent of the regular lead-row repetition budget while preserving the existing My List and regular-row allocation order. A regression case now covers a saved title repeated in Top Ten and Trending. The PR is marked ready for review, not merged.
+
+**Verification limitation:** Flutter tests and `flutter analyze` have **not** been run. This execution environment has no Flutter/Dart SDK and no checked-out repository. The connected GitHub Actions workflow is configured for PRs targeting `main`, while this stacked PR targets `redesign/phase-2-catalog-experience`; consequently, no workflow run or commit status was produced for this head. Do not claim a passing build or test suite until CI is run in an appropriate environment. The CodeRabbit review findings are fixed in source, but a fresh post-fix review has not yet been published.
+
 
 ## Global Constraints
 
