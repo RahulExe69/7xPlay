@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../catalog/media_item.dart';
-import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import '../playback.dart';
@@ -105,7 +104,8 @@ class VideoFeedCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           child: Text(
-                            tr(item.kind == MediaKind.movie ? 'movie' : 'series_one').toUpperCase(),
+                            tr(item.kind == MediaKind.movie ? 'movie' : 'series_one')
+                                .toUpperCase(),
                             style: AppType.kicker.copyWith(
                               color: Colors.white,
                               fontSize: 9,
