@@ -73,6 +73,25 @@ void main() {
       expect(result.map((item) => item.stableId).toSet(), hasLength(2));
     });
 
+    test('in-progress history contributes affinity when feed metadata is available', () {
+      final recentWithoutGenres = <MediaItem>[
+        _movie(90),
+        _movie(91),
+      ];
+      final result = SmartHome.personalized(
+        saved: <MediaItem>[_movie(80, genres: [28])],
+        continueWatching: recentWithoutGenres,
+        candidates: <MediaItem>[
+          _movie(90, genres: [16], popularity: 1),
+          _movie(91, genres: [16], popularity: 1),
+          _movie(1, genres: [16], popularity: 10),
+          _movie(2, genres: [28], popularity: 900),
+        ],
+      );
+
+      expect(result.map((item) => item.id), <int>[1, 2]);
+    });
+
     test('legacy bookmarks without genre metadata do not personalize the feed', () {
       final result = SmartHome.personalized(
         saved: <MediaItem>[_movie(90)],
