@@ -91,6 +91,7 @@
 - Create: lib/experience/handheld/experience_shell.dart
 - Create: lib/experience/handheld/experience_navigation_bar.dart
 - Create: lib/experience/handheld/experience_navigation_rail.dart
+- Create: lib/experience/tv/tv_experience_shell.dart (temporary adapter to existing TV shell; replaced in Task 8)
 - Modify: lib/screens/user/user_state.dart
 - Modify: lib/flixquest_main.dart only where root wiring is required
 - Test: test/experience/experience_root_test.dart
@@ -99,7 +100,7 @@
 
 **Interfaces:**
 - ExperienceDestination exposes id, labelKey, fromId(String?), and fromDefaultHome(DefaultHome); stable IDs map home, new, discover, search, mine.
-- ExperienceRoot accepts required DevicePresentation devicePresentation and required bool isAuthenticated, and selects new landing, handheld/tablet or TV experience.
+- ExperienceRoot accepts required DevicePresentation devicePresentation and required bool isAuthenticated, and selects new landing, handheld/tablet or TV experience. Until Tasks 6 and 8 replace them, the signed-out landing and TV shell may be isolated compatibility adapters to the existing implementations.
 - ExperienceTabController exposes current, select(destination), restore(destination), reselect(), scrollController(destination), and add/remove reset listeners.
 - ExperienceNavigation provides typed helper methods for in-app pushes/pops while retaining Flutter Navigator and the existing root navigator key.
 
@@ -314,3 +315,13 @@
 4. Complete Task 9 only after every destination and overlay is migrated and the regression suite proves behavior parity.
 
 The work is intentionally staged into independently reviewable commits. Do not merge a partial shell as the completed redesign; report each phase as partial until all nine tasks and acceptance checks are complete.
+
+
+## Plan self-review
+
+- **Spec coverage:** Tasks 1–9 cover the intent, protected runtime/player contracts, visual system, app composition, handheld primary destinations, content/details/library utilities, account/support/system flows, movie/series/live/offline player presentation, Android TV and final legacy removal/validation.
+- **Interface consistency:** Task 3 produces ExperienceDestination, ExperienceTabController, ExperienceRoot and the handheld shell; Tasks 4–6 consume those contracts. Task 7 produces the player presentation snapshot/callback contract; Task 8 consumes it for TV playback surfaces. Task 9 verifies the production root and removes temporary adapters only after all consumers migrate.
+- **Review Focus coverage:** restored IDs/default-home mapping is tested in Tasks 1 and 3; platform switching in Task 3 and Task 8; theme/accessibility in Task 2 and all layout tasks; deep-link/notification/home-widget handoffs in Tasks 1, 3 and 5; player behavior parity in Tasks 1 and 7–9.
+- **Task sizing:** feature pages are grouped into vertical review slices so each slice can be tested independently. The implementer should still commit small coherent screen changes within each task rather than one monolithic UI commit.
+- **Validation limitation:** the current authoring environment has no mounted repository checkout and no Flutter/Dart executable. The plan requires real test/build output from the repository's GitHub Actions runner before a task or APK can be marked complete. No test or build is claimed as run in this session.
+- **Reviewer note:** no independent subagent tool is available; this plan was self-reviewed against the design and current source inventory. A self-review is not an independent code review of a future implementation.
