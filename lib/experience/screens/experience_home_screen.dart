@@ -24,6 +24,7 @@ class ExperienceHomeScreen extends StatefulWidget {
 class _ExperienceHomeScreenState extends State<ExperienceHomeScreen> {
   HomeFilter _filter = HomeFilter.all;
   bool _started = false;
+  MobileTabController? _tabs;
   final Map<HomeFilter, int> _generations = <HomeFilter, int>{};
   final Map<HomeFilter, HomeFeed> _feeds = {};
   final Set<HomeFilter> _loading = {};
@@ -32,11 +33,24 @@ class _ExperienceHomeScreenState extends State<ExperienceHomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final tabs = MobileTabScope.maybeOf(context);
+    if (!identical(tabs, _tabs)) {
+      _tabs?.removeResetListener(MobileTab.home, _reset);
+      _tabs = tabs?..addResetListener(MobileTab.home, _reset);
+    }
     if (_started) return;
     _started = true;
-    _filter = MobileTabScope.maybeOf(context)?.initialHomeFilter ?? HomeFilter.all;
+    _filter = tabs?.initialHomeFilter ?? HomeFilter.all;
     unawaited(_load(_filter));
   }
+
+  @override
+  void dispose() {
+    _tabs?.removeResetListener(MobileTab.home, _reset);
+    super.dispose();
+  }
+
+  void _reset() => _select(HomeFilter.all);
 
   HomeFeedSource _source() => widget.source ?? CatalogHomeFeedSource(
     settings: context.read<SettingsProvider>(),
@@ -87,6 +101,7 @@ class _ExperienceHomeScreenState extends State<ExperienceHomeScreen> {
           color: palette.primaryAction,
           onRefresh: () => _load(_filter, refresh: true),
           child: ListView(
+            controller: _tabs?.scrollController(MobileTab.home),
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(top: 12, bottom: 40),
             children: [
