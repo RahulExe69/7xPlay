@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../design/app_brand.dart';
 import '../design/experience_theme_extension.dart';
 import '../design/experience_tokens.dart';
 import '../../mobile/app/mobile_tabs.dart';
@@ -91,7 +90,7 @@ class ExperienceNavigation extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: palette.surface,
-          borderRadius: BorderRadius.circular(ExperienceTokens.navRadius),
+          borderRadius: BorderRadius.circular(ExperienceTokens.heroRadius),
           border: Border.all(color: palette.hairline),
         ),
         child: SizedBox(
@@ -165,7 +164,7 @@ class _DestinationItem extends StatelessWidget {
             HapticFeedback.selectionClick();
             onTap();
           },
-          borderRadius: BorderRadius.circular(ExperienceTokens.navRadius),
+          borderRadius: BorderRadius.circular(ExperienceTokens.heroRadius),
           child: AnimatedContainer(
             duration: reduceMotion
                 ? Duration.zero
@@ -178,7 +177,7 @@ class _DestinationItem extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: selected ? palette.raisedSurface : Colors.transparent,
-              borderRadius: BorderRadius.circular(ExperienceTokens.navRadius),
+              borderRadius: BorderRadius.circular(ExperienceTokens.heroRadius),
               border: selected
                   ? Border.all(
                       color: palette.primaryAction.withValues(alpha: .34),
