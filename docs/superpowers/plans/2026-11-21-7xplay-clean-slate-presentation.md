@@ -153,12 +153,18 @@
 - Create: lib/experience/handheld/screens/collection_screen.dart
 - Create: lib/experience/handheld/screens/playlist_screen.dart
 - Create: lib/experience/handheld/screens/downloads_screen.dart
+- Create: lib/experience/handheld/screens/live_tv_screen.dart
+- Create: lib/experience/handheld/screens/provider_selection_screen.dart
+- Create: lib/experience/handheld/screens/manual_source_screen.dart
+- Create: lib/experience/handheld/screens/server_status_screen.dart
+- Create: lib/experience/handheld/screens/image_viewer_screen.dart
+- Create: lib/experience/handheld/screens/photo_viewer_screen.dart
 - Create: lib/experience/handheld/widgets/title_action_cluster.dart
 - Create: lib/experience/handheld/widgets/episode_chapter_list.dart
 - Create: lib/experience/handheld/widgets/credits_gallery.dart
 - Create/update: test/experience/handheld_detail_flows_test.dart
 - Modify: experience-owned navigation registry and route compatibility adapters
-- Regressions: test/title_details_screen_test.dart, test/season_episode_screens_test.dart, test/collection_screen_test.dart, test/mobile_playlists_screens_test.dart, test/downloads_screen_test.dart
+- Regressions: test/title_details_screen_test.dart, test/season_episode_screens_test.dart, test/collection_screen_test.dart, test/mobile_playlists_screens_test.dart, test/downloads_screen_test.dart, test/live_tv_error_test.dart, test/provider_order_test.dart
 
 **Interfaces:**
 - Title, season, episode, person, collection, playlist and download screens consume existing domain models and source/repository interfaces; they do not perform network calls inside build methods.
@@ -169,18 +175,28 @@
 - [ ] **Step 3: Implement title, season and episode pages.** Create distinct editorial title details, season overview and episode-selection layouts; preserve play/resume, bookmark, watch provider, cast, trailer, recommendations and progress behaviors.
 - [ ] **Step 4: Implement people and collection pages.** Use credit-focused and collection-specific compositions instead of reusing title-detail scaffolds.
 - [ ] **Step 5: Implement playlist and downloads pages.** Preserve import/share, playlist mutations, download selection, offline entry and current empty/error behavior.
-- [ ] **Step 6: Verify existing behavior and new UI.** Run: flutter test test/experience/handheld_detail_flows_test.dart test/title_details_screen_test.dart test/season_episode_screens_test.dart test/collection_screen_test.dart test/mobile_playlists_screens_test.dart test/downloads_screen_test.dart test/details_play_test.dart test/episode_cast_test.dart.
-- [ ] **Step 7: Commit.** Commit as feat: rebuild 7xPlay catalogue and library subflows.
+- [ ] **Step 6: Implement Live TV browsing, provider/source utilities and image viewing.** Preserve live category/channel behavior, provider ordering/status, manual-source handoffs, and image/photo viewer gestures, zoom and back behavior; keep playback itself in Task 7.
+- [ ] **Step 7: Verify existing behavior and new UI.** Run: flutter test test/experience/handheld_detail_flows_test.dart test/title_details_screen_test.dart test/season_episode_screens_test.dart test/collection_screen_test.dart test/mobile_playlists_screens_test.dart test/downloads_screen_test.dart test/live_tv_error_test.dart test/live_channel_letters_test.dart test/provider_order_test.dart test/video_provider_order_test.dart test/details_play_test.dart test/episode_cast_test.dart.
+- [ ] **Step 8: Commit.** Commit as feat: rebuild 7xPlay catalogue and library subflows.
+
 
 ### Task 6: Rebuild account, settings, Plus, wellness, AI and system surfaces
 
 **Files:**
+- Create: lib/experience/handheld/screens/landing_screen.dart
+- Create: lib/experience/handheld/screens/sign_in_screen.dart
+- Create: lib/experience/handheld/screens/sign_up_screen.dart
+- Create: lib/experience/handheld/screens/recovery_screen.dart
 - Create: lib/experience/handheld/screens/profile_screen.dart
+- Create: lib/experience/handheld/screens/account_screens.dart
 - Create: lib/experience/handheld/screens/settings_screen.dart
 - Create: lib/experience/handheld/screens/plus_screen.dart
+- Create: lib/experience/handheld/screens/plus_payment_screen.dart
+- Create: lib/experience/handheld/screens/wallet_screen.dart
 - Create: lib/experience/handheld/screens/wellness_screen.dart
 - Create: lib/experience/handheld/screens/ai_screen.dart
 - Create: lib/experience/handheld/screens/support_screens.dart
+- Create: lib/experience/handheld/screens/system_screens.dart
 - Create: lib/experience/handheld/widgets/settings_group.dart
 - Create: lib/experience/handheld/widgets/account_identity_panel.dart
 - Create/update: test/experience/handheld_support_flows_test.dart
@@ -194,7 +210,7 @@
 - [ ] **Step 1: Add behavior tests.** Pin guest/auth state, profile actions, theme/language selections, player preferences, Plus/payment entry, wellness metrics, 7x AI chat states, update/about/support routes.
 - [ ] **Step 2: Run the tests and confirm they fail for the new screens.** Run: flutter test test/experience/handheld_support_flows_test.dart -v.
 - [ ] **Step 3: Implement account and profile screens.** Preserve account transitions, guest mode, sign-in/out, device limits and local account-data behavior.
-- [ ] **Step 4: Implement settings and support/system screens.** Preserve every existing setting, theme mode, language, playback preference, sync, update, About and support action.
+- [ ] **Step 4: Implement settings and support/system screens.** Preserve every existing setting, theme mode, language, playback preference, subtitle/audio preference, sync, update, About, feedback, support, account deletion and device/session action.
 - [ ] **Step 5: Implement Plus, wellness and 7x AI.** Rebuild the screen composition while using existing controllers/repositories and payment/chat contracts.
 - [ ] **Step 6: Verify support-flow regressions.** Run: flutter test test/experience/handheld_support_flows_test.dart test/presentation/auth_screens_test.dart test/plus_screens_test.dart test/wellness_dashboard_widgets_test.dart test/wellness_insights_test.dart test/flix_ai_screen_test.dart test/settings_kit_test.dart test/app_mode_settings_test.dart test/language_names_test.dart.
 - [ ] **Step 7: Commit.** Commit as feat: rebuild 7xPlay account and system experiences.
@@ -202,6 +218,7 @@
 ### Task 7: Rebuild movie, series, Live TV and offline player presentation
 
 **Files:**
+- Create: lib/experience/player/player_presentation_state.dart (PlayerPresentationState and PlayerPresentationCallbacks)
 - Create: lib/experience/player/player_surface.dart
 - Create: lib/experience/player/player_controls.dart
 - Create: lib/experience/player/player_context_panel.dart
@@ -214,8 +231,9 @@
 - Preserve all existing player services, source models and BetterPlayer controllers.
 
 **Interfaces:**
-- Player presentation receives playback state and callbacks from the existing player state/controller boundary. It does not resolve sources, choose providers, mutate audio policy, persist progress, or control BetterPlayer directly.
-- Player controls expose callbacks for play/pause, seek, next/previous episode, source, audio, subtitles, settings, and exit; callbacks delegate to the current PlayerOne/live/offline owner.
+- PlayerPresentationState is an immutable UI snapshot with playing, buffering, position, duration, seekable, live, mediaTitle, optional episodeTitle, and optional errorLabel fields.
+- PlayerPresentationCallbacks exposes onPlayPause: VoidCallback, onSeek: ValueChanged<Duration>, onNextEpisode: VoidCallback, onPreviousEpisode: VoidCallback, onOpenSources: VoidCallback, onOpenAudio: VoidCallback, onOpenSubtitles: VoidCallback, onOpenSettings: VoidCallback, and onExit: VoidCallback.
+- Player presentation receives this snapshot and callbacks from the existing player state/controller boundary. It does not resolve sources, choose providers, mutate audio policy, persist progress, or control BetterPlayer directly.
 - Extract only the minimum stable UI-state contract needed from PlayerOne; do not invent a second playback state machine.
 
 - [ ] **Step 1: Inventory PlayerOne state and build failing presentation contract tests.** Cover playing/buffering/error, progress/seeking, movie versus series, source/audio/subtitle sheets, TV controls, landscape/fullscreen/minimized transitions and offline/live variants.
@@ -230,15 +248,22 @@
 
 **Files:**
 - Create: lib/experience/tv/tv_experience_shell.dart
-- Create: lib/experience/tv/tv_focus_controller.dart
+- Create: lib/experience/tv/tv_focus_controller.dart (thin experience adapter around existing TvFocusMemory and TvScreenFocusController; do not duplicate their state machine)
 - Create: lib/experience/tv/tv_navigation_rail.dart
+- Create: lib/experience/tv/screens/tv_landing_screen.dart
+- Create: lib/experience/tv/screens/tv_auth_screen.dart
 - Create: lib/experience/tv/screens/tv_home_screen.dart
 - Create: lib/experience/tv/screens/tv_catalog_screen.dart
 - Create: lib/experience/tv/screens/tv_search_screen.dart
 - Create: lib/experience/tv/screens/tv_library_screen.dart
 - Create: lib/experience/tv/screens/tv_detail_screen.dart
+- Create: lib/experience/tv/screens/tv_collection_screen.dart
+- Create: lib/experience/tv/screens/tv_shared_playlist_screen.dart
 - Create: lib/experience/tv/screens/tv_profile_screen.dart
 - Create: lib/experience/tv/screens/tv_settings_screen.dart
+- Create: lib/experience/tv/screens/tv_plus_screen.dart
+- Create: lib/experience/tv/screens/tv_wellness_screen.dart
+- Create: lib/experience/tv/screens/tv_redeem_screen.dart
 - Create: lib/experience/tv/screens/tv_live_screen.dart
 - Create/update: test/experience/tv_experience_test.dart
 - Reference/adapt: lib/tv/controllers/**, lib/tv/models/**, lib/tv/focus/**, lib/tv/navigation/**, lib/tv/player/** and existing repositories/controllers.
@@ -251,7 +276,7 @@
 - [ ] **Step 2: Run the tests and confirm they fail.** Run: flutter test test/experience/tv_experience_test.dart -v.
 - [ ] **Step 3: Implement TV shell and focus model.** Preserve stable destination IDs, focus return targets, directional behavior, TV back dispatcher and restoration.
 - [ ] **Step 4: Implement TV browse, search, details and library.** Use remote-first large-screen layouts with different hierarchies for browse/catalogue/search/library.
-- [ ] **Step 5: Implement TV account, settings, wellness, live and player surfaces.** Retain all current TV capabilities and hook player routes into Task 7's presentation contract.
+- [ ] **Step 5: Implement TV account, settings, Plus, wellness, playlists, redeem-code, live and player surfaces.** Retain the complete existing TV capability set and hook player routes into Task 7's presentation contract.
 - [ ] **Step 6: Verify TV behavior.** Run: flutter test test/experience/tv_experience_test.dart test/tv_back_dispatcher_test.dart test/tv_back_key_guard_test.dart test/tv_remote_navigation_test.dart test/tv_shell_layout_test.dart test/tv_search_screen_test.dart test/tv_media_details_test.dart test/tv_library_screen_test.dart test/tv_settings_screen_test.dart test/tv_subtitle_timing_panel_test.dart.
 - [ ] **Step 7: Commit.** Commit as feat: rebuild 7xPlay Android TV experience.
 
@@ -259,14 +284,15 @@
 
 **Files:**
 - Modify: lib/screens/user/user_state.dart
-- Modify: lib/flixquest_main.dart only to remove obsolete shell and app-root references after the new root is proven.
+- Modify: lib/flixquest_main.dart only to remove obsolete presentation-shell references after the new root is proven; keep its runtime/provider/overlay lifecycle wiring unless it is safely extracted with parity tests.
+- Modify: lib/main.dart only if the runtime host is renamed or the app composition is extracted; retain the current bootstrap order and DI behavior.
 - Modify/delete: legacy files identified as presentation-only in docs/superpowers/audits/2026-11-21-presentation-contract-inventory.md
 - Retain: all services, controllers, repositories, providers, models, persistence and player-engine files still used by the new experience.
 - Update: tests that asserted old widget classes, replacing them with experience behavior/contract assertions.
 - Test: full existing test suite and all test/experience/** suites.
 
 **Interfaces:**
-- The production entry point selects only the new ExperienceRoot. No production destination may import a legacy screen as its permanent body.
+- The production UserState route selects only the new ExperienceRoot. The FlixQuest runtime host may remain as a compatibility/runtime wrapper, but no production destination may import a legacy screen as its permanent body.
 - Compatibility adapters remain only for external route/identifier stability and must each have an explicit removal rule or documented reason to remain.
 
 - [ ] **Step 1: Add an architecture guard test.** Scan production experience imports and assert that the new shell does not import old mobile destination screens or old TV screen compositions.
