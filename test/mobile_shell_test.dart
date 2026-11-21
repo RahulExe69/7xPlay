@@ -260,19 +260,20 @@ void main() {
     );
   });
 
-  testWidgets('the phone navigation spans edge to edge without a floating inset', (tester) async {
+  testWidgets('the phone navigation uses a full-width video-app dock', (tester) async {
     await _pumpShell(tester);
     final surface = find.descendant(
       of: find.byType(MobileNavBar),
-      matching: find.byType(DecoratedBox),
-    ).first;
+      matching: find.byKey(const ValueKey<String>('mobile-nav-surface')),
+    );
+    expect(surface, findsOneWidget);
     final rect = tester.getRect(surface);
-    expect(rect.left, greaterThan(0));
-    expect(rect.right, lessThan(390));
+    expect(rect.left, 0);
+    expect(rect.right, 390);
     final decoration = tester.widget<DecoratedBox>(surface).decoration
         as BoxDecoration;
-    expect(decoration.borderRadius, isNotNull);
-    expect(decoration.boxShadow, isNotEmpty);
+    expect(decoration.borderRadius, BorderRadius.zero);
+    expect(decoration.boxShadow, isEmpty);
   });
 
   group('on a tablet', () {
