@@ -136,7 +136,9 @@ void main() {
       sourceKeysByLanguage: {
         for (final language in ['en', 'hi', 'bn'])
           language: {
-            provider.codeName: LinkedHashSet<String>.fromIterable([identity]),
+            // The contract requires the concrete ordered set type, not a plain Set.
+            // ignore: prefer_collection_literals
+            provider.codeName: LinkedHashSet<String>.of([identity]),
           },
       },
     );
