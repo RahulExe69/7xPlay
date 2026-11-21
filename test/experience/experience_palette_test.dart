@@ -1,5 +1,6 @@
 import 'package:flixquest/design/app_brand.dart';
 import 'package:flixquest/experience/design/experience_palette.dart';
+import 'package:flixquest/experience/design/experience_theme_extension.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -60,6 +61,51 @@ void main() {
         greaterThanOrEqualTo(4.5),
       );
       expect(palette.scrim(0.7).alpha, 179);
+    });
+
+    testWidgets('exposes an injected palette to UI descendants', (tester) async {
+      final theme = ThemeData.dark();
+      final palette = ExperiencePalette.fromTheme(theme);
+      ExperiencePalette? resolved;
+      final themed = theme.copyWith(
+        extensions: <ThemeExtension<dynamic>>[
+          ExperienceThemeExtension(palette: palette),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: themed,
+          home: Builder(
+            builder: (context) {
+              resolved = ExperienceThemeExtension.of(context).palette;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      expect(resolved, same(palette));
+    });
+
+    test('interpolates semantic colors when a theme transitions', () {
+      final darkTheme = ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: Colors.black,
+      );
+      final lightTheme = ThemeData.light().copyWith(
+        scaffoldBackgroundColor: Colors.white,
+      );
+      final start = ExperienceThemeExtension(
+        palette: ExperiencePalette.fromTheme(darkTheme),
+      );
+      final end = ExperienceThemeExtension(
+        palette: ExperiencePalette.fromTheme(lightTheme),
+      );
+
+      final middle = start.lerp(end, 0.5);
+
+      expect(middle.palette.page.computeLuminance(), greaterThan(0));
+      expect(middle.palette.page.computeLuminance(), lessThan(1));
     });
 
     test('adjusts a low-contrast user accent without changing brand actions',
