@@ -259,6 +259,8 @@
 - Create: lib/experience/tv/screens/tv_detail_screen.dart
 - Create: lib/experience/tv/screens/tv_collection_screen.dart
 - Create: lib/experience/tv/screens/tv_shared_playlist_screen.dart
+- Create: lib/experience/tv/screens/tv_playlist_import_screen.dart
+- Create: lib/experience/tv/screens/tv_playlist_name_screen.dart
 - Create: lib/experience/tv/screens/tv_profile_screen.dart
 - Create: lib/experience/tv/screens/tv_settings_screen.dart
 - Create: lib/experience/tv/screens/tv_plus_screen.dart
@@ -272,10 +274,10 @@
 - TvExperienceShell consumes DevicePresentation.television and existing TV controllers/services; TvFocusController owns focus memory/order and is independent from the visual rail.
 - The TV shell uses large-screen-specific composition and remote-first input; it does not reuse handheld page layouts with larger spacing.
 
-- [ ] **Step 1: Add failing TV experience tests.** Cover top-level navigation, focus order and restoration, back dispatch, keyboard search, media details, library, profile/settings, live TV and player entry.
+- [ ] **Step 1: Add failing TV experience tests.** Cover landing/auth, top-level navigation, focus order and restoration, back dispatch, keyboard search, media details/collections, library/playlists/import/name, profile/settings/Plus/wellness/redeem, live TV and player entry.
 - [ ] **Step 2: Run the tests and confirm they fail.** Run: flutter test test/experience/tv_experience_test.dart -v.
 - [ ] **Step 3: Implement TV shell and focus model.** Preserve stable destination IDs, focus return targets, directional behavior, TV back dispatcher and restoration.
-- [ ] **Step 4: Implement TV browse, search, details and library.** Use remote-first large-screen layouts with different hierarchies for browse/catalogue/search/library.
+- [ ] **Step 4: Implement TV browse, search, details and library.** Use remote-first large-screen layouts with different hierarchies for browse/catalogue/search/library; include collection and shared-playlist subflows and the TV import/name keyboards.
 - [ ] **Step 5: Implement TV account, settings, Plus, wellness, playlists, redeem-code, live and player surfaces.** Retain the complete existing TV capability set and hook player routes into Task 7's presentation contract.
 - [ ] **Step 6: Verify TV behavior.** Run: flutter test test/experience/tv_experience_test.dart test/tv_back_dispatcher_test.dart test/tv_back_key_guard_test.dart test/tv_remote_navigation_test.dart test/tv_shell_layout_test.dart test/tv_search_screen_test.dart test/tv_media_details_test.dart test/tv_library_screen_test.dart test/tv_settings_screen_test.dart test/tv_subtitle_timing_panel_test.dart.
 - [ ] **Step 7: Commit.** Commit as feat: rebuild 7xPlay Android TV experience.
