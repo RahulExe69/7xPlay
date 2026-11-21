@@ -163,6 +163,26 @@ void main() {
     expect(result?.id, 8);
   });
 
+  test('closest typo match outranks a more popular distant fuzzy match', () {
+    final ranked = MediaSearch.rankTitles(
+      'avataar',
+      [
+        _movie(1, 'Avatar', popularity: 10),
+        _movie(2, 'Avatars', popularity: 9000),
+      ],
+    );
+
+    expect(ranked.first.id, 1);
+    expect(
+      MediaSearch.topResultFor(
+        'avataar',
+        movies: ranked,
+        series: [],
+      )?.id,
+      1,
+    );
+  });
+
   test('equally close typo matches are not guessed as the top result', () {
     final result = MediaSearch.topResultFor(
       'catt',
