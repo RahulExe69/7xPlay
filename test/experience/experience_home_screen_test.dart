@@ -8,18 +8,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _HomeSource implements HomeFeedSource {
-  static const item = MediaItem(
-    kind: MediaKind.movie, id: 7, title: 'The 7x Feature',
+  static MediaItem _item(int id, String title) => MediaItem(
+    kind: MediaKind.movie, id: id, title: title,
     overview: 'A featured story for the new home.',
-    posterPath: '/poster.jpg', backdropPath: '/backdrop.jpg',
+    posterPath: '/poster$id.jpg', backdropPath: '/backdrop$id.jpg',
     rating: 8.4, releaseDate: '2026-01-01',
   );
+
   @override
-  Future<List<MediaItem>> list(MediaKind kind, HomeList list) async =>
-      kind == MediaKind.movie ? <MediaItem>[item] : const <MediaItem>[];
+  Future<List<MediaItem>> list(MediaKind kind, HomeList list) async {
+    if (kind != MediaKind.movie) return const <MediaItem>[];
+    final item = switch (list) {
+      HomeList.trendingToday => _item(7, 'The 7x Feature'),
+      HomeList.trendingWeek => _item(8, 'Trending Feature'),
+      HomeList.popular => _item(9, 'Popular Feature'),
+      HomeList.newReleases => _item(10, 'New Feature'),
+      HomeList.topRated => _item(11, 'Rated Feature'),
+      HomeList.upcoming => _item(12, 'Upcoming Feature'),
+    };
+    return <MediaItem>[item];
+  }
+
   @override
   Future<List<MediaItem>> discover(MediaKind kind, {required int page, required int year, required int genreId}) async =>
-      kind == MediaKind.movie ? <MediaItem>[item] : const <MediaItem>[];
+      kind == MediaKind.movie ? <MediaItem>[_item(20, 'Spotlight Feature')] : const <MediaItem>[];
   @override
   Future<List<MediaItem>> genre(MediaKind kind, int genreId) async => const [];
   @override
