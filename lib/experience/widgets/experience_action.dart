@@ -97,11 +97,8 @@ class ExperienceAction extends StatelessWidget {
       ),
     );
 
-    return Semantics(
-      button: true,
-      enabled: onPressed != null && !isLoading,
-      label: label,
-      child: expand ? SizedBox(width: double.infinity, child: button) : button,
-    );
+    return expand
+        ? SizedBox(width: double.infinity, child: button)
+        : button;
   }
 }

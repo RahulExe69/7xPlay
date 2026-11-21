@@ -54,6 +54,7 @@ class ExperienceSurface extends StatelessWidget {
 
     return Semantics(
       container: semanticLabel != null,
+      excludeSemantics: semanticLabel != null,
       label: semanticLabel,
       button: onTap != null,
       child: Material(
