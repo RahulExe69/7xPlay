@@ -4,7 +4,10 @@ import 'package:flixquest/experience/widgets/experience_action.dart';
 import 'package:flixquest/experience/widgets/experience_artwork.dart';
 import 'package:flixquest/experience/widgets/experience_state_panel.dart';
 import 'package:flixquest/experience/widgets/experience_surface.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _app(Widget child, {Size size = const Size(390, 844)}) {
@@ -96,14 +99,12 @@ void main() {
     });
 
     testWidgets('disabled actions cannot invoke their callback', (tester) async {
-      var calls = 0;
       await tester.pumpWidget(
         _app(ExperienceAction(label: 'Unavailable', onPressed: null)),
       );
 
       final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.onPressed, isNull);
-      expect(calls, 0);
     });
   });
 
@@ -124,7 +125,7 @@ void main() {
         _app(
           const ExperienceArtwork(
             semanticLabel: 'Unavailable poster',
-            imageProvider: NetworkImage('https://example.invalid/poster.jpg'),
+            imageProvider: MemoryImage(Uint8List.fromList(<int>[0])),
           ),
         ),
       );
