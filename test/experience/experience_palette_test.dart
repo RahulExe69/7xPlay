@@ -60,7 +60,7 @@ void main() {
         _contrastRatio(palette.onFocus, palette.focusFill),
         greaterThanOrEqualTo(4.5),
       );
-      expect(palette.scrim(0.7).alpha, 179);
+      expect((palette.scrim(0.7).a * 255).round(), 179);
     });
 
     testWidgets('exposes an injected palette to UI descendants', (tester) async {
