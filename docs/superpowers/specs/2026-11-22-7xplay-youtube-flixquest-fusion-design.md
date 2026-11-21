@@ -44,7 +44,7 @@ The result must feel like one coherent 7xPlay product, not two apps stitched tog
 - A vertical feed uses YouTube-like full-width landscape cards for featured recommendations and editorial rows.
 - Existing horizontal poster shelves remain for dense browsing and recognizable OTT discovery patterns.
 - Continue Watching and My List updates remain prominent and use existing local history/bookmark data.
-- Trending Home shelves use full-width video-feed cards; Top Ten, My List, genre and service shelves retain their OTT poster treatments.
+- Trending Home shelves use up to three centered, max-width video-feed cards per content type, with See all opening the full collection; Top Ten, My List, genre and service shelves retain their OTT poster treatments.
 - Cards expose title, year, content type, rating/genres when available, and overflow actions such as Watch Later/My List. Do not invent views, likes, creators or engagement metrics.
 
 ### Search and Explore
