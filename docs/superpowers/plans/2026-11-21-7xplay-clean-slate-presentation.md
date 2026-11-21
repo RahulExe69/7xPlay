@@ -87,6 +87,7 @@
 - Create: lib/experience/app/experience_root.dart
 - Create: lib/experience/navigation/experience_destination.dart
 - Create: lib/experience/navigation/experience_navigation.dart
+- Create: lib/experience/navigation/experience_route_builders.dart
 - Create: lib/experience/handheld/experience_tab_controller.dart
 - Create: lib/experience/handheld/experience_shell.dart
 - Create: lib/experience/handheld/experience_navigation_bar.dart
@@ -103,6 +104,7 @@
 - ExperienceRoot accepts required DevicePresentation devicePresentation and required bool isAuthenticated, and selects new landing, handheld/tablet or TV experience. Until Tasks 6 and 8 replace them, the signed-out landing and TV shell may be isolated compatibility adapters to the existing implementations.
 - ExperienceTabController exposes current, select(destination), restore(destination), reselect(), scrollController(destination), and add/remove reset listeners.
 - ExperienceNavigation provides typed helper methods for in-app pushes/pops while retaining Flutter Navigator and the existing root navigator key.
+- ExperienceRouteBuilders is the UI-only route factory used by DeepLinkRoutes, MediaLinkNavigationService and plus_navigation. It exposes typed widget builders for movie, series, season, episode, person, collection, wellness, library, shared-playlist, playlist-import, live-channel-list and Plus destinations. Builders accept only already-resolved records or stable identifiers; they do not fetch data or mutate state. They return widgets without requiring a BuildContext so HomeWidget DeepLinkRoutes.prepareWidget() remains safe before runApp/navigator readiness.
 
 - [ ] **Step 1: Write destination compatibility tests.** Assert the exact existing stable IDs, legacy ID decoding, default-home mapping, and library label separation from persisted ID.
 - [ ] **Step 2: Run the tests to verify they fail.** Run: flutter test test/experience/experience_navigation_test.dart -v. Expected: FAIL because ExperienceDestination and ExperienceTabController are absent.
@@ -164,21 +166,29 @@
 - Create: lib/experience/handheld/widgets/episode_chapter_list.dart
 - Create: lib/experience/handheld/widgets/credits_gallery.dart
 - Create/update: test/experience/handheld_detail_flows_test.dart
-- Modify: experience-owned navigation registry and route compatibility adapters
+- Modify: lib/services/deep_link_routes.dart to replace direct legacy page construction with ExperienceRouteBuilders while keeping fetch/validation and retry semantics.
+- Modify: lib/services/media_link_navigation_service.dart to remove direct legacy mobile/TV screen dependencies and build typed routes through ExperienceRouteBuilders.
+- Modify: lib/screens/common/deep_link_loader.dart to render the new experience loading/error/retry state.
+- Modify: experience-owned navigation registry and route compatibility adapters.
+- Regression: test/media_link_test.dart, test/home_widget_deep_link_test.dart, test/home_widget_navigation_test.dart, test/auth_navigation_service_test.dart
 - Regressions: test/title_details_screen_test.dart, test/season_episode_screens_test.dart, test/collection_screen_test.dart, test/mobile_playlists_screens_test.dart, test/downloads_screen_test.dart, test/live_tv_error_test.dart, test/provider_order_test.dart
 
 **Interfaces:**
 - Title, season, episode, person, collection, playlist and download screens consume existing domain models and source/repository interfaces; they do not perform network calls inside build methods.
 - Navigation accepts existing media identifiers and intent arguments so deep-link, notification, and home-widget entry points can route into the new screens without changing external formats.
 
-- [ ] **Step 1: Add route-contract tests.** Verify movie/series/season/episode/person/collection navigation and direct deep-link entry resolve to the correct new presentation screen.
+- [ ] **Step 1: Add route-contract tests.** Verify movie/series/season/episode/person/collection navigation and direct deep-link entry resolve to the correct new presentation screen; verify HomeWidgetDeepLink URI scheme/hosts and repeat/delayed dispatch behavior are unchanged.
 - [ ] **Step 2: Run the tests and confirm they fail.** Run: flutter test test/experience/handheld_detail_flows_test.dart -v.
 - [ ] **Step 3: Implement title, season and episode pages.** Create distinct editorial title details, season overview and episode-selection layouts; preserve play/resume, bookmark, watch provider, cast, trailer, recommendations and progress behaviors.
 - [ ] **Step 4: Implement people and collection pages.** Use credit-focused and collection-specific compositions instead of reusing title-detail scaffolds.
 - [ ] **Step 5: Implement playlist and downloads pages.** Preserve import/share, playlist mutations, download selection, offline entry and current empty/error behavior.
+- [ ] **Step 6: Replace deep-link and Home Widget screen construction.** Keep data fetching and validation in the existing resolver, use ExperienceRouteBuilders for all new detail/collection/person/list/live destinations, and preserve pre-navigation route preparation, timeout/retry, IMDb resolution, fallback and hero identity behavior.
+- [ ] **Step 7: Replace media-link screen construction.** Route shared lists, list imports and handheld live-channel intents through the experience route factory; keep TV live-channel requests as a root pop plus LiveChannelFocus request, and preserve disabled-Live-TV messaging.
+- [ ] **Step 8: Redesign deep-link loading/error.** Use the experience state panel and artwork treatment while keeping DeepLinkLoader's 12-second bound, retry action and offline detection.
+- [ ] **Step 9: Verify existing behavior and new UI.** Run: flutter test test/experience/handheld_detail_flows_test.dart test/title_details_screen_test.dart test/season_episode_screens_test.dart test/collection_screen_test.dart test/mobile_playlists_screens_test.dart test/downloads_screen_test.dart test/live_tv_error_test.dart test/live_channel_letters_test.dart test/provider_order_test.dart test/video_provider_order_test.dart test/details_play_test.dart test/episode_cast_test.dart test/media_link_test.dart test/home_widget_deep_link_test.dart test/home_widget_navigation_test.dart test/auth_navigation_service_test.dart.
+- [ ] **Step 10: Commit.** Commit as feat: rebuild 7xPlay catalogue and library subflows.
 - [ ] **Step 6: Implement Live TV browsing, provider/source utilities and image viewing.** Preserve live category/channel behavior, provider ordering/status, manual-source handoffs, and image/photo viewer gestures, zoom and back behavior; keep playback itself in Task 7.
-- [ ] **Step 7: Verify existing behavior and new UI.** Run: flutter test test/experience/handheld_detail_flows_test.dart test/title_details_screen_test.dart test/season_episode_screens_test.dart test/collection_screen_test.dart test/mobile_playlists_screens_test.dart test/downloads_screen_test.dart test/live_tv_error_test.dart test/live_channel_letters_test.dart test/provider_order_test.dart test/video_provider_order_test.dart test/details_play_test.dart test/episode_cast_test.dart.
-- [ ] **Step 8: Commit.** Commit as feat: rebuild 7xPlay catalogue and library subflows.
+
 
 
 ### Task 6: Rebuild account, settings, Plus, wellness, AI and system surfaces
@@ -198,10 +208,12 @@
 - Create: lib/experience/handheld/screens/ai_screen.dart
 - Create: lib/experience/handheld/screens/support_screens.dart
 - Create: lib/experience/handheld/screens/system_screens.dart
+- Modify: lib/services/plus_navigation.dart to construct the new Plus surface through ExperienceRouteBuilders.
 - Create: lib/experience/handheld/widgets/settings_group.dart
 - Create: lib/experience/handheld/widgets/account_identity_panel.dart
 - Create/update: test/experience/handheld_support_flows_test.dart
 - Reuse existing auth/session, settings, billing, wellness, notification and AI view models/controllers.
+- Modify: lib/services/plus_navigation.dart to obtain the new handheld/TV Plus page from ExperienceRouteBuilders while preserving /plus route name, coupon handoff and existing PlusController/AdsPolicy behavior.
 - Update active imports through the experience navigation registry; preserve localization identifiers.
 
 **Interfaces:**
@@ -325,3 +337,11 @@ The work is intentionally staged into independently reviewable commits. Do not m
 - **Task sizing:** feature pages are grouped into vertical review slices so each slice can be tested independently. The implementer should still commit small coherent screen changes within each task rather than one monolithic UI commit.
 - **Validation limitation:** the current authoring environment has no mounted repository checkout and no Flutter/Dart executable. The plan requires real test/build output from the repository's GitHub Actions runner before a task or APK can be marked complete. No test or build is claimed as run in this session.
 - **Reviewer note:** no independent subagent tool is available; this plan was self-reviewed against the design and current source inventory. A self-review is not an independent code review of a future implementation.
+
+
+## Additional self-review: route and external-intent coverage
+
+- Direct Legacy UI construction was found in DeepLinkRoutes, MediaLinkNavigationService and plus_navigation. The Task 3 route-builder contract and Task 5/6 modifications now explicitly remove these presentation imports from the active external navigation path.
+- Home-widget route preparation occurs before the first navigator is mounted. ExperienceRouteBuilders therefore produces context-free widgets from resolved records/IDs; builders must not capture a runtime BuildContext or require a mounted feature view model.
+- DeepLinkLoader currently owns offline detection, a 12-second fetch timeout and retry. Task 5 explicitly migrates its presentation while preserving those behaviors.
+- MediaLinkNavigationService owns TV LiveChannelFocus behavior and disabled-Live-TV messaging. These remain service behavior and are not recreated inside a visual widget.
