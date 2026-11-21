@@ -100,7 +100,7 @@ Finder _navItem(MobileTab tab, {Type bar = MobileNavBar}) => find.descendant(
       matching: find.text(switch (tab) {
         MobileTab.home => 'home',
         MobileTab.newAndHot => 'new_and_hot',
-        MobileTab.discover => 'discover',
+        MobileTab.discover => 'explore',
         MobileTab.search => 'search',
         MobileTab.mine => 'you',
       }),
