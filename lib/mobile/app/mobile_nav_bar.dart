@@ -7,6 +7,15 @@ import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import 'mobile_tabs.dart';
 
+/// A familiar browse-first order while preserving the enum's stable IDs.
+const _navigationOrder = <MobileTab>[
+  MobileTab.home,
+  MobileTab.discover,
+  MobileTab.newAndHot,
+  MobileTab.search,
+  MobileTab.mine,
+];
+
 /// The phone's edge-to-edge destination dock, retaining all stable navigation IDs.
 class MobileNavBar extends StatelessWidget {
   const MobileNavBar({required this.current, required this.onSelect, super.key});
@@ -37,7 +46,7 @@ class MobileNavBar extends StatelessWidget {
               maxScaleFactor: 1.2,
               child: Row(
                 children: <Widget>[
-                  for (final tab in MobileTab.values)
+                  for (final tab in _navigationOrder)
                     Expanded(
                       child: _DockItem(
                         tab: tab,
