@@ -101,3 +101,22 @@ The regression job in run `44916095271` still failed because the language servic
 ### Further performance boundary
 
 GitHub-hosted runners are ephemeral. Repository caching can preserve SDKs and Gradle dependencies/build-cache entries, but not a live Gradle daemon or a persistent workspace between jobs. Lower, repeatable build times beyond this require a persistent self-hosted or larger runner; that would need separately provisioned compute and cost approval. Do not enable Gradle configuration cache without verifying Flutter/AGP/plugin compatibility for the pinned toolchain.
+
+
+### Warm-cache result — 2026-11-21
+
+- Warm PR run: [44916704829](https://github.com/RahulExe69/7xPlay/actions/runs/44916704829), PR head `51054577d4f821ba0a81ec54c3b43adb4ddba423`.
+- Flutter setup fell from 53s to 21s (32s saved).
+- Gradle cache restore took 67s versus 52s on the first run; this stage is still a bottleneck and should not be described as improved.
+- Pub restore plus dependency resolution was 7s versus 8s on the first run.
+- ARM64 debug compile fell from 200s to 118s (82s / 41% faster).
+- Artifact upload took 4s; the artifact was available 3m42s after job start, down from 5m27s (about 32% faster time-to-artifact).
+- Regression coverage progressed past the provider aggregation group after the LinkedHashSet type fix: **145 tests passed**. Flutter analysis then failed on one info-level `prefer_collection_literals` lint at the explicit `LinkedHashSet.of` constructor in the fixture. The fixture has since been switched to `LinkedHashSet.fromIterable` to keep the required concrete type without that lint; the following workflow run must confirm the analyzer result.
+- Current artifact `7xPlay-debug-arm64-51054577d4f821ba0a81ec54c3b43adb4ddba423` is successful and downloadable from run 44916704829. It is ARM64-only, app ID `com.sevenx.play`, version `4.3.0+10`, and about 114 MB (debug build).
+
+### Further optimisation priorities
+
+1. Keep the separate ARM64 debug preview job as the rapid PR feedback path; don't wait for the three-ABI release packaging job.
+2. Measure further cache restore time, especially Gradle transforms and dependency archives, before excluding any cache categories.
+3. Do not switch the build to Gradle configuration cache without verifying Flutter 3.41.5 and every applied plugin are compatible. Gradle warns that ignoring configuration-cache problems can cause incorrect task state; Android's official guide says to verify plugin compatibility first.
+4. The repository is public and currently uses GitHub's standard `ubuntu-24.04` runner. GitHub documents 4 vCPU / 16 GB for that public-repo runner; simply changing to `ubuntu-latest` is not a larger compute tier. A persistent or larger runner may improve repeat builds further but requires infrastructure or an eligible paid runner entitlement; it has not been enabled.
