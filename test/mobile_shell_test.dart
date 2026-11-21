@@ -102,7 +102,7 @@ Finder _navItem(MobileTab tab, {Type bar = MobileNavBar}) => find.descendant(
         MobileTab.newAndHot => 'new_and_hot',
         MobileTab.discover => 'discover',
         MobileTab.search => 'search',
-        MobileTab.mine => 'my_flixquest',
+        MobileTab.mine => 'you',
       }),
     );
 
