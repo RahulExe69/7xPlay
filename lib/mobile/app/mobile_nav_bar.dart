@@ -7,7 +7,7 @@ import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import 'mobile_tabs.dart';
 
-/// The phone's floating destination dock, retaining all stable navigation IDs.
+/// The phone's edge-to-edge destination dock, retaining all stable navigation IDs.
 class MobileNavBar extends StatelessWidget {
   const MobileNavBar({required this.current, required this.onSelect, super.key});
   final MobileTab current;
