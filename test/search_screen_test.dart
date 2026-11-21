@@ -313,10 +313,12 @@ void main() {
     expect(offset, greaterThan(0));
 
     final card = tester.widget<VideoFeedCard>(find.byType(VideoFeedCard).first);
-    await tester.tap(
-      find.byKey(
-        ValueKey<String>('video-feed-thumbnail-${card.item.stableId}'),
-      ),
+    final thumbnail = find.byKey(
+      ValueKey<String>('video-feed-thumbnail-${card.item.stableId}'),
+    );
+    final thumbnailRect = tester.getRect(thumbnail);
+    await tester.tapAt(
+      Offset(thumbnailRect.left + 16, thumbnailRect.top + 16),
     );
     await tester.pumpAndSettle();
     expect(find.text('details'), findsOneWidget);
