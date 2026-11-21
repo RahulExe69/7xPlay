@@ -16,27 +16,48 @@ abstract final class SmartHome {
   }) {
     if (limit <= 0) return const <MediaItem>[];
 
+    final catalogue = candidates.toList(growable: false);
+    final catalogueByKey = <String, MediaItem>{};
+    for (final item in catalogue) {
+      final key = _titleKey(item);
+      if (item.id >= 0 && item.genreIds.isNotEmpty) {
+        catalogueByKey.putIfAbsent(key, () => item);
+      }
+    }
+
     final genreWeights = <(MediaKind, int), int>{};
     final excluded = <String>{};
-    final seenSaved = <String>{};
-    for (final item in saved) {
-      if (item.id < 0) continue;
-      excluded.add(_titleKey(item));
-      if (!seenSaved.add(_titleKey(item))) continue;
+    void addAffinity(MediaItem item) {
       for (final genreId in item.genreIds.toSet()) {
         if (genreId <= 0) continue;
         final key = (item.kind, genreId);
         genreWeights[key] = (genreWeights[key] ?? 0) + 1;
       }
     }
+
+    final seenSaved = <String>{};
+    for (final item in saved) {
+      if (item.id < 0) continue;
+      final key = _titleKey(item);
+      excluded.add(key);
+      if (!seenSaved.add(key)) continue;
+      final metadata =
+          item.genreIds.isNotEmpty ? item : catalogueByKey[key] ?? item;
+      addAffinity(metadata);
+    }
     for (final item in continueWatching) {
-      if (item.id >= 0) excluded.add(_titleKey(item));
+      if (item.id < 0) continue;
+      final key = _titleKey(item);
+      excluded.add(key);
+      final metadata =
+          item.genreIds.isNotEmpty ? item : catalogueByKey[key] ?? item;
+      addAffinity(metadata);
     }
     if (genreWeights.isEmpty) return const <MediaItem>[];
 
     final ranked = <({MediaItem item, int score})>[];
     final seen = <String>{};
-    for (final item in candidates) {
+    for (final item in catalogue) {
       if (item.id < 0) continue;
       final key = _titleKey(item);
       if (excluded.contains(key) || !seen.add(key)) continue;
