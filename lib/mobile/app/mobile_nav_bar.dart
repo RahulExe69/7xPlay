@@ -158,7 +158,7 @@ class MobileNavRail extends StatelessWidget {
   MobileTab.newAndHot => (PhosphorIcons.fire(), PhosphorIcons.fire(PhosphorIconsStyle.fill), 'new_and_hot'),
   MobileTab.discover => (PhosphorIcons.compass(), PhosphorIcons.compass(PhosphorIconsStyle.fill), 'discover'),
   MobileTab.search => (PhosphorIcons.magnifyingGlass(), PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.bold), 'search'),
-  MobileTab.mine => (PhosphorIcons.userCircle(), PhosphorIcons.userCircle(PhosphorIconsStyle.fill), 'my_flixquest'),
+  MobileTab.mine => (PhosphorIcons.userCircle(), PhosphorIcons.userCircle(PhosphorIconsStyle.fill), 'you'),
 };
 
 class _DockItem extends StatelessWidget {
