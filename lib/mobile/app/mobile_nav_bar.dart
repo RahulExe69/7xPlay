@@ -1,4 +1,3 @@
-import 'dart:ui' show ImageFilter;
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,52 +12,41 @@ class MobileNavBar extends StatelessWidget {
   const MobileNavBar({required this.current, required this.onSelect, super.key});
   final MobileTab current;
   final ValueChanged<MobileTab> onSelect;
-  static const height = 68.0;
+  static const height = 64.0;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final media = MediaQuery.of(context);
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(12, 8, 12, media.padding.bottom + 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: palette.surface.withValues(alpha: .97),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: palette.hairline),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: palette.dark ? .32 : .1),
-                  blurRadius: 28,
-                  spreadRadius: -8,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: SizedBox(
-              height: height,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                child: MediaQuery.withClampedTextScaling(
-                  maxScaleFactor: 1.2,
-                  child: Row(
-                    children: <Widget>[
-                      for (final tab in MobileTab.values)
-                        Expanded(
-                          child: _DockItem(
-                            tab: tab,
-                            selected: tab == current,
-                            reduceMotion: media.disableAnimations,
-                            onTap: () => onSelect(tab),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+    return DecoratedBox(
+      key: const ValueKey<String>('mobile-nav-surface'),
+      decoration: BoxDecoration(
+        color: palette.page,
+        borderRadius: BorderRadius.zero,
+        border: Border(
+          top: BorderSide(color: palette.hairline, width: .7),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.padding.bottom),
+        child: SizedBox(
+          height: height,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.2,
+              child: Row(
+                children: <Widget>[
+                  for (final tab in MobileTab.values)
+                    Expanded(
+                      child: _DockItem(
+                        tab: tab,
+                        selected: tab == current,
+                        reduceMotion: media.disableAnimations,
+                        onTap: () => onSelect(tab),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
