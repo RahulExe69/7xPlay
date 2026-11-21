@@ -20,38 +20,37 @@ Base: `main` at `f330df2cbf1bd9a299fbea2c1e54fa265640b6f9`
 
 ## Task 2 — Introduce shared 7xPlay top app bar
 
-- Add a small shared app-bar widget using the committed wordmark and brand palette.
-- Provide Search and You/Library actions, respecting safe areas, RTL, text scaling and semantics.
+- Extend the existing Home, Explore, New & Hot and You headers with consistent Search entry points; avoid adding a parallel app-bar framework.
+- Keep the 7xPlay wordmark and brand palette; respect safe areas, RTL, text scaling and semantics.
 - Route Search through the existing `MobileTabController`; do not create a second search route.
-- Add widget tests for action labels and callbacks.
 
 ## Task 3 — Rework phone navigation into a YouTube-familiar dock
 
 - Retain stable tab enum IDs and controller behavior.
-- Use compact icon + label destinations, consistent selection feedback and accessible hit targets.
-- Keep all destinations reachable, including Search.
+- Use a full-width edge-to-edge icon + label dock, browse-first ordering and accessible hit targets.
+- Keep all destinations reachable, including Search, and retain stable IDs.
 - Preserve tablet rail and TV shell.
 
 ## Task 4 — Convert Home into a hybrid feed
 
 - Retain existing HomeFeedController, Hero, Continue Watching, recommendation and category data.
-- Add wide thumbnail-led feed cards using existing MediaItem, artwork and playback actions.
+- Add wide thumbnail-led feed cards using existing MediaItem, artwork and playback actions to Home trending shelves.
 - Preserve selected genre/kind chips and horizontal OTT shelves.
 - Ensure no fake views/likes/channel data are rendered.
 - Add tests for card metadata, play/details actions and My List actions.
 
 ## Task 5 — Unify Search and Explore entry points
 
-- Add top-bar Search access from Home and other main tabs.
-- Preserve SearchScreen debounce/history/filter/person behavior.
+- Add top-bar Search access from Home, Explore, New & Hot and You.
+- Present movie/series search results with full-width video-feed cards while preserving debounce/history/filter/person behavior.
 - Refine Explore/New & Hot headers and card spacing to match the same browsing language while keeping their specialized OTT functions.
 - Add navigation and widget regression tests.
 
 ## Task 6 — Preserve OTT detail and player continuity
 
-- Audit title details, episode browser, player route and mini-player entry/exit.
-- Make only justified visual/interaction adjustments; do not alter provider resolution, audio selection, stream recovery or downloads.
-- Add or retain regression tests around playback entry and route restoration.
+- Audit title details, episode browser and player route boundaries.
+- Keep the existing player and stream behavior intact; no global mini-player is added without a shared player-state host.
+- Do not alter provider resolution, audio selection, stream recovery or downloads.
 - Keep TV implementation unchanged.
 
 ## Task 7 — Accessibility, localization and responsive pass
