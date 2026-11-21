@@ -52,8 +52,12 @@ void main() {
       ),
     );
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('video-feed-thumbnail-movie:550')),
+    final thumbnail = find.byKey(
+      const ValueKey<String>('video-feed-thumbnail-movie:550'),
+    );
+    final thumbnailRect = tester.getRect(thumbnail);
+    await tester.tapAt(
+      Offset(thumbnailRect.left + 16, thumbnailRect.top + 16),
     );
     expect(opened, 1);
 
