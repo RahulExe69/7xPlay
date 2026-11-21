@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../design/experience_palette.dart';
 import '../design/experience_theme_extension.dart';
 import '../design/experience_tokens.dart';
 

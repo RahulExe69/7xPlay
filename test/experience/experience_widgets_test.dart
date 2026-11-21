@@ -58,7 +58,7 @@ void main() {
 
       final semantics = tester.getSemantics(find.byType(ExperienceSurface));
       expect(semantics.label, 'Featured collection');
-      expect(semantics.hasFlag(SemanticsFlag.isButton), isFalse);
+      expect(semantics.flagsCollection.isButton, isFalse);
     });
   });
 

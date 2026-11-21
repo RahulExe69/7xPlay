@@ -27,7 +27,7 @@ The current environment has no mounted 7xPlay checkout and no Flutter/Dart execu
 - RED run: https://github.com/RahulExe69/7xPlay/actions/runs/44928493934
 - The regression job completed 18 earlier groups successfully, then failed at Test clean-slate experience palette roles because lib/experience/design/experience_palette.dart did not exist and ExperiencePalette was undefined.
 - Expanded test coverage was committed before implementation in commit 0051975b3c77df14fcc8d964caa9cc7a7cd21b78. The next run must be used to verify the additional ThemeExtension import/access/interpolation cases fail for the expected missing implementation before green implementation is committed.
-- No production code or successful test result is claimed yet.
+- Palette and primitive tests now pass on CI run 44930271864 (5 palette tests and 11 primitive behavior tests). The ARM64 debug APK build and artifact upload steps passed in that run. The final analyzer step reported only an unused import and deprecated test semantics API; both are being corrected in the next commit.
 
 ## Verification constraints
 
@@ -40,5 +40,5 @@ The current environment has no mounted 7xPlay checkout and no Flutter/Dart execu
 | Task | Status |
 |---|---|
 | Task 1 — contract inventory | Initial runtime, navigation, external-link, TV-focus and player contracts recorded; full caller search remains required before legacy deletion |
-| Task 2 — design foundation | RED observed; palette, theme extension and tokens implementation in progress |
+| Task 2 — design foundation | Palette/theme and four shared primitives implemented; 5 palette tests + 11 widget tests green in CI. Analyzer cleanup in progress; APK artifact produced. |
 | Tasks 3–9 | Not started |
