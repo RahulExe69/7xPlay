@@ -16,7 +16,7 @@ import '../screens/experience_discover_screen.dart';
 import '../screens/experience_home_screen.dart';
 import '../../mobile/screens/my_flixquest_screen.dart';
 import '../screens/experience_new_and_hot_screen.dart';
-import '../../mobile/screens/search_screen.dart';
+import '../screens/experience_search_screen.dart';
 import '../../mobile/widgets/telegram_channel_prompt.dart';
 import 'experience_navigation.dart';
 
@@ -225,7 +225,7 @@ class _ExperienceDestinationBody extends StatelessWidget {
         MobileTab.home => const TelegramChannelPrompt(child: ExperienceHomeScreen()),
         MobileTab.newAndHot => const ExperienceNewAndHotScreen(),
         MobileTab.discover => const ExperienceDiscoverScreen(),
-        MobileTab.search => const SearchScreen(),
+        MobileTab.search => const ExperienceSearchScreen(),
         MobileTab.mine => const MyFlixQuestScreen(),
       };
 }

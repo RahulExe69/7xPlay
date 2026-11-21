@@ -11,7 +11,7 @@ class _HotSource implements NewAndHotSource {
   MediaItem item(int id, String title) => MediaItem(
     kind: MediaKind.movie, id: id, title: title,
     overview: 'A new story to discover.',
-    posterPath: null, backdropPath: null, rating: 8.2,
+    posterPath: '/poster.jpg', backdropPath: '/backdrop.jpg', rating: 8.2,
     releaseDate: '2026-12-01',
   );
 

@@ -113,7 +113,7 @@ jobs:
 
       - name: Test clean-slate New & Hot and Discover destinations
         working-directory: 7xPlay
-        run: flutter test test/experience/experience_new_and_hot_screen_test.dart test/experience/experience_discover_screen_test.dart
+        run: flutter test test/experience/experience_new_and_hot_screen_test.dart test/experience/experience_discover_screen_test.dart test/experience/experience_search_screen_test.dart
 
       - name: Test catalogue, New & Hot, Discover and Search flows
         working-directory: 7xPlay
