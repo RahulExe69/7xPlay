@@ -162,7 +162,13 @@ class MobileNavRail extends StatelessWidget {
 };
 
 class _DockItem extends StatelessWidget {
-  const _DockItem({required this.tab, required this.selected, required this.reduceMotion, required this.onTap});
+  const _DockItem({
+    required this.tab,
+    required this.selected,
+    required this.reduceMotion,
+    required this.onTap,
+  });
+
   final MobileTab tab;
   final bool selected;
   final bool reduceMotion;
@@ -184,20 +190,17 @@ class _DockItem extends StatelessWidget {
           onTap();
         },
         child: AnimatedContainer(
-          duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 190),
+          duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
-          margin: const EdgeInsetsDirectional.fromSTEB(2, 2, 2, 2),
-          decoration: BoxDecoration(
-            color: selected ? palette.idleFillFaint : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-            border: selected ? Border.all(color: AppBrand.amber.withValues(alpha: .22)) : null,
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Icon(selected ? selectedIcon : icon,
-                size: selected ? 23 : 21,
-                color: selected ? palette.foreground : palette.mutedText),
+              Icon(
+                selected ? selectedIcon : icon,
+                size: selected ? 24 : 22,
+                color: selected ? palette.foreground : palette.mutedText,
+              ),
               const SizedBox(height: 3),
               Text(
                 tr(labelKey),
@@ -208,19 +211,6 @@ class _DockItem extends StatelessWidget {
                   fontSize: 10,
                   height: 1.15,
                   color: selected ? palette.foreground : palette.mutedText,
-                ),
-              ),
-              const SizedBox(height: 3),
-              AnimatedContainer(
-                duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 190),
-                width: selected ? 18 : 4,
-                height: 2,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(3),
-                  gradient: selected
-                      ? const LinearGradient(colors: <Color>[AppBrand.amber, AppBrand.orange])
-                      : null,
-                  color: selected ? null : Colors.transparent,
                 ),
               ),
             ],
