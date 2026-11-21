@@ -7,6 +7,7 @@ import '../../mobile/app/mobile_tabs.dart';
 import '../../mobile/playback.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/settings_provider.dart';
+import '../design/experience_palette.dart';
 import '../design/experience_theme_extension.dart';
 import '../design/experience_tokens.dart';
 import '../widgets/experience_action.dart';
