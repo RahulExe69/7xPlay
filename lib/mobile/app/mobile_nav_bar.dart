@@ -2,7 +2,6 @@ import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import 'mobile_tabs.dart';
