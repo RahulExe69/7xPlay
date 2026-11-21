@@ -81,7 +81,7 @@ class ExperienceNavigation extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      minimum: const EdgeInsetsDirectional.fromSTEB(
+      minimum: const EdgeInsets.fromLTRB(
         ExperienceTokens.space3,
         ExperienceTokens.space2,
         ExperienceTokens.space3,
