@@ -50,7 +50,6 @@ class MobileNavBar extends StatelessWidget {
                       child: _DockItem(
                         tab: tab,
                         selected: tab == current,
-                        reduceMotion: media.disableAnimations,
                         onTap: () => onSelect(tab),
                       ),
                     ),
@@ -173,13 +172,11 @@ class _DockItem extends StatelessWidget {
   const _DockItem({
     required this.tab,
     required this.selected,
-    required this.reduceMotion,
     required this.onTap,
   });
 
   final MobileTab tab;
   final bool selected;
-  final bool reduceMotion;
   final VoidCallback onTap;
 
   @override
@@ -197,10 +194,8 @@ class _DockItem extends StatelessWidget {
           HapticFeedback.selectionClick();
           onTap();
         },
-        child: AnimatedContainer(
-          duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
