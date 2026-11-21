@@ -39,7 +39,8 @@ jobs:
         with:
           flutter-version: '3.41.5'
           channel: stable
-          cache: false
+          cache: true
+          pub-cache: false
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
@@ -154,6 +155,102 @@ jobs:
         working-directory: 7xPlay
         run: flutter analyze
 
+  # Fast installable preview for PRs. Build only the ABI used by modern Android
+  # phones; do not wait for the slower multi-ABI, minified release pipeline.
+  build-debug-apk:
+    if: github.event_name == 'pull_request'
+    name: Build fast ARM64 debug APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out 7xPlay
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: 7xPlay
+
+      - name: Check out local BetterPlayer dependency
+        uses: actions/checkout@v5
+        with:
+          repository: BeamlakAschalew/flixquest-betterplayer
+          ref: claude/relaxed-dirac-tw37rj
+          path: flixquest-betterplayer
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter (cached SDK)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          channel: stable
+          cache: true
+          pub-cache: false
+
+      - name: Cache Gradle dependencies and build outputs
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          # Permit this trusted same-repository PR branch to refresh its own cache.
+          # Fork-originated PRs remain read-only to prevent cache poisoning.
+          cache-read-only: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+
+      - name: Prepare ignored environment asset
+        working-directory: 7xPlay
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          cp .env.example .env
+          if [ -z "${TMDB_API_KEY//[[:space:]]/}" ]; then
+            echo "::error::TMDB_API_KEY GitHub Actions secret is missing."
+            exit 1
+          fi
+          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" .env
+          grep -q '^TMDB_API_KEY=.' .env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
+
+      - name: Cache Pub packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-flutter-3.41.5-
+
+      - name: Resolve dependencies
+        working-directory: 7xPlay
+        run: flutter pub get
+
+      - name: Build ARM64 debug APK
+        working-directory: 7xPlay
+        run: |
+          flutter build apk --debug --flavor prod --target-platform android-arm64 --no-pub --android-skip-build-dependency-validation
+
+          APK="build/app/outputs/flutter-apk/app-prod-debug.apk"
+          test -s "$APK" || { echo "::error::Debug APK was not produced"; find build/app/outputs -maxdepth 4 -type f -name '*.apk' -print; exit 1; }
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
+          if [ -n "$AAPT" ]; then
+            "$AAPT" dump badging "$APK" | grep -m1 "^package:"
+            "$AAPT" dump badging "$APK" | grep -q "package: name='com.sevenx.play'" || { echo "::error::Unexpected package ID"; exit 1; }
+          fi
+
+          mkdir -p build/artifacts
+          cp "$APK" build/artifacts/7xPlay-debug-arm64.apk
+          echo "Debug APK size:"
+          du -h build/artifacts/7xPlay-debug-arm64.apk
+
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: 7xPlay-debug-arm64-${{ github.event.pull_request.head.sha }}
+          path: 7xPlay/build/artifacts/7xPlay-debug-arm64.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
   # PRs run the quick provider tests above. Avoid rebuilding all APKs on
   # every PR update; full APKs are built once after merge or on manual dispatch.
   build-apks:
@@ -186,10 +283,15 @@ jobs:
         with:
           flutter-version: '3.41.5'
           channel: stable
-          cache: false
+          cache: true
+          pub-cache: false
 
       - name: Cache Gradle dependencies and build outputs
         uses: gradle/actions/setup-gradle@v6
+        with:
+          # Permit this trusted same-repository PR branch to refresh its own cache.
+          # Fork-originated PRs remain read-only to prevent cache poisoning.
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
       - name: Prepare ignored environment asset
         working-directory: 7xPlay
@@ -219,7 +321,7 @@ jobs:
       - name: Build all optimized ABI APKs in one invocation
         working-directory: 7xPlay
         run: |
-          flutter build apk --release --flavor prod --split-per-abi --obfuscate --tree-shake-icons --split-debug-info="build/symbols" --android-skip-build-dependency-validation
+          flutter build apk --release --flavor prod --split-per-abi --obfuscate --tree-shake-icons --split-debug-info="build/symbols" --no-pub --android-skip-build-dependency-validation
 
           APK_DIR="build/app/outputs/flutter-apk"
           mkdir -p build/artifacts/arm64-v8a build/artifacts/armeabi-v7a build/artifacts/x86_64
