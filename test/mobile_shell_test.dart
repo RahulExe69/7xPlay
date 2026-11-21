@@ -273,7 +273,7 @@ void main() {
     final decoration = tester.widget<DecoratedBox>(surface).decoration
         as BoxDecoration;
     expect(decoration.borderRadius, BorderRadius.zero);
-    expect(decoration.boxShadow, isEmpty);
+    expect(decoration.boxShadow ?? const <BoxShadow>[], isEmpty);
   });
 
   group('on a tablet', () {
