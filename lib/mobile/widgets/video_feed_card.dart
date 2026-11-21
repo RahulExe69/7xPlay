@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -79,8 +80,7 @@ class VideoFeedCard extends StatelessWidget {
                         shape: const CircleBorder(),
                         child: IconButton(
                           key: ValueKey<String>('video-feed-play-$id'),
-                          tooltip: MaterialLocalizations.of(context)
-                              .playButtonTooltip,
+                          tooltip: tr('play'),
                           onPressed:
                               onPlay ?? () => MobilePlayback.play(context, item),
                           icon: Icon(
@@ -105,7 +105,7 @@ class VideoFeedCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           child: Text(
-                            item.kind == MediaKind.movie ? 'MOVIE' : 'SERIES',
+                            tr(item.kind == MediaKind.movie ? 'movie' : 'series_one').toUpperCase(),
                             style: AppType.kicker.copyWith(
                               color: Colors.white,
                               fontSize: 9,
@@ -180,7 +180,7 @@ class VideoFeedCard extends StatelessWidget {
               ),
               IconButton(
                 key: ValueKey<String>('video-feed-more-$id'),
-                tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                tooltip: tr('more_options'),
                 visualDensity: VisualDensity.compact,
                 color: palette.mutedText,
                 onPressed: onMore ?? () => showTitleSheet(context, item),
