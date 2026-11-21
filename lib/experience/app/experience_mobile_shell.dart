@@ -13,7 +13,7 @@ import '../../design/app_tokens.dart';
 import '../design/experience_theme_extension.dart';
 import '../../mobile/app/mobile_tabs.dart';
 import '../../mobile/screens/discover_screen.dart';
-import '../../mobile/screens/home_screen.dart';
+import '../screens/experience_home_screen.dart';
 import '../../mobile/screens/my_flixquest_screen.dart';
 import '../../mobile/screens/new_and_hot_screen.dart';
 import '../../mobile/screens/search_screen.dart';
@@ -222,7 +222,7 @@ class _ExperienceDestinationBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => switch (tab) {
-        MobileTab.home => const TelegramChannelPrompt(child: HomeScreen()),
+        MobileTab.home => const TelegramChannelPrompt(child: ExperienceHomeScreen()),
         MobileTab.newAndHot => const NewAndHotScreen(),
         MobileTab.discover => const DiscoverScreen(),
         MobileTab.search => const SearchScreen(),

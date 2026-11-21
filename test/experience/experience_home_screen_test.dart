@@ -1,5 +1,6 @@
 import 'package:flixquest/catalog/home_feed_controller.dart';
 import 'package:flixquest/catalog/media_item.dart';
+import 'package:flixquest/models/genres.dart';
 import 'package:flixquest/experience/design/experience_palette.dart';
 import 'package:flixquest/experience/design/experience_theme_extension.dart';
 import 'package:flixquest/experience/screens/experience_home_screen.dart';

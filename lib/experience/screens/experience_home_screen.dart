@@ -24,7 +24,7 @@ class ExperienceHomeScreen extends StatefulWidget {
 class _ExperienceHomeScreenState extends State<ExperienceHomeScreen> {
   HomeFilter _filter = HomeFilter.all;
   bool _started = false;
-  int _generation = 0;
+  final Map<HomeFilter, int> _generations = <HomeFilter, int>{};
   final Map<HomeFilter, HomeFeed> _feeds = {};
   final Set<HomeFilter> _loading = {};
   final Set<HomeFilter> _failed = {};
@@ -44,13 +44,14 @@ class _ExperienceHomeScreenState extends State<ExperienceHomeScreen> {
   );
 
   Future<void> _load(HomeFilter filter, {bool refresh = false}) async {
-    final generation = ++_generation;
+    final generation = (_generations[filter] ?? 0) + 1;
+    _generations[filter] = generation;
     if (refresh) _feeds.remove(filter);
     _failed.remove(filter);
     setState(() => _loading.add(filter));
     try {
       final feed = await HomeFeedController(_source()).load(filter);
-      if (!mounted || generation != _generation) return;
+      if (!mounted || generation != _generations[filter]) return;
       setState(() {
         _feeds[filter] = feed;
         _loading.remove(filter);
@@ -67,7 +68,7 @@ class _ExperienceHomeScreenState extends State<ExperienceHomeScreen> {
   void _select(HomeFilter filter) {
     if (filter == _filter) return;
     setState(() => _filter = filter);
-    if (!_feeds.containsKey(filter) && !_loading.contains(filter) && !_failed.contains(filter)) {
+    if (!_feeds.containsKey(filter) && !_loading.contains(filter)) {
       unawaited(_load(filter));
     }
   }
