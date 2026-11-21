@@ -783,7 +783,6 @@ List<Widget> homeRows(
     for (final kind in kinds) feed.of(kind).topTen,
     for (final kind in kinds) feed.of(kind).trending,
     myList,
-    for (final kind in kinds) updates[kind]!,
     for (final kind in kinds) feed.of(kind).newReleases,
   ]);
   var next = 0;
@@ -797,9 +796,10 @@ List<Widget> homeRows(
     for (final k in kinds) k: take(),
   };
   final shownMyList = take();
-  final shownUpdates = <MediaKind, List<MediaItem>>{
-    for (final kind in kinds) kind: take(),
-  };
+  // Updates are a dedicated saved-title signal. Keep them visible even
+  // when the same title has already appeared in Top Ten or Trending; the
+  // ordinary lead rows and My List retain their existing repetition budget.
+  final shownUpdates = updates;
   final newReleases = <MediaKind, List<MediaItem>>{
     for (final k in kinds) k: take(),
   };
