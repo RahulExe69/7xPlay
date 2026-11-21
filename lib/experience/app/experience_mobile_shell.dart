@@ -14,7 +14,7 @@ import '../design/experience_theme_extension.dart';
 import '../../mobile/app/mobile_tabs.dart';
 import '../screens/experience_discover_screen.dart';
 import '../screens/experience_home_screen.dart';
-import '../../mobile/screens/my_flixquest_screen.dart';
+import '../screens/experience_my_space_screen.dart';
 import '../screens/experience_new_and_hot_screen.dart';
 import '../screens/experience_search_screen.dart';
 import '../../mobile/widgets/telegram_channel_prompt.dart';
@@ -226,6 +226,6 @@ class _ExperienceDestinationBody extends StatelessWidget {
         MobileTab.newAndHot => const ExperienceNewAndHotScreen(),
         MobileTab.discover => const ExperienceDiscoverScreen(),
         MobileTab.search => const ExperienceSearchScreen(),
-        MobileTab.mine => const MyFlixQuestScreen(),
+        MobileTab.mine => const ExperienceMySpaceScreen(),
       };
 }
