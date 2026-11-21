@@ -229,6 +229,13 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                       ),
                     ),
                   ),
+                  IconButton(
+                    tooltip: tr('search'),
+                    color: palette.foreground,
+                    onPressed: () => MobileTabScope.maybeOf(context)
+                        ?.select(MobileTab.search),
+                    icon: Icon(PhosphorIcons.magnifyingGlass()),
+                  ),
                   Image.asset(
                     'assets/images/7xplay_wordmark.png',
                     width: 88,
