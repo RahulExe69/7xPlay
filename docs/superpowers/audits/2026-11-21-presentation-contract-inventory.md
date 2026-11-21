@@ -135,3 +135,67 @@ This initial inventory is grounded in the current main-branch source and test tr
 - all tests that assert behavior rather than old widget type names.
 
 No product code has been changed as part of this inventory.
+
+
+## 10. Exact external-route behavior verified
+
+### Deep-link dispatcher
+
+- lib/services/deep_link_dispatcher.dart exposes LinkAction and a static submit/onAppReady queue.
+- It holds the most recent pending link while the navigator is absent and schedules delivery after a frame.
+- It deduplicates only an immediate repeat within a 3-second window. A repeated link after that window is a new open request.
+- Preserve the queueing, superseding and de-duplication semantics while changing only the destination builder.
+
+### Media links and platform routes
+
+- lib/services/media_link_navigation_service.dart parses MediaLink targets and currently constructs legacy widgets directly:
+  - SharedListLink -> TvSharedPlaylistScreen or SharedPlaylistScreen.
+  - TmdbListLink/ImdbListLink -> TvPlaylistImportScreen or PlaylistImportScreen.
+  - LiveChannelLink -> ChannelList(initialChannelId:) on handheld; on TV pop to root and request LiveChannelFocus.
+  - Movie/TV/season/episode/person/collection/IMDb targets -> DeepLinkRoutes.
+  - CouponLink -> openCouponLink.
+  - Unreadable input -> localized snackbar.
+- The current service imports presentation widgets from both mobile/screens and tv/screens, plus the common Live TV screen. This is a known coupling seam. Keep MediaLink parsing and link-target semantics stable; move screen construction to experience-owned typed route builders so services do not permanently instantiate legacy widgets.
+- Keep the platform-specific LiveChannelLink behavior: Live TV disabled remotely shows a snackbar; TV pops to root and requests focus for the channel; handheld opens the channel list with the requested initial channel selected.
+
+### DeepLinkRoutes
+
+- lib/services/deep_link_routes.dart is not merely a thin route-name map. It also owns async fetching and record validation for widget/TMDB/IMDb destinations.
+- It builds MovieDetailPage, TVDetailPage, SeasonsDetail, EpisodeDetailPage, PersonDetailView, CollectionDetailsWidget, WellnessScreen and BookmarkScreen directly.
+- It preserves:
+  - async fetch of current records using language/proxy from SettingsProvider/AppDependencyProvider;
+  - missing/invalid record errors;
+  - an IMDb lookup that resolves episode, season, movie, series or person to the most specific supported target;
+  - season links falling back to series details if that series does not contain the requested season;
+  - episode links filling missing series name/poster from a series fetch;
+  - adult-content flag passed into person details;
+  - deep-link hero tags;
+  - DeepLinkLoader's loading/error/retry surface.
+- The clean-slate migration must split route data loading from widget construction without changing fetch semantics: preserve the lookup/fetch/validation logic in a non-visual resolver where feasible, and have ExperienceRouteBuilders construct the new destination screens from typed records. DeepLinkLoader itself must receive a redesigned presentation treatment or a compatibility wrapper that renders the new branded loading/error view.
+- Home widget route preparation calls DeepLinkRoutes.prepareWidget() before the navigator exists; preserve async preparation and retry behavior, and ensure the new prepared routes remain valid once mounted.
+
+### Home widget intent contract
+
+- lib/services/home_widget_deep_link.dart uses the current flixquest URI scheme and hosts:
+  - home, wellness, my-list, movie, tv, episode.
+- Do not casually rename the scheme or hosts; Android app/widget integration depends on them.
+- The URI carries record identity and optional title/artwork metadata only; the app re-fetches current record data for the destination.
+- HomeWidgetNavigationService starts preparation immediately, queues the action in DeepLinkDispatcher, supersedes an older in-flight request if a later widget tap arrives, pops to root for a home action, or pushes the prepared route.
+- Preserve cold-start and warm-start intent behavior and the distinction between the home intent and routes that need data fetches.
+
+### TV route and focus contract
+
+- lib/tv/app/tv_home_shell.dart has restorationId television_home; persists selected TV destination in AppSessionStateStore and handles LiveChannelFocus.pending when a channel link arrives.
+- lib/tv/focus/tv_focus_memory.dart remembers focused item by screen scope. lib/tv/focus/tv_screen_focus_controller.dart supports synchronous focus requests and queues focus if the target screen is not mounted yet.
+- lib/tv/focus/tv_keymap.dart maps select/enter/numpad-enter/gamepad A, Escape/GoBack/BrowserBack, ContextMenu, media play/pause, rewind and fast-forward to app intents.
+- lib/tv/navigation/tv_back_dispatcher.dart guards duplicate Back events, delegates to the current screen, and shows an exit-confirmation dialog if Back reaches root and exitAtRoot is enabled.
+- Preserve focus target memory, pending focus behavior, shortcut keys, TV navigation restoration, remote Back dispatch and exit confirmation while changing the screen/rail composition.
+
+## 11. Route migration requirements added after deeper inspection
+
+The implementation must explicitly update:
+- lib/services/deep_link_routes.dart: route factories must construct the new experience destination widgets through a typed ExperienceRouteBuilders boundary; retain the existing async fetch and record validation semantics.
+- lib/services/media_link_navigation_service.dart: remove direct widget imports for legacy mobile/TV list screens and common Live TV presentation; route to ExperienceRouteBuilders while preserving parsing, disabled-Live-TV messaging, TV focus request, and handheld channel-list initial selection.
+- lib/services/home_widget_navigation_service.dart: retain the queue and cold-start behavior; update only if the typed route boundary requires it.
+- lib/screens/common/deep_link_loader.dart: render the new branded loading/error/retry UI or delegate to the reusable experience state panel without changing retry semantics.
+- DeepLinkRoutes.prepareWidget() must continue working before the navigator mounts, so the prepared route must not depend on a BuildContext or feature view model that only exists after the first frame.
