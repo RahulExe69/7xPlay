@@ -98,8 +98,8 @@ abstract final class MediaSearch {
       orEmpty(source.series(query)),
       orEmpty(source.people(query)),
     ]);
-    final movies = unique(found[0] as List<MediaItem>);
-    final series = unique(found[1] as List<MediaItem>);
+    final movies = rankTitles(query, unique(found[0] as List<MediaItem>));
+    final series = rankTitles(query, unique(found[1] as List<MediaItem>));
     final people = (found[2] as List<Person>)
         .where((person) => person.id != null)
         .toList(growable: false);
@@ -119,31 +119,107 @@ abstract final class MediaSearch {
         .toList(growable: false);
   }
 
-  /// A title the query plainly names: an exact title match, else one that
-  /// starts with the query; the most popular of those. Null when nothing
-  /// stands out, rather than guessing.
+  /// Orders returned titles by how closely their normalized title matches
+  /// the query. Popularity and rating only break ties between match levels.
+  ///
+  /// This ranks the results already returned by SearchSource; it does not
+  /// change the query sent to TMDB or add another request.
+  static List<MediaItem> rankTitles(String query, List<MediaItem> items) {
+    final ranked = List<MediaItem>.of(items);
+    ranked.sort((a, b) {
+      final byMatch = _matchRank(query, b.title).compareTo(
+        _matchRank(query, a.title),
+      );
+      if (byMatch != 0) return byMatch;
+      final byPopularity =
+          (b.popularity ?? 0).compareTo(a.popularity ?? 0);
+      if (byPopularity != 0) return byPopularity;
+      final byRating = (b.rating ?? 0).compareTo(a.rating ?? 0);
+      if (byRating != 0) return byRating;
+      final byTitle = a.title.toLowerCase().compareTo(
+            b.title.toLowerCase(),
+          );
+      if (byTitle != 0) return byTitle;
+      return a.stableId.compareTo(b.stableId);
+    });
+    return ranked.toList(growable: false);
+  }
+
+  /// A title the query plainly names, or one unambiguous close typo match.
+  /// Exact, prefix and contained matches may be promoted directly. A fuzzy
+  /// candidate is only promoted when it is uniquely closest; ambiguity is
+  /// left for the viewer to decide.
   static MediaItem? topResultFor(
     String query, {
     required List<MediaItem> movies,
     required List<MediaItem> series,
   }) {
-    final wanted = normalize(query);
-    if (wanted.isEmpty) return null;
     final all = <MediaItem>[...movies, ...series];
-    MediaItem? mostPopular(Iterable<MediaItem> items) {
-      MediaItem? best;
-      for (final item in items) {
-        if (best == null || (item.popularity ?? 0) > (best.popularity ?? 0)) {
-          best = item;
-        }
-      }
-      return best;
+    if (normalize(query).isEmpty || all.isEmpty) return null;
+    final ranked = rankTitles(query, all);
+    final best = ranked.first;
+    final rank = _matchRank(query, best.title);
+    if (rank == 0) return null;
+    if (rank == 1) {
+      final bestDistance = _fuzzyDistance(query, best.title);
+      final equallyClose = all
+          .where((item) => _fuzzyDistance(query, item.title) == bestDistance)
+          .length;
+      if (equallyClose != 1) return null;
     }
+    return best;
+  }
 
-    return mostPopular(all.where((item) => normalize(item.title) == wanted)) ??
-        mostPopular(
-          all.where((item) => normalize(item.title).startsWith(wanted)),
+  static int _matchRank(String query, String title) {
+    final wanted = normalize(query);
+    final candidate = normalize(title);
+    if (wanted.isEmpty || candidate.isEmpty) return 0;
+    if (candidate == wanted) return 4;
+    if (candidate.startsWith(wanted)) return 3;
+    if (candidate.contains(wanted)) return 2;
+    return _fuzzyDistance(wanted, candidate) <= _maxFuzzyDistance(wanted)
+        ? 1
+        : 0;
+  }
+
+  static int _maxFuzzyDistance(String query) =>
+      query.length >= 7 ? 2 : 1;
+
+  /// Minimum Levenshtein distance to the full title or any title token.
+  /// Comparing tokens lets "avatr" find "Avatar: The Way of Water".
+  static int _fuzzyDistance(String query, String title) {
+    final wanted = normalize(query);
+    final candidate = normalize(title);
+    if (wanted.length < 4 || candidate.isEmpty) return 1 << 20;
+    final maxDistance = _maxFuzzyDistance(wanted);
+    final tokens = <String>{candidate, ...candidate.split(' ')};
+    var best = 1 << 20;
+    for (final token in tokens) {
+      if ((token.length - wanted.length).abs() > maxDistance) continue;
+      final distance = _editDistance(wanted, token);
+      if (distance < best) best = distance;
+      if (best == 0) break;
+    }
+    return best;
+  }
+
+  static int _editDistance(String a, String b) {
+    var previous = List<int>.generate(b.length + 1, (index) => index);
+    for (var row = 1; row <= a.length; row++) {
+      final current = List<int>.filled(b.length + 1, 0);
+      current[0] = row;
+      for (var column = 1; column <= b.length; column++) {
+        final substitution = previous[column - 1] +
+            (a.codeUnitAt(row - 1) == b.codeUnitAt(column - 1) ? 0 : 1);
+        final insertion = current[column - 1] + 1;
+        final deletion = previous[column] + 1;
+        current[column] = <int>[substitution, insertion, deletion].reduce(
+          (left, right) => left < right ? left : right,
         );
+      }
+      previous = current;
+    }
+    return previous[b.length];
   }
 
   /// A title for comparing: lower case, punctuation and extra spaces gone.
