@@ -79,6 +79,7 @@
 - [ ] **Step 4: Write widget tests.** Assert action variants expose accessible labels and disabled/loading states; artwork handles missing/failed images; state panels support loading/empty/error/offline/retry without clipping.
 - [ ] **Step 5: Implement shared primitives.** Components must expose content/child slots and state; avoid page-specific assumptions or generic card wrappers.
 - [ ] **Step 6: Verify theme/accessibility cases.** Run: flutter test test/experience/experience_palette_test.dart test/experience/experience_widgets_test.dart test/app_palette_test.dart test/ambient_theme_test.dart. Expected: PASS; also verify text scale and RTL in widget tests.
+- [ ] **Step 7: Wire the experience foundation suites into GitHub Actions.** The Android regression job must run both new test files explicitly so future changes cannot silently skip the new presentation layer tests.
 - [ ] **Step 7: Commit.** Commit as feat: add 7xPlay experience design foundation.
 
 ### Task 3: Introduce the new experience root and navigation contract
