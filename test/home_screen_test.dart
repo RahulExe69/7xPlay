@@ -863,4 +863,128 @@ class _PosterSource extends _FakeSource {
             ),
           )
           .toList();
+
+  testWidgets(
+      'Picked for you ranks saved genres and excludes saved and in-progress titles',
+      (tester) async {
+    final saved = MediaItem.fromMovie(
+      Movie(id: 90, title: 'Saved', genreIds: [28, 12]),
+    );
+    final inProgress = MediaItem.fromMovie(
+      Movie(id: 91, title: 'In progress', genreIds: [28]),
+    );
+    final candidates = <MediaItem>[
+      MediaItem.fromMovie(
+        Movie(id: 1, title: 'Strong match', genreIds: [28, 12], popularity: 10),
+      ),
+      MediaItem.fromMovie(
+        Movie(id: 2, title: 'Popular match', genreIds: [28], popularity: 900),
+      ),
+      MediaItem.fromMovie(
+        Movie(id: 3, title: 'Unrelated', genreIds: [35], popularity: 9000),
+      ),
+      saved,
+      inProgress,
+    ];
+    final feed = HomeFeed(
+      filter: HomeFilter.movies,
+      rows: {
+        MediaKind.movie: KindRows(topTen: candidates),
+      },
+    );
+
+    final rows = await _rows(
+      tester,
+      filter: HomeFilter.movies,
+      feed: feed,
+      myList: [saved],
+      continueWatching: [inProgress],
+    );
+    final personalized = rows.whereType<PosterRow>().singleWhere(
+          (row) => row.title == 'picked_for_you',
+        );
+
+    expect(
+      personalized.items.map((item) => item.id),
+      <int>[1, 2],
+    );
+  });
+
+  testWidgets('watchlist updates show only saved titles in current and upcoming',
+      (tester) async {
+    final savedMovie = MediaItem.fromMovie(
+      Movie(id: 201, title: 'Saved upcoming', genreIds: [28]),
+    );
+    final savedSeries = MediaItem.fromSeries(
+      TV(id: 202, name: 'Saved airing', genreIds: [16]),
+    );
+    final notSaved = MediaItem.fromMovie(
+      Movie(id: 203, title: 'Not saved', genreIds: [35]),
+    );
+    final feed = HomeFeed(
+      filter: HomeFilter.all,
+      rows: {
+        MediaKind.movie: KindRows(
+          newReleases: [notSaved],
+          upcoming: [savedMovie],
+        ),
+        MediaKind.series: KindRows(
+          newReleases: [savedSeries],
+        ),
+      },
+    );
+
+    final rows = await _rows(
+      tester,
+      filter: HomeFilter.all,
+      feed: feed,
+      myList: [savedMovie, savedSeries],
+    );
+    final updates = rows
+        .whereType<PosterRow>()
+        .where((row) => row.title == 'my_list_updates')
+        .toList();
+
+    expect(updates, hasLength(2));
+    expect(
+      updates.map((row) => row.items.single.stableId).toSet(),
+      <String>{'movie:201', 'series:202'},
+    );
+  });
+
+  testWidgets('cold-start library does not show empty smart Home shelves',
+      (tester) async {
+    final feed = HomeFeed(
+      filter: HomeFilter.movies,
+      rows: {
+        MediaKind.movie: KindRows(
+          topTen: [
+            MediaItem.fromMovie(
+              Movie(id: 1, title: 'Catalogue item', genreIds: [28]),
+            ),
+          ],
+          upcoming: [
+            MediaItem.fromMovie(
+              Movie(id: 2, title: 'Upcoming item', genreIds: [28]),
+            ),
+          ],
+        ),
+      },
+    );
+
+    final rows = await _rows(
+      tester,
+      filter: HomeFilter.movies,
+      feed: feed,
+    );
+
+    expect(
+      rows.whereType<PosterRow>().map((row) => row.title),
+      isNot(contains('picked_for_you')),
+    );
+    expect(
+      rows.whereType<PosterRow>().map((row) => row.title),
+      isNot(contains('my_list_updates')),
+    );
+  });
 }
