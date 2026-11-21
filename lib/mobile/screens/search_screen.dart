@@ -520,7 +520,6 @@ class _SearchScreenState extends State<SearchScreen> {
 
   List<Widget> _resultSlivers(BuildContext context, SearchResults results) {
     final gutter = AppSpace.gutter(context);
-    final columns = posterGridColumns(context);
     bool shows(SearchFilter filter) =>
         _filter == SearchFilter.all || _filter == filter;
     final top = results.topResult;
