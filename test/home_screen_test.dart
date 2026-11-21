@@ -8,6 +8,7 @@ import 'package:flixquest/mobile/screens/home_screen.dart';
 import 'package:flixquest/mobile/widgets/category_section.dart';
 import 'package:flixquest/mobile/widgets/hero_card.dart';
 import 'package:flixquest/mobile/widgets/media_rows.dart';
+import 'package:flixquest/mobile/widgets/video_feed_card.dart';
 import 'package:flixquest/models/app_colors.dart';
 import 'package:flixquest/models/genres.dart';
 import 'package:flixquest/models/movie.dart';
@@ -225,6 +226,7 @@ String _describe(Widget row) => switch (row) {
       ContinueRow(:final title) => title,
       TopTenRow(:final title) => title,
       PosterRow(:final title) => title ?? '',
+      VideoFeedSection(:final title) => title,
       ServiceRow(:final title) => title,
       _ => row.runtimeType.toString(),
     };
@@ -278,6 +280,16 @@ void main() {
         HostedBannerVariant.tall,
         HostedBannerVariant.standard,
       ],
+    );
+    // Trending uses full-width video-feed cards, but still keeps each
+    // catalogue kind separate.
+    final feedSections = rows.whereType<VideoFeedSection>().toList();
+    expect(feedSections, hasLength(2));
+    expect(
+      feedSections.every(
+        (section) => section.items.map((item) => item.kind).toSet().length == 1,
+      ),
+      isTrue,
     );
     // And no catalogue row mixes the two.
     for (final row in rows.whereType<PosterRow>()) {
