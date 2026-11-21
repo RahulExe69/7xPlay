@@ -223,7 +223,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      tr('my_flixquest'),
+                      tr('you'),
                       style: AppType.scaled(context, AppType.pageTitle).copyWith(
                         color: palette.foreground,
                       ),
