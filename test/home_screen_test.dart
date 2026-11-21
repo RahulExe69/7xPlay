@@ -903,6 +903,8 @@ void main() {
       filter: HomeFilter.all,
       rows: {
         MediaKind.movie: KindRows(
+          topTen: [savedMovie],
+          trending: [savedMovie],
           newReleases: [notSaved],
           upcoming: [savedMovie],
         ),
