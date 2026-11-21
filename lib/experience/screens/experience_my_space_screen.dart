@@ -27,10 +27,10 @@ import '../../screens/wellness/wellness_screen.dart';
 import '../../services/auth_navigation_service.dart';
 import '../../services/flixquest_auth_service.dart';
 import '../../services/plus_navigation.dart';
-import '../app/mobile_tabs.dart';
-import '../playback.dart';
-import 'flix_ai_screen.dart';
-import 'playlists_screen.dart';
+import '../../mobile/app/mobile_tabs.dart';
+import '../../mobile/playback.dart';
+import '../../mobile/screens/flix_ai_screen.dart';
+import '../../mobile/screens/playlists_screen.dart';
 import '../design/experience_theme_extension.dart';
 import '../design/experience_tokens.dart';
 import '../widgets/experience_action.dart';
@@ -219,10 +219,10 @@ class _ExperienceMySpaceScreenState extends State<ExperienceMySpaceScreen> {
                     playlists == null ? 'Personal collections' :
                       playlists.lists.length.toString() + ' collections',
                     Icons.queue_music_rounded,
-                    () => _push(const PlaylistsScreen())),
+                    () => _push(PlaylistsScreen())),
                   _shortcut(context, '7x AI', 'Your viewing companion',
                     Icons.auto_awesome_rounded,
-                    () => _push(const FlixAiScreen())),
+                    () => _push(FlixAiScreen())),
                 ]),
               ),
             ),

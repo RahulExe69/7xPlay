@@ -56,7 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('7xPlay'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
-    expect(find.text('The 7x Feature'), findsWidgets);
+    expect(find.text('Trending Feature'), findsWidgets);
     expect(find.text('Trending now'), findsOneWidget);
     expect(find.text('SPOTLIGHT'), findsOneWidget);
   });
@@ -66,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Movies'));
     await tester.pumpAndSettle();
-    expect(find.text('The 7x Feature'), findsWidgets);
+    expect(find.text('Trending Feature'), findsWidgets);
     await tester.tap(find.text('Series'));
     await tester.pumpAndSettle();
     expect(find.text('Nothing to show just yet'), findsOneWidget);

@@ -215,7 +215,7 @@ class _ExperienceSearchScreenState extends State<ExperienceSearchScreen> {
             SliverToBoxAdapter(child: _header(context)),
             SliverToBoxAdapter(child: _searchField(context)),
             if (!_typed)
-              SliverToBoxAdapter(child: _suggestions(context))
+              SliverToBoxAdapter(child: _suggestionContent(context))
             else if (results == null)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -306,7 +306,7 @@ class _ExperienceSearchScreenState extends State<ExperienceSearchScreen> {
     );
   }
 
-  Widget _suggestions(BuildContext context) {
+  Widget _suggestionContent(BuildContext context) {
     final palette = ExperienceThemeExtension.of(context).palette;
     return FutureBuilder<SearchSuggestions>(
       future: _suggestions,
