@@ -34,8 +34,8 @@ Base: `main` at `f330df2cbf1bd9a299fbea2c1e54fa265640b6f9`
 ## Task 4 — Convert Home into a hybrid feed
 
 - Retain existing HomeFeedController, Hero, Continue Watching, recommendation and category data.
-- Add wide thumbnail-led feed cards using existing MediaItem, artwork and playback actions to Home trending shelves.
-- Preserve selected genre/kind chips and horizontal OTT shelves.
+- Add up to three centered, max-width thumbnail-led feed cards per Home trending section using existing MediaItem, artwork and playback actions.
+- Preserve selected genre/kind chips and horizontal OTT shelves; See all opens the complete trending collection.
 - Ensure no fake views/likes/channel data are rendered.
 - Add tests for card metadata, play/details actions and My List actions.
 
