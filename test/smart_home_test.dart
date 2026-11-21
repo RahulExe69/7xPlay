@@ -54,6 +54,19 @@ void main() {
       expect(result.map((item) => item.id), <int>[1, 2, 3]);
     });
 
+    test('later duplicate with genre metadata remains eligible', () {
+      final result = SmartHome.personalized(
+        saved: <MediaItem>[_movie(90, genres: [28])],
+        candidates: <MediaItem>[
+          _movie(1),
+          _movie(1, genres: [28], popularity: 20),
+        ],
+      );
+
+      expect(result.map((item) => item.id), <int>[1]);
+      expect(result.single.genreIds, <int>[28]);
+    });
+
     test('saved and continue-watching titles are excluded and candidates dedupe', () {
       final saved = _movie(90, genres: [28]);
       final inProgress = _movie(91, genres: [28]);
