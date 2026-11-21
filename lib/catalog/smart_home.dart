@@ -60,12 +60,15 @@ abstract final class SmartHome {
     for (final item in catalogue) {
       if (item.id < 0) continue;
       final key = _titleKey(item);
-      if (excluded.contains(key) || !seen.add(key)) continue;
+      if (excluded.contains(key) || seen.contains(key)) continue;
       var score = 0;
       for (final genreId in item.genreIds.toSet()) {
         score += genreWeights[(item.kind, genreId)] ?? 0;
       }
-      if (score > 0) ranked.add((item: item, score: score));
+      if (score > 0) {
+        seen.add(key);
+        ranked.add((item: item, score: score));
+      }
     }
 
     ranked.sort((a, b) {
