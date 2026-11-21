@@ -812,7 +812,7 @@ List<Widget> homeRows(
       if (trending[kind]!.isNotEmpty)
         VideoFeedSection(
           title: titled(kind, 'trending_movies_week', 'trending_series_week'),
-          items: trending[kind]!,
+          items: trending[kind]!.take(3).toList(growable: false),
           onSeeAll: () => onOpenList(
             kind,
             HomeList.trendingWeek,
