@@ -78,6 +78,7 @@ abstract final class MyList {
         backdropPath: item.backdropPath,
         overview: item.overview,
         releaseDate: item.releaseDate,
+        genreIds: item.genreIds,
         voteAverage: item.rating,
       ))
     ..dateAdded = DateTime.now().toString();
@@ -91,6 +92,7 @@ abstract final class MyList {
         backdropPath: item.backdropPath,
         overview: item.overview,
         firstAirDate: item.releaseDate,
+        genreIds: item.genreIds,
         voteAverage: item.rating,
       ))
     ..dateAdded = DateTime.now().toString();
