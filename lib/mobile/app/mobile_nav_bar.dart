@@ -164,7 +164,7 @@ class MobileNavRail extends StatelessWidget {
 (IconData, IconData, String) _lookFor(MobileTab tab) => switch (tab) {
   MobileTab.home => (PhosphorIcons.house(), PhosphorIcons.house(PhosphorIconsStyle.fill), 'home'),
   MobileTab.newAndHot => (PhosphorIcons.fire(), PhosphorIcons.fire(PhosphorIconsStyle.fill), 'new_and_hot'),
-  MobileTab.discover => (PhosphorIcons.compass(), PhosphorIcons.compass(PhosphorIconsStyle.fill), 'discover'),
+  MobileTab.discover => (PhosphorIcons.compass(), PhosphorIcons.compass(PhosphorIconsStyle.fill), 'explore'),
   MobileTab.search => (PhosphorIcons.magnifyingGlass(), PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.bold), 'search'),
   MobileTab.mine => (PhosphorIcons.userCircle(), PhosphorIcons.userCircle(PhosphorIconsStyle.fill), 'you'),
 };
