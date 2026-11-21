@@ -238,6 +238,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               style: TextButton.styleFrom(foregroundColor: palette.mutedText),
               child: Text(tr('clear_all')),
             ),
+          IconButton(
+            tooltip: tr('search'),
+            color: palette.foreground,
+            onPressed: () =>
+                MobileTabScope.maybeOf(context)?.select(MobileTab.search),
+            icon: Icon(PhosphorIcons.magnifyingGlass()),
+          ),
           const SizedBox(width: 4),
         ],
         bottom: PreferredSize(
