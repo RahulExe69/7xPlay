@@ -34,7 +34,7 @@ The result must feel like one coherent 7xPlay product, not two apps stitched tog
 ### App chrome and navigation
 
 - A compact YouTube-inspired top app bar uses the 7xPlay wordmark, Search, Cast (only when existing support is available) and profile/library entry points.
-- The five stable tab IDs remain `home`, `new`, `discover`, `search`, and `mine`. Labels/icons may be refreshed, but IDs, deep links, analytics and session restoration remain compatible.
+- The five stable tab IDs remain `home`, `new`, `discover`, `search`, and `mine`. The phone dock is edge-to-edge and ordered Home, Explore, New & Hot, Search and You; labels/icons may be refreshed, but IDs, deep links, analytics and session restoration remain compatible.
 - The visible phone navigation prioritizes Home, Explore, New & Hot and You/Library destinations; Search is always reachable from the top app-bar action and remains a valid restored/deep-linked destination. A fifth visible destination may remain if required by the existing tab model; implementation must avoid hiding a route without an alternative entry point.
 - Tablet navigation retains a side rail and TV navigation remains unchanged.
 
@@ -44,11 +44,13 @@ The result must feel like one coherent 7xPlay product, not two apps stitched tog
 - A vertical feed uses YouTube-like full-width landscape cards for featured recommendations and editorial rows.
 - Existing horizontal poster shelves remain for dense browsing and recognizable OTT discovery patterns.
 - Continue Watching and My List updates remain prominent and use existing local history/bookmark data.
+- Trending Home shelves use full-width video-feed cards; Top Ten, My List, genre and service shelves retain their OTT poster treatments.
 - Cards expose title, year, content type, rating/genres when available, and overflow actions such as Watch Later/My List. Do not invent views, likes, creators or engagement metrics.
 
 ### Search and Explore
 
-- Search action opens the existing SearchScreen and preserves debounce, history, filters, person results and ranking.
+- Search action opens the existing SearchScreen from Home, Explore, New & Hot and You, and preserves debounce, history, filters, person results and ranking.
+- Movie and series search results use full-width video-feed cards with title metadata and familiar play/overflow affordances; people results and genre discovery retain their specialized layouts.
 - Explore retains FlixQuest's rich movie/series filters, genre/provider/year/rating/status selection and collection results, presented with a more familiar browsing surface.
 - New & Hot remains the release/trending surface, not a fabricated subscriptions feed.
 
