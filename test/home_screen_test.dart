@@ -842,28 +842,6 @@ void main() {
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     semantics.dispose();
   });
-}
-
-/// Like [_FakeSource], with posters, so the hero has artwork to take a
-/// colour from.
-class _PosterSource extends _FakeSource {
-  @override
-  Future<List<MediaItem>> list(MediaKind kind, HomeList list) async =>
-      (await super.list(kind, list))
-          .map(
-            (item) => MediaItem(
-              kind: item.kind,
-              id: item.id,
-              title: item.title,
-              overview: '',
-              posterPath: '/p${item.id}.jpg',
-              backdropPath: null,
-              rating: null,
-              releaseDate: null,
-            ),
-          )
-          .toList();
-
   testWidgets(
       'Picked for you ranks saved genres and excludes saved and in-progress titles',
       (tester) async {
@@ -987,4 +965,27 @@ class _PosterSource extends _FakeSource {
       isNot(contains('my_list_updates')),
     );
   });
+
+}
+
+/// Like [_FakeSource], with posters, so the hero has artwork to take a
+/// colour from.
+class _PosterSource extends _FakeSource {
+  @override
+  Future<List<MediaItem>> list(MediaKind kind, HomeList list) async =>
+      (await super.list(kind, list))
+          .map(
+            (item) => MediaItem(
+              kind: item.kind,
+              id: item.id,
+              title: item.title,
+              overview: '',
+              posterPath: '/p${item.id}.jpg',
+              backdropPath: null,
+              rating: null,
+              releaseDate: null,
+            ),
+          )
+          .toList();
+
 }
