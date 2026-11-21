@@ -7,7 +7,6 @@ import 'package:flixquest/experience/widgets/experience_surface.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _app(Widget child, {Size size = const Size(390, 844)}) {
