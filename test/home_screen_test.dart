@@ -5,6 +5,8 @@ import 'package:flixquest/catalog/up_next.dart';
 import 'package:flixquest/constants/app_constants.dart';
 import 'package:flixquest/constants/theme_data.dart';
 import 'package:flixquest/mobile/screens/home_screen.dart';
+import 'package:flixquest/design/app_palette.dart';
+import 'package:flixquest/design/seven_x_ai_mark.dart';
 import 'package:flixquest/mobile/widgets/category_section.dart';
 import 'package:flixquest/mobile/widgets/hero_card.dart';
 import 'package:flixquest/mobile/widgets/media_rows.dart';
@@ -483,6 +485,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final aiMarkFinder = find.byType(SevenXAiMark);
+      expect(aiMarkFinder, findsOneWidget);
+      expect(
+        tester.widget<SevenXAiMark>(aiMarkFinder).color,
+        AppPalette.of(tester.element(find.byType(HomeScreen))).foreground,
+      );
       final accent = Theme.of(
         tester.element(find.byType(HomeScreen)),
       ).colorScheme.primary;
