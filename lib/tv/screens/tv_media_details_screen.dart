@@ -154,7 +154,7 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
       dependencies: context.read<AppDependencyProvider>(),
     );
     _details = details;
-    details.then((data) {
+    details.then<void>((data) {
       if (!mounted || !identical(_details, details)) return;
       setState(() => _loaded = data);
       final season = initialSeasonNumber(data.seasons, _resume());
