@@ -7,10 +7,11 @@ void main() {
       (tester) async {
     for (final theme in [ThemeData.light(), ThemeData.dark()]) {
       await tester.pumpWidget(
-        MaterialApp(
-          theme: theme,
-          home: Scaffold(
-            body: Center(child: SevenXAiMark(height: 64)),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Theme(
+            data: theme,
+            child: Center(child: SevenXAiMark(height: 64)),
           ),
         ),
       );
