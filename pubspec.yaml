@@ -61,8 +61,7 @@ dependencies:
   path_provider: ^2.1.4
   percent_indicator: ^4.2.3
   permission_handler: ^11.3.1
-  phosphor_flutter:
-    path: packages/phosphor_flutter_compat
+  phosphor_flutter: ^2.1.0
   photo_view: ^0.15.0
   provider: ^6.1.2
   qr_flutter: ^4.1.0
@@ -91,6 +90,13 @@ dev_dependencies:
   json_serializable: ^6.9.5
   path_provider_platform_interface: ^2.1.2
   sqflite_common_ffi: ^2.3.6
+
+
+# Keep the player's existing phosphor_flutter API while using the Flutter 3.43+
+# compatible IconData implementation shared by the app and BetterPlayer.
+dependency_overrides:
+  phosphor_flutter:
+    path: packages/phosphor_flutter_compat
 
 flutter:
   default-flavor: prod
