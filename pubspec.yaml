@@ -140,7 +140,6 @@ flutter_native_splash:
   background_image: assets/images/7xplay_splash_background.png
   background_image_dark: assets/images/7xplay_splash_background.png
   image: assets/images/7xplay_wordmark.png
-  branding: assets/images/7xplay_wordmark.png
   android_12:
     # Android 12+ only accepts a solid window background, not a background image.
     # Keep the official monochrome mark in the system icon slot and the wordmark below.
