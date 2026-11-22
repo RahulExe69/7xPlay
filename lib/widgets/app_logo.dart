@@ -33,6 +33,7 @@ class AppLogo extends StatelessWidget {
     this.fit = BoxFit.contain,
     this.fallbackAsset = 'assets/images/7xplay_foreground.png',
     this.fallbackColor,
+    this.useRemoteLogo = true,
   });
 
   final double? width;
@@ -41,8 +42,14 @@ class AppLogo extends StatelessWidget {
   final String fallbackAsset;
   final Color? fallbackColor;
 
+  /// Set false for fixed product identity surfaces that must always use the
+  /// bundled Brand Hub artwork rather than a saved/seasonal remote logo.
+  final bool useRemoteLogo;
+
   @override
   Widget build(BuildContext context) {
+    if (!useRemoteLogo) return _fallback();
+
     final logoUrl = context.select<AppDependencyProvider, String>(
       (provider) => provider.effectiveLogoUrl,
     );
