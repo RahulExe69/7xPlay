@@ -9,6 +9,10 @@ void main() {
     );
   });
 
+  test('account identity can ignore a saved remote logo override', () {
+    expect(const AppLogo(useRemoteLogo: false).useRemoteLogo, isFalse);
+  });
+
   test('accepts only well-formed SVG logo documents', () {
     expect(
       isValidRemoteLogoSvg(
