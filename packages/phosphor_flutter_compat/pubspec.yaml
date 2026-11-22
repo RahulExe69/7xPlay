@@ -1,6 +1,6 @@
 name: phosphor_flutter
 description: Compatibility shim for the maintained phosphor_icons Flutter package.
-version: 3.0.0
+version: 2.1.1
 publish_to: none
 
 environment:
