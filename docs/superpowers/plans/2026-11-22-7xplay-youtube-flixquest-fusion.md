@@ -31,18 +31,18 @@ Base: `main` at `f330df2cbf1bd9a299fbea2c1e54fa265640b6f9`
 - Keep all destinations reachable, including Search, and retain stable IDs.
 - Preserve tablet rail and TV shell.
 
-## Task 4 — Convert Home into a hybrid feed
+## Task 4 — Keep Home catalogue shelves visually consistent
 
 - Retain existing HomeFeedController, Hero, Continue Watching, recommendation and category data.
-- Add up to three centered, max-width thumbnail-led feed cards per Home trending section using existing MediaItem, artwork and playback actions.
-- Preserve selected genre/kind chips and horizontal OTT shelves; See all opens the complete trending collection.
+- Render Trending Movies and Trending Series through the existing `PosterRow` helper, matching New Movies/New Episodes sizing, spacing and horizontal scrolling.
+- Preserve selected genre/kind chips and existing OTT shelves; See all opens the same complete trending collection.
 - Ensure no fake views/likes/channel data are rendered.
 - Add tests for card metadata, play/details actions and My List actions.
 
 ## Task 5 — Unify Search and Explore entry points
 
 - Add top-bar Search access from Home, Explore, New & Hot and You.
-- Present movie/series search results with full-width video-feed cards while preserving debounce/history/filter/person behavior.
+- Present movie/series Search results with full-width video-feed cards while preserving debounce/history/filter/person behavior; keep Home Trending in horizontal poster shelves.
 - Refine Explore/New & Hot headers and card spacing to match the same browsing language while keeping their specialized OTT functions.
 - Add navigation and widget regression tests.
 
