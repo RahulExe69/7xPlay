@@ -263,10 +263,11 @@ class _StartupGateState extends State<_StartupGate> {
         }
       });
     } catch (error, stackTrace) {
-      debugPrint('[Startup] App initialization failed: $error\n$stackTrace');
+      final diagnostic = '$_startupStage · ${error.runtimeType}';
+      debugPrint('[Startup] $diagnostic: $error\\n$stackTrace');
       if (!mounted) return;
       setState(() {
-        _startupError = error;
+        _startupError = diagnostic;
         _loading = false;
       });
     }
