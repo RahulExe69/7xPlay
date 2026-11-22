@@ -36,7 +36,6 @@ import '../widgets/genre_sheet.dart';
 import '../widgets/hero_card.dart';
 import '../widgets/media_art.dart';
 import '../widgets/media_rows.dart';
-import '../widgets/video_feed_card.dart';
 import '../widgets/page_kit.dart' show EmptyState;
 import '../widgets/plus_card.dart';
 import '../widgets/skeletons.dart';
@@ -810,14 +809,11 @@ List<Widget> homeRows(
         ),
     for (final kind in kinds)
       if (trending[kind]!.isNotEmpty)
-        VideoFeedSection(
-          title: titled(kind, 'trending_movies_week', 'trending_series_week'),
-          items: trending[kind]!.take(3).toList(growable: false),
-          onSeeAll: () => onOpenList(
-            kind,
-            HomeList.trendingWeek,
-            titled(kind, 'trending_movies_week', 'trending_series_week'),
-          ),
+        listRow(
+          kind,
+          HomeList.trendingWeek,
+          titled(kind, 'trending_movies_week', 'trending_series_week'),
+          trending[kind]!,
         ),
     adSlot('trending', tall: true),
     if (shownMyList.isNotEmpty)
