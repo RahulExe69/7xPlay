@@ -14,7 +14,7 @@ import '../../constants/app_constants.dart';
 import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
-import '../../design/flix_ai_mark.dart';
+import '../../design/seven_x_ai_mark.dart';
 import '../../design/skeleton.dart';
 import '../../models/genres.dart';
 import '../../models/person.dart';
@@ -337,7 +337,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         decoration: BoxDecoration(
                             color: palette.idleFill, shape: BoxShape.circle),
                         alignment: Alignment.center,
-                        child: FlixAiMark(
+                        child: SevenXAiMark(
                             height: 22, color: palette.foreground),
                       ),
                       const SizedBox(width: AppSpace.md),
