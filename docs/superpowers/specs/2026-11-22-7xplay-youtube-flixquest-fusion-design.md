@@ -5,13 +5,13 @@ Status: implementation direction approved by the user through an explicit reques
 
 ## Intent
 
-Make 7xPlay feel immediately familiar to people who use YouTube without turning it into a generic video app or removing its FlixQuest entertainment identity. The product combines YouTube's browsing grammar—feed-first discovery, compact app chrome, category chips, thumbnail-led cards, fast search access, persistent mini-player and low-friction navigation—with FlixQuest's movie/series/anime catalogue, cinematic title pages, season/episode browsing, provider/server selection, audio/subtitle controls, downloads and playback.
+Make 7xPlay feel immediately familiar to people who use YouTube without turning it into a generic video app or removing its FlixQuest entertainment identity. The product combines YouTube's browsing grammar—compact app chrome, category chips, fast search access, familiar navigation and clear video metadata—with FlixQuest's movie/series/anime catalogue, cinematic title pages, season/episode browsing, provider/server selection, audio/subtitle controls, downloads and playback.
 
 The result must feel like one coherent 7xPlay product, not two apps stitched together.
 
 ## Goals
 
-- Give Home a YouTube-like, vertically browsable feed with wide thumbnail cards, familiar category chips and clear metadata.
+- Keep Home catalogue-first with familiar horizontal poster shelves for Trending, New, Popular and curated movies/series; use familiar video-app chrome and category chips.
 - Retain OTT shelves where they add value: Continue Watching, trending, new episodes, popular movies, anime and curated collections.
 - Make search immediately accessible from the top app bar while retaining the existing Search route and stable destination ID.
 - Make bottom navigation familiar and predictable while preserving all existing destination IDs and restoration behavior.
@@ -41,10 +41,10 @@ The result must feel like one coherent 7xPlay product, not two apps stitched tog
 ### Home feed
 
 - Top category chips filter the existing catalogue without creating new backend requests.
-- A vertical feed uses YouTube-like full-width landscape cards for featured recommendations and editorial rows.
-- Existing horizontal poster shelves remain for dense browsing and recognizable OTT discovery patterns.
+- Trending Movies, Trending Series, New Movies and New Episodes use the same horizontal poster-shelf treatment, sizing and spacing so Home feels like one coherent OTT catalogue.
+- Horizontal poster shelves remain the default for catalogue sections; the video-feed card pattern is reserved for movie and series Search results.
 - Continue Watching and My List updates remain prominent and use existing local history/bookmark data.
-- Trending Home shelves use up to three centered, max-width video-feed cards per content type, with See all opening the full collection; Top Ten, My List, genre and service shelves retain their OTT poster treatments.
+- Trending Home shelves use the same horizontal PosterRow treatment as New Movies and New Episodes, with the same poster sizing and See all collection action.
 - Cards expose title, year, content type, rating/genres when available, and overflow actions such as Watch Later/My List. Do not invent views, likes, creators or engagement metrics.
 
 ### Search and Explore
@@ -80,7 +80,7 @@ The result must feel like one coherent 7xPlay product, not two apps stitched tog
 
 ## Acceptance criteria
 
-- The Home page reads as a familiar, thumbnail-led video feed while still showing recognizable movie/series/anime shelves.
+- The Home page presents Trending Movies/Series and New Movies/New Episodes as consistent horizontal poster shelves.
 - Search is discoverable from the top bar and existing Search route still works for restore/deep links.
 - Details and episode browsing retain FlixQuest behavior and data.
 - Existing play, download, provider selection, audio/subtitle, My List and watch-history callbacks remain connected.
