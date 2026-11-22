@@ -37,7 +37,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.5'
+          flutter-version: '3.50.0'
           channel: stable
           cache: true
           pub-cache: false
@@ -59,9 +59,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.pub-cache
-          key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
+          key: pub-${{ runner.os }}-flutter-3.50.0-${{ hashFiles('7xPlay/pubspec.lock') }}
           restore-keys: |
-            pub-${{ runner.os }}-flutter-3.41.5-
+            pub-${{ runner.os }}-flutter-3.50.0-
 
       - name: Resolve dependencies
         working-directory: 7xPlay
@@ -157,7 +157,7 @@ jobs:
 
   # Installable, size-optimized ARM64 preview for PRs. Release mode enables
   # R8/resource shrinking and tree-shaking; only build the ABI used by phones.
-  build-debug-apk:
+  build-release-apk:
     if: github.event_name == 'pull_request'
     name: Build optimized ARM64 release APK
     runs-on: ubuntu-24.04
@@ -185,7 +185,7 @@ jobs:
       - name: Set up Flutter (cached SDK)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.5'
+          flutter-version: '3.50.0'
           channel: stable
           cache: true
           pub-cache: false
@@ -214,9 +214,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.pub-cache
-          key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
+          key: pub-${{ runner.os }}-flutter-3.50.0-${{ hashFiles('7xPlay/pubspec.lock') }}
           restore-keys: |
-            pub-${{ runner.os }}-flutter-3.41.5-
+            pub-${{ runner.os }}-flutter-3.50.0-
 
       - name: Resolve dependencies
         working-directory: 7xPlay
@@ -289,7 +289,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.5'
+          flutter-version: '3.50.0'
           channel: stable
           cache: true
           pub-cache: false
@@ -318,9 +318,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.pub-cache
-          key: pub-${{ runner.os }}-flutter-3.41.5-${{ hashFiles('7xPlay/pubspec.lock') }}
+          key: pub-${{ runner.os }}-flutter-3.50.0-${{ hashFiles('7xPlay/pubspec.lock') }}
           restore-keys: |
-            pub-${{ runner.os }}-flutter-3.41.5-
+            pub-${{ runner.os }}-flutter-3.50.0-
 
       - name: Resolve dependencies
         working-directory: 7xPlay
