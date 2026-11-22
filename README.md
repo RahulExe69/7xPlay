@@ -83,10 +83,10 @@ These are upstream FlixQuest API routes, not endpoints implemented by 7xPlay. Re
 
 ## Configuration
 
-The app reads local configuration from `.env` through `flutter_dotenv`. Start with the example file:
+The app reads local configuration from `config.env` through `flutter_dotenv`. Start with the example file. `config.env` is intentionally not a dotfile because Flutter 3.50.0 has an Android asset-packaging regression that can omit `.env` files from release APKs:
 
 ```bash
-cp .env.example .env
+cp .env.example config.env
 ```
 
 At minimum, configure the TMDB key used by your build:
@@ -134,10 +134,10 @@ git clone https://github.com/BeamlakAschalew/flixquest-betterplayer.git
 cd 7xPlay
 ```
 
-Create and configure `.env`, then resolve packages:
+Create and configure `config.env`, then resolve packages:
 
 ```bash
-cp .env.example .env
+cp .env.example config.env
 flutter pub get
 ```
 
