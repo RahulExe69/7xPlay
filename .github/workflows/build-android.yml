@@ -251,7 +251,9 @@ jobs:
       - name: Build optimized ARM64 release APK
         working-directory: 7xPlay
         run: |
-          flutter build apk --release --flavor prod --target-platform android-arm64 --split-per-abi --obfuscate --tree-shake-icons --split-debug-info="build/symbols" --no-pub --android-skip-build-dependency-validation
+          mkdir -p build/logs
+          set -o pipefail
+          flutter build apk --release --flavor prod --target-platform android-arm64 --split-per-abi --obfuscate --tree-shake-icons --split-debug-info="build/symbols" --no-pub --android-skip-build-dependency-validation --verbose 2>&1 | tee build/logs/arm64-release-build.log
 
           APK="build/app/outputs/flutter-apk/app-arm64-v8a-prod-release.apk"
           test -s "$APK" || { echo "::error::Optimized ARM64 release APK was not produced"; find build/app/outputs -maxdepth 4 -type f -name '*.apk' -print; exit 1; }
@@ -276,6 +278,16 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+      - name: Upload ARM64 release build log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: 7xPlay-arm64-release-build-log-${{ github.event.pull_request.head.sha }}
+          path: 7xPlay/build/logs/arm64-release-build.log
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 6
 
       - name: Upload Dart symbols for release diagnostics
         uses: actions/upload-artifact@v6
