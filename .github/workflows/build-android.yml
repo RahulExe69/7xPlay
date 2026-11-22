@@ -52,13 +52,13 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
-          cp .env.example .env
+          cp .env.example config.env
           if [ -z "${TMDB_API_KEY//[[:space:]]/}" ]; then
             echo "::error::TMDB_API_KEY GitHub Actions secret is missing. Add it in Settings > Secrets and variables > Actions, then rerun the build."
             exit 1
           fi
-          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" .env
-          grep -q '^TMDB_API_KEY=.' .env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
+          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" config.env
+          grep -q '^TMDB_API_KEY=.' config.env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
 
       - name: Cache Pub packages
         uses: actions/cache@v5
@@ -220,13 +220,13 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
-          cp .env.example .env
+          cp .env.example config.env
           if [ -z "${TMDB_API_KEY//[[:space:]]/}" ]; then
             echo "::error::TMDB_API_KEY GitHub Actions secret is missing."
             exit 1
           fi
-          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" .env
-          grep -q '^TMDB_API_KEY=.' .env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
+          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" config.env
+          grep -q '^TMDB_API_KEY=.' config.env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
 
       - name: Cache Pub packages
         uses: actions/cache@v5
@@ -260,6 +260,7 @@ jobs:
 
           APK="build/app/outputs/flutter-apk/app-arm64-v8a-prod-release.apk"
           test -s "$APK" || { echo "::error::Optimized ARM64 release APK was not produced"; find build/app/outputs -maxdepth 4 -type f -name '*.apk' -print; exit 1; }
+          unzip -Z1 "$APK" | grep -Fxq 'assets/flutter_assets/config.env' || { echo "::error::config.env is missing from the built APK asset bundle"; exit 1; }
 
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
@@ -352,13 +353,13 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
-          cp .env.example .env
+          cp .env.example config.env
           if [ -z "${TMDB_API_KEY//[[:space:]]/}" ]; then
             echo "::error::TMDB_API_KEY GitHub Actions secret is missing. Add it in Settings > Secrets and variables > Actions, then rerun the build."
             exit 1
           fi
-          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" .env
-          grep -q '^TMDB_API_KEY=.' .env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
+          sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=${TMDB_API_KEY}|" config.env
+          grep -q '^TMDB_API_KEY=.' config.env || { echo "::error::TMDB_API_KEY was not written to .env"; exit 1; }
 
       - name: Cache Pub packages
         uses: actions/cache@v5
@@ -397,6 +398,7 @@ jobs:
 
           for APK in "$ARM64_APK" "$ARMV7_APK" "$X86_APK"; do
             test -s "$APK" || { echo "::error::Expected APK missing or empty: $APK"; ls -lah "$APK_DIR"; exit 1; }
+            unzip -Z1 "$APK" | grep -Fxq 'assets/flutter_assets/config.env' || { echo "::error::config.env is missing from $APK"; exit 1; }
           done
 
           cp "$ARM64_APK" build/artifacts/arm64-v8a/7xPlay-arm64-v8a-release.apk
