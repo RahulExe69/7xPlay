@@ -439,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen>
                       : Color.lerp(
                           palette.page,
                           tint,
-                          palette.dark ? .42 : .24,
+                          palette.dark ? .42 : .12,
                         ),
                 ),
                 duration: const Duration(milliseconds: 700),
