@@ -136,10 +136,11 @@ flutter:
         - asset: assets/fonts/imdb.ttf
 
 flutter_native_splash:
-  color: "#FFFFFF"
-  color_dark: "#161716"
-  image: assets/images/splash_logo.png
+  # Use the official 7xPlay wordmark from the 7x Brand Hub.
+  color: "#0D1D25"
+  color_dark: "#0D1D25"
+  image: assets/images/7xplay_wordmark.png
   android_12:
-    image: assets/images/splash_logo.png
-    color: "#FFFFFF"
-    color_dark: "#161716"
+    image: assets/images/7xplay_wordmark.png
+    color: "#0D1D25"
+    color_dark: "#0D1D25"
