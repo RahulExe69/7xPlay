@@ -25,7 +25,7 @@ dependencies:
   # media_kit_video: ^1.3.1
   # media_kit_libs_video: ^1.0.7
   easy_localization: ^3.0.7
-  file_picker: ^8.0.0+1
+  file_picker: ^10.3.6
   firebase_analytics: ^12.4.6
   # Bridge for 4.2.x sign-ins only (FirebaseSessionBridge); remove in 4.4.0.
   firebase_auth: ^6.5.7
@@ -61,7 +61,8 @@ dependencies:
   path_provider: ^2.1.4
   percent_indicator: ^4.2.3
   permission_handler: ^11.3.1
-  phosphor_flutter: ^2.1.0
+  phosphor_flutter:
+    path: packages/phosphor_flutter_compat
   photo_view: ^0.15.0
   provider: ^6.1.2
   qr_flutter: ^4.1.0
