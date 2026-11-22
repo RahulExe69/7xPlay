@@ -13,6 +13,7 @@ import '../../catalog/home_hero.dart';
 import '../../catalog/media_item.dart';
 import '../../catalog/title_logos.dart';
 import '../../design/app_palette.dart';
+import '../../design/seven_x_ai_mark.dart';
 import '../../design/app_tokens.dart';
 import '../../models/genres.dart';
 import '../../provider/app_dependency_provider.dart';
@@ -681,12 +682,9 @@ class _HomeHeader extends StatelessWidget {
                         builder: (_) => const FlixAiScreen(),
                       ),
                     ),
-                    icon: Image.asset(
-                      'assets/images/7xplay_mark_monochrome.png',
-                      width: 22,
+                    icon: SevenXAiMark(
                       height: 22,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
+                      color: palette.foreground,
                     ),
                   ),
                   IconButton(
