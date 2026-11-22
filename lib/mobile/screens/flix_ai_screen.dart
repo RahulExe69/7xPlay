@@ -11,7 +11,7 @@ import '../../data/models/flix_ai.dart';
 import '../../data/repositories/flix_ai_repository.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
-import '../../design/flix_ai_mark.dart';
+import '../../design/seven_x_ai_mark.dart';
 import '../../presentation/flix_ai/flix_ai_controller.dart';
 import '../../provider/settings_provider.dart';
 import '../../screens/user/login_screen.dart';
@@ -349,7 +349,7 @@ class _Mark extends StatelessWidget {
       alignment: Alignment.center,
       decoration:
           BoxDecoration(color: palette.idleFill, shape: BoxShape.circle),
-      child: FlixAiMark(
+      child: SevenXAiMark(
           height: size * .58, color: palette.foreground, thinking: thinking),
     );
   }

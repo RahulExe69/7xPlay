@@ -31,7 +31,7 @@ class AppLogo extends StatelessWidget {
     this.width,
     this.height,
     this.fit = BoxFit.contain,
-    this.fallbackAsset = 'assets/images/7xplay_logo.svg',
+    this.fallbackAsset = 'assets/images/7xplay_foreground.png',
     this.fallbackColor,
   });
 

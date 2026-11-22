@@ -86,11 +86,11 @@ jobs:
 
       - name: Test 7x AI screen branding and chat states
         working-directory: 7xPlay
-        run: flutter test test/flix_ai_screen_test.dart
+        run: flutter test test/flix_ai_screen_test.dart test/seven_x_ai_mark_test.dart
 
       - name: Test the redesigned 7xPlay entry landing screen
         working-directory: 7xPlay
-        run: flutter test test/landing_screen_brand_test.dart
+        run: flutter test test/landing_screen_brand_test.dart test/app_logo_test.dart
 
       - name: Test the redesigned mobile shell and navigation
         working-directory: 7xPlay

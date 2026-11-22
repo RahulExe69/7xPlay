@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flixquest/provider/settings_provider.dart';
+import 'package:flixquest/design/app_palette.dart';
 import 'package:flixquest/screens/common/landing_screen.dart';
 import 'package:flixquest/translations/codegen_loader.g.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ Future<void> _pumpLanding(
   WidgetTester tester, {
   Size size = const Size(390, 844),
   Locale locale = const Locale('en'),
+  ThemeData? theme,
 }) async {
   tester.view
     ..physicalSize = size
@@ -38,6 +40,7 @@ Future<void> _pumpLanding(
             locale: context.locale,
             supportedLocales: context.supportedLocales,
             localizationsDelegates: context.localizationDelegates,
+            theme: theme ?? ThemeData.light(),
             home: const LandingScreen(),
           ),
         ),
@@ -55,7 +58,7 @@ void main() {
 
   testWidgets('uses the dedicated 7xPlay wordmark and brand access card',
       (tester) async {
-    await _pumpLanding(tester);
+    await _pumpLanding(tester, theme: ThemeData.dark());
 
     expect(find.byKey(const ValueKey('landing-brand-canvas')), findsOneWidget);
     expect(find.byKey(const ValueKey('landing-brand-mark')), findsOneWidget);
@@ -81,6 +84,48 @@ void main() {
       findsNothing,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('landing canvas, identity and intro copy follow light and dark themes',
+      (tester) async {
+    for (final theme in [ThemeData.light(), ThemeData.dark()]) {
+      await _pumpLanding(tester, theme: theme);
+      final palette = AppPalette.fromTheme(theme);
+
+      final canvas = tester.widget<ColoredBox>(
+        find.byKey(const ValueKey('landing-brand-canvas')),
+      );
+      expect(canvas.color, palette.page);
+
+      final intro = tester.widget<Text>(find.text(tr('thousands_of')));
+      expect(intro.style?.color, palette.foreground);
+
+      if (theme.brightness == Brightness.light) {
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.image is AssetImage &&
+                (widget.image as AssetImage).assetName ==
+                    'assets/images/7xplay_foreground.png',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Stream Everything'), findsOneWidget);
+      } else {
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.image is AssetImage &&
+                (widget.image as AssetImage).assetName ==
+                    'assets/images/7xplay_wordmark.png',
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('keeps the entry composition within phone and wide layouts',
