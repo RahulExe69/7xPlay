@@ -41,14 +41,13 @@ subprojects {
     project.evaluationDependsOn(':app')
 }
 
-// Keep third-party Flutter Android libraries on the app's compile SDK.
-// Some plugins (including the pinned BetterPlayer fork) still declare API 35,
-// while their transitive AndroidX dependencies now require API 36.
-subprojects {
-    afterEvaluate { subproject ->
-        def androidExtension = subproject.extensions.findByName('android')
-        if (androidExtension != null) {
-            androidExtension.compileSdk = 36
+// Keep third-party Android library plugins on the app's compile SDK.
+// Configure the Android extension as soon as the Android library plugin is
+// applied; afterEvaluate is too late under the current Gradle lifecycle.
+subprojects { subproject ->
+    subproject.plugins.withId('com.android.library') {
+        subproject.extensions.configure('android') {
+            compileSdk = 36
         }
     }
 }
