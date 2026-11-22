@@ -136,11 +136,17 @@ flutter:
         - asset: assets/fonts/imdb.ttf
 
 flutter_native_splash:
-  # Use the official 7xPlay wordmark from the 7x Brand Hub.
-  color: "#0D1D25"
-  color_dark: "#0D1D25"
+  # Android 11 and below: use the official 7xPlay background artwork and wordmark.
+  background_image: assets/images/7xplay_splash_background.png
+  background_image_dark: assets/images/7xplay_splash_background.png
   image: assets/images/7xplay_wordmark.png
+  branding: assets/images/7xplay_wordmark.png
   android_12:
-    image: assets/images/7xplay_wordmark.png
+    # Android 12+ only accepts a solid window background, not a background image.
+    # Keep the official monochrome mark in the system icon slot and the wordmark below.
+    image: assets/images/7xplay_mark_monochrome.png
     color: "#0D1D25"
     color_dark: "#0D1D25"
+    icon_background_color: "#0D1D25"
+    icon_background_color_dark: "#0D1D25"
+    branding: assets/images/7xplay_wordmark.png
