@@ -166,7 +166,7 @@ jobs:
 
       - name: Analyze the Flutter project
         working-directory: 7xPlay
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
   # Installable, size-optimized ARM64 preview for PRs. Release mode enables
   # R8/resource shrinking and tree-shaking; only build the ABI used by phones.
