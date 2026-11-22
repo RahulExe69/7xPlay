@@ -48,6 +48,8 @@ bool isTablet(BuildContext context) {
   return screenWidth > threshold;
 }
 
+String _startupStage = 'starting';
+
 SettingsProvider settingsProvider = SettingsProvider();
 RecentProvider recentProvider = RecentProvider();
 BookmarkProvider bookmarkProvider = BookmarkProvider();
@@ -92,6 +94,7 @@ Future<DevicePresentation> appInitialize({
     ]),
   );
 
+  _startupStage = 'device profile detection';
   final devicePresentation = await resolveDevicePresentation(
     detector: devicePresentationDetector,
   ).timeout(
@@ -102,36 +105,48 @@ Future<DevicePresentation> appInitialize({
     },
   );
 
-  // Android 7.0 predates ISRG Root X1, which anchors the API's certificate.
-  try {
-    final root = await rootBundle
-        .load('assets/ca/isrg-root-x1.pem')
-        .timeout(const Duration(seconds: 4));
-    SecurityContext.defaultContext
-        .setTrustedCertificatesBytes(root.buffer.asUint8List());
-  } catch (_) {
-    // The platform may already trust the certificate.
-  }
+  // Establish the legacy Android trust anchor without blocking the first frame.
+  _runStartupTask('root certificate setup', () async {
+    try {
+      final root = await rootBundle
+          .load('assets/ca/isrg-root-x1.pem')
+          .timeout(const Duration(seconds: 2));
+      SecurityContext.defaultContext
+          .setTrustedCertificatesBytes(root.buffer.asUint8List());
+    } catch (_) {
+      // The platform may already trust the certificate.
+    }
+  }());
 
-  await dotenv.load(fileName: '.env').timeout(const Duration(seconds: 8));
+  _startupStage = 'bundled environment configuration';
+
+  await dotenv.load(fileName: '.env').timeout(const Duration(seconds: 4));
+
+  _startupStage = 'localization initialization';
   await EasyLocalization.ensureInitialized()
+      .timeout(const Duration(seconds: 4));
+
+  // Package metadata is diagnostic only and must not hold app launch.
+  _runStartupTask('package metadata lookup', () async {
+    try {
+      currentAppVersion = (await PackageInfo.fromPlatform()
+              .timeout(const Duration(seconds: 5)))
+          .version;
+    } catch (error) {
+      debugPrint('[Startup] Package info unavailable: $error');
+    }
+  }());
+
+  _startupStage = 'shared preferences initialization';
+  sharedPrefsSingleton = await SharedPreferencesSingleton.getInstance()
       .timeout(const Duration(seconds: 6));
 
-  // Diagnostic only; package metadata must not hold app launch.
-  try {
-    currentAppVersion =
-        (await PackageInfo.fromPlatform().timeout(const Duration(seconds: 5)))
-            .version;
-  } catch (error) {
-    debugPrint('[Startup] Package info unavailable: $error');
-  }
-
-  sharedPrefsSingleton = await SharedPreferencesSingleton.getInstance()
-      .timeout(const Duration(seconds: 8));
-  await _hydrateStartupSetting(
-    'app mode',
-    settingsProvider.getCurrentAppMode,
-  );
+  _startupStage = 'essential preference hydration';
+  await Future.wait<void>([
+    _hydrateStartupSetting('app mode', settingsProvider.getCurrentAppMode),
+    _hydrateStartupSetting('theme mode', settingsProvider.getCurrentThemeMode),
+    _hydrateStartupSetting('app language', settingsProvider.getAppLanguage),
+  ]);
   DevicePresentationService.instance.isTelevision =
       settingsProvider.appMode.resolve(devicePresentation) ==
           DevicePresentation.television;
@@ -144,10 +159,10 @@ Future<DevicePresentation> appInitialize({
   );
   _runStartupTask('analytics initialization', settingsProvider.initMixpanel());
 
-  // Preference reads are independent. Hydrate concurrently instead of
-  // serially waiting for dozens of tiny SharedPreferences operations.
-  await Future.wait<void>([
-    _hydrateStartupSetting('theme mode', settingsProvider.getCurrentThemeMode),
+  // Hydrate non-critical player and catalogue preferences after the app is mounted.
+  // These reads are independent and no longer hold the startup gate closed.
+  _runStartupTask('secondary preference hydration', () async {
+    await Future.wait<void>([
     _hydrateStartupSetting(
         'Material 3 preference', settingsProvider.getCurrentMaterial3Mode),
     _hydrateStartupSetting('adult mode', settingsProvider.getCurrentAdultMode),
@@ -172,7 +187,6 @@ Future<DevicePresentation> appInitialize({
         settingsProvider.getForegroundSubtitleColor),
     _hydrateStartupSetting('subtitle background',
         settingsProvider.getBackgroundSubtitleColor),
-    _hydrateStartupSetting('app language', settingsProvider.getAppLanguage),
     _hydrateStartupSetting('app color', settingsProvider.getAppColorIndex),
     _hydrateStartupSetting(
         'custom app color', settingsProvider.getCustomAppColor),
@@ -195,8 +209,9 @@ Future<DevicePresentation> appInitialize({
         'streaming do-not-disturb', settingsProvider.getStreamingDnd),
     _hydrateStartupSetting(
         'automatic source loading', settingsProvider.getAutoLoadSources),
-  ]);
-  settingsProvider.completeHydration();
+    ]);
+    settingsProvider.completeHydration();
+  }());
 
   // Legacy app-specific preferences are loaded after the first frame.
   return devicePresentation;
@@ -228,9 +243,9 @@ class _StartupGateState extends State<_StartupGate> {
   Future<void> _loadApplication() async {
     try {
       final prepared = await _prepareApplication().timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 45),
         onTimeout: () => throw TimeoutException(
-          'Startup initialization exceeded 30 seconds. Please retry.',
+          'Startup initialization exceeded 45 seconds during $_startupStage.',
         ),
       );
       if (!mounted) return;
@@ -262,6 +277,7 @@ class _StartupGateState extends State<_StartupGate> {
       _startupError = null;
       _loading = true;
     });
+    _startupStage = 'retrying startup';
     unawaited(_loadApplication());
   }
 
@@ -270,6 +286,7 @@ class _StartupGateState extends State<_StartupGate> {
     return _application ??
         StartupSplash(
           hasError: !_loading && _startupError != null,
+          errorMessage: _startupError is String ? _startupError as String : null,
           onRetry: !_loading && _startupError != null ? _retry : null,
         );
   }
@@ -287,10 +304,12 @@ class _PreparedApplication {
 
 Future<_PreparedApplication> _prepareApplication() async {
   final devicePresentation = await appInitialize();
+  _startupStage = 'environment configuration';
   final environment = AppEnvironment.fromRuntime();
   final httpOverrides = MyHttpOverrides(
       verifiedHosts: {Uri.parse(environment.laravelApiUrl).host});
   HttpOverrides.global = httpOverrides;
+  _startupStage = 'local dependency initialization';
   final injector = await buildInjector(
       environment: environment,
       deleteLocalData: (owner) async {

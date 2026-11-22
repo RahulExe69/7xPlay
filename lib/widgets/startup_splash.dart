@@ -9,11 +9,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 class StartupSplash extends StatelessWidget {
   const StartupSplash({
     this.hasError = false,
+    this.errorMessage,
     this.onRetry,
     super.key,
   });
 
   final bool hasError;
+  final String? errorMessage;
   final VoidCallback? onRetry;
 
   @override
@@ -71,6 +73,20 @@ class StartupSplash extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          if (errorMessage != null) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              errorMessage!,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 10),
                           GestureDetector(
                             onTap: onRetry,

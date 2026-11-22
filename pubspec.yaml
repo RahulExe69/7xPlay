@@ -136,17 +136,17 @@ flutter:
         - asset: assets/fonts/imdb.ttf
 
 flutter_native_splash:
-  # Android 11 and below: show only the official wordmark over the official
-  # exported background. Flutter then continues with the matching SVG artwork.
-  background_image: assets/images/7xplay_splash_background.png
-  background_image_dark: assets/images/7xplay_splash_background.png
+  # Native splash is a solid-colour hand-off; Flutter paints the complete
+  # current Brand Hub SVG background with the official wordmark on its first frame.
+  color: "#1E1117"
+  color_dark: "#1E1117"
   image: assets/images/7xplay_wordmark.png
   android_12:
     # Android 12 only accepts a solid splash background and an icon-sized image.
     # Keep that system icon transparent; Flutter paints the full SVG background
     # and the complete wordmark centred on screen in its first frame.
     image: assets/images/7xplay_splash_transparent.png
-    color: "#0D1D25"
-    color_dark: "#0D1D25"
-    icon_background_color: "#0D1D25"
-    icon_background_color_dark: "#0D1D25"
+    color: "#1E1117"
+    color_dark: "#1E1117"
+    icon_background_color: "#1E1117"
+    icon_background_color_dark: "#1E1117"
