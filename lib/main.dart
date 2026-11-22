@@ -40,6 +40,7 @@ import 'services/home_widget_navigation_service.dart';
 import 'singleton/sharedpreferences_singleton.dart';
 import 'tv/platform/device_presentation.dart';
 import 'tv/platform/device_presentation_detector.dart';
+import 'widgets/startup_splash.dart';
 
 bool isTablet(BuildContext context) {
   double screenWidth = MediaQuery.of(context).size.width;
@@ -53,6 +54,12 @@ BookmarkProvider bookmarkProvider = BookmarkProvider();
 PlaylistProvider playlistProvider = PlaylistProvider();
 AppDependencyProvider appDependencyProvider = AppDependencyProvider();
 WellnessProvider wellnessProvider = WellnessProvider.instance;
+
+void _runStartupTask(String label, Future<void> task) {
+  unawaited(task.catchError((Object error) {
+    debugPrint('[Startup] $label failed: $error');
+  }));
+}
 
 Future<DevicePresentation> appInitialize({
   DevicePresentationDetector? devicePresentationDetector,
@@ -98,12 +105,17 @@ Future<DevicePresentation> appInitialize({
   DevicePresentationService.instance.isTelevision =
       settingsProvider.appMode.resolve(devicePresentation) ==
           DevicePresentation.television;
-  await clearVideoPlaybackCache();
-  await FlutterDownloader.initialize(debug: true, ignoreSsl: true);
+  // Cache cleanup, downloads and analytics are not prerequisites for the first
+  // frame. Keep them off the critical startup path.
+  _runStartupTask('video cache cleanup', clearVideoPlaybackCache());
+  _runStartupTask(
+    'download manager initialization',
+    FlutterDownloader.initialize(debug: true, ignoreSsl: true),
+  );
 
   await settingsProvider.getCurrentThemeMode();
   await settingsProvider.getCurrentMaterial3Mode();
-  await settingsProvider.initMixpanel();
+  _runStartupTask('analytics initialization', settingsProvider.initMixpanel());
   await settingsProvider.getCurrentAdultMode();
   await settingsProvider.getCurrentDefaultScreen();
   await settingsProvider.getCurrentImageQuality();
@@ -132,21 +144,99 @@ Future<DevicePresentation> appInitialize({
   await settingsProvider.getStreamingDnd();
   await settingsProvider.getAutoLoadSources();
   settingsProvider.completeHydration();
-  await recentProvider.fetchMovies();
-  await recentProvider.fetchEpisodes();
-  await bookmarkProvider.fetchBookmarks();
-  await wellnessProvider.initialize();
-  await appDependencyProvider.getFlixQuestLogo();
-  await appDependencyProvider.getOccasionalTheme(preserveSelection: true);
-  await appDependencyProvider.getAmbientMode();
-  await appDependencyProvider.getFQUrl();
-  await appDependencyProvider.getTmdbProxy();
-  await appDependencyProvider.getUpdateConfiguration();
+  // These are local database reads. The providers publish their results when
+  // ready, so they can hydrate after the first screen is already visible.
+  await Future.wait<void>([
+    appDependencyProvider.getFlixQuestLogo(),
+    appDependencyProvider.getOccasionalTheme(preserveSelection: true),
+    appDependencyProvider.getAmbientMode(),
+    appDependencyProvider.getFQUrl(),
+    appDependencyProvider.getTmdbProxy(),
+    appDependencyProvider.getUpdateConfiguration(),
+  ]);
 
   return devicePresentation;
 }
 
-void main() async {
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const _StartupGate());
+}
+
+class _StartupGate extends StatefulWidget {
+  const _StartupGate({super.key});
+
+  @override
+  State<_StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<_StartupGate> {
+  Widget? _application;
+  Object? _startupError;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadApplication());
+  }
+
+  Future<void> _loadApplication() async {
+    try {
+      final prepared = await _prepareApplication();
+      if (!mounted) return;
+      setState(() {
+        _application = prepared.application;
+        _startupError = null;
+        _loading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _runStartupTask(
+            'post-first-frame initialization',
+            prepared.afterFirstFrame(),
+          );
+        }
+      });
+    } catch (error, stackTrace) {
+      debugPrint('[Startup] App initialization failed: $error\n$stackTrace');
+      if (!mounted) return;
+      setState(() {
+        _startupError = error;
+        _loading = false;
+      });
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _startupError = null;
+      _loading = true;
+    });
+    unawaited(_loadApplication());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _application ??
+        StartupSplash(
+          hasError: !_loading && _startupError != null,
+          onRetry: !_loading && _startupError != null ? _retry : null,
+        );
+  }
+}
+
+class _PreparedApplication {
+  const _PreparedApplication({
+    required this.application,
+    required this.afterFirstFrame,
+  });
+
+  final Widget application;
+  final Future<void> Function() afterFirstFrame;
+}
+
+Future<_PreparedApplication> _prepareApplication() async {
   final devicePresentation = await appInitialize();
   final environment = AppEnvironment.fromRuntime();
   final httpOverrides = MyHttpOverrides(
@@ -175,33 +265,8 @@ void main() async {
   AuthRuntime.configure(injector.session);
   SyncRuntime.configure(injector.syncCoordinator,
       enabled: injector.migrationFlags.auth && injector.migrationFlags.sync);
-  if (SyncRuntime.enabled) {
-    await BookmarkSyncService.instance.init();
-    await RecentlyWatchedSyncService.instance.init();
-    wellnessProvider.syncService.bind();
-    injector.session.ownerId.addListener(() {
-      bookmarkProvider.resetForOwner();
-      playlistProvider.resetForOwner();
-      recentProvider.resetForOwner();
-      unawaited(bookmarkProvider.fetchBookmarks());
-      unawaited(playlistProvider.load());
-      unawaited(recentProvider.fetchMovies());
-      unawaited(recentProvider.fetchEpisodes());
-    });
-  }
-  await injector.session.restore();
   AuthSessionController.instance.initialize();
-  await injector.plus.start();
-  installPlusOffer();
-  await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
-  if (SyncRuntime.enabled) {
-    await bookmarkProvider.fetchBookmarks();
-    await recentProvider.fetchMovies();
-    await recentProvider.fetchEpisodes();
-    unawaited(injector.syncCoordinator.syncAll());
-  }
-  await playlistProvider.load();
-    // Push notifications (FCM/OneSignal) are intentionally disabled for now.
+  // Push notifications (FCM/OneSignal) are intentionally disabled for now.
   NetworkRuntime.configure(
       publicDio: injector.publicDio,
       httpCache: injector.httpCache,
@@ -215,8 +280,10 @@ void main() async {
       proxy: appDependencyProvider.tmdbProxy,
     ),
   );
-  await MediaLinkNavigationService.initialize();
-  runApp(MultiProvider(
+  // Register the platform handler before the app's first frame, but do not
+  // block first paint while Android drains any queued deep links.
+  _runStartupTask('media link bridge', MediaLinkNavigationService.initialize());
+  final application = MultiProvider(
       providers: [
         ChangeNotifierProvider<SessionViewModel>.value(value: injector.session),
         ChangeNotifierProvider<PlusController>.value(value: injector.plus),
@@ -239,4 +306,73 @@ void main() async {
               adsController: adsController,
             ),
           ))));
+  return _PreparedApplication(
+    application: application,
+    afterFirstFrame: () => _initializePostLaunch(injector),
+  );
+}
+
+Future<void> _initializePostLaunch(AppInjector injector) async {
+  try {
+    await wellnessProvider.initialize();
+  } catch (error) {
+    debugPrint('[Startup] Wellness initialization failed: $error');
+  }
+
+  if (SyncRuntime.enabled) {
+    try {
+      await BookmarkSyncService.instance.init();
+      await RecentlyWatchedSyncService.instance.init();
+      wellnessProvider.syncService.bind();
+      injector.session.ownerId.addListener(() {
+        bookmarkProvider.resetForOwner();
+        playlistProvider.resetForOwner();
+        recentProvider.resetForOwner();
+        _runStartupTask('reload bookmarks', bookmarkProvider.fetchBookmarks());
+        _runStartupTask('reload playlists', playlistProvider.load());
+        _runStartupTask('reload recent movies', recentProvider.fetchMovies());
+        _runStartupTask('reload recent episodes', recentProvider.fetchEpisodes());
+      });
+    } catch (error) {
+      debugPrint('[Startup] Sync service initialization failed: $error');
+    }
+  }
+
+  try {
+    await injector.session.restore();
+    AuthSessionController.instance.initialize();
+  } catch (error) {
+    debugPrint('[Startup] Session restore failed: $error');
+  }
+
+  try {
+    await injector.plus.start();
+    installPlusOffer();
+  } catch (error) {
+    debugPrint('[Startup] Plus initialization failed: $error');
+  }
+
+  try {
+    await wellnessProvider.bindLaravelOwner(injector.session.ownerId);
+  } catch (error) {
+    debugPrint('[Startup] Wellness account binding failed: $error');
+  }
+
+  try {
+    await Future.wait<void>([
+      recentProvider.fetchMovies(),
+      recentProvider.fetchEpisodes(),
+      bookmarkProvider.fetchBookmarks(),
+      playlistProvider.load(),
+    ]);
+  } catch (error) {
+    debugPrint('[Startup] Local library hydration failed: $error');
+  }
+
+  if (SyncRuntime.enabled) {
+    _runStartupTask(
+      'initial account sync',
+      injector.syncCoordinator.syncAll(),
+    );
+  }
 }
