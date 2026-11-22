@@ -16,7 +16,10 @@ void main() {
       );
 
       final customPaint = tester.widget<CustomPaint>(
-        find.byType(CustomPaint),
+        find.descendant(
+          of: find.byType(SevenXAiMark),
+          matching: find.byType(CustomPaint),
+        ),
       );
       final painter = customPaint.painter! as SevenXAiMarkPainter;
       expect(
