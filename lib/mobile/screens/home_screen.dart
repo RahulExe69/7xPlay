@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../catalog/catalog_controller.dart';
 import '../../catalog/continue_watching.dart';
@@ -14,7 +15,6 @@ import '../../catalog/media_item.dart';
 import '../../catalog/title_logos.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
-import '../../design/flix_ai_mark.dart';
 import '../../models/genres.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/recently_watched_provider.dart';
@@ -682,7 +682,12 @@ class _HomeHeader extends StatelessWidget {
                         builder: (_) => const FlixAiScreen(),
                       ),
                     ),
-                    icon: const FlixAiMark(height: 22),
+                    icon: SvgPicture.asset(
+                      'assets/images/7xplay_mark_monochrome.svg',
+                      width: 22,
+                      height: 22,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                   IconButton(
                     tooltip: tr('search'),
