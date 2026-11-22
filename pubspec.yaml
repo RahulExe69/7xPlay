@@ -136,16 +136,16 @@ flutter:
         - asset: assets/fonts/imdb.ttf
 
 flutter_native_splash:
-  # Android 11 and below: use the official 7xPlay background artwork and wordmark.
+  # The native splash transitions directly into the SVG-backed Flutter splash.
+  # Use the full wordmark as the only graphic on every Android version.
   background_image: assets/images/7xplay_splash_background.png
   background_image_dark: assets/images/7xplay_splash_background.png
   image: assets/images/7xplay_wordmark.png
   android_12:
-    # Android 12+ only accepts a solid window background, not a background image.
-    # Keep the official monochrome mark in the system icon slot and the wordmark below.
-    image: assets/images/7xplay_mark_monochrome.png
+    # Android 12+ requires a solid native-window color. The first Flutter frame
+    # paints the complete brand SVG background and keeps the wordmark centered.
+    image: assets/images/7xplay_wordmark.png
     color: "#0D1D25"
     color_dark: "#0D1D25"
     icon_background_color: "#0D1D25"
     icon_background_color_dark: "#0D1D25"
-    branding: assets/images/7xplay_wordmark.png
