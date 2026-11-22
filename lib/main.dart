@@ -120,7 +120,7 @@ Future<DevicePresentation> appInitialize({
 
   _startupStage = 'bundled environment configuration';
 
-  await dotenv.load(fileName: '.env').timeout(const Duration(seconds: 4));
+  await dotenv.load(fileName: 'config.env').timeout(const Duration(seconds: 4));
 
   _startupStage = 'localization initialization';
   await EasyLocalization.ensureInitialized()
@@ -223,7 +223,7 @@ void main() {
 }
 
 class _StartupGate extends StatefulWidget {
-  const _StartupGate({super.key});
+  const _StartupGate();
 
   @override
   State<_StartupGate> createState() => _StartupGateState();
