@@ -163,52 +163,52 @@ Future<DevicePresentation> appInitialize({
   // These reads are independent and no longer hold the startup gate closed.
   _runStartupTask('secondary preference hydration', () async {
     await Future.wait<void>([
-    _hydrateStartupSetting(
-        'Material 3 preference', settingsProvider.getCurrentMaterial3Mode),
-    _hydrateStartupSetting('adult mode', settingsProvider.getCurrentAdultMode),
-    _hydrateStartupSetting(
-        'default screen', settingsProvider.getCurrentDefaultScreen),
-    _hydrateStartupSetting(
-        'image quality', settingsProvider.getCurrentImageQuality),
-    _hydrateStartupSetting(
-        'watch country', settingsProvider.getCurrentWatchCountry),
-    _hydrateStartupSetting('seek duration', settingsProvider.getSeekDuration),
-    _hydrateStartupSetting('hold speeds', settingsProvider.getHoldSpeeds),
-    _hydrateStartupSetting(
-        'maximum buffer', settingsProvider.getMaxBufferDuration),
-    _hydrateStartupSetting(
-        'video resolution', settingsProvider.getVideoResolution),
-    _hydrateStartupSetting(
-        'subtitle language', settingsProvider.getSubtitleLanguage),
-    _hydrateStartupSetting('subtitle mode', settingsProvider.getSubtitleMode),
-    _hydrateStartupSetting('view mode', settingsProvider.getViewMode),
-    _hydrateStartupSetting('subtitle size', settingsProvider.getSubtitleSize),
-    _hydrateStartupSetting('subtitle foreground',
-        settingsProvider.getForegroundSubtitleColor),
-    _hydrateStartupSetting('subtitle background',
-        settingsProvider.getBackgroundSubtitleColor),
-    _hydrateStartupSetting('app color', settingsProvider.getAppColorIndex),
-    _hydrateStartupSetting(
-        'custom app color', settingsProvider.getCustomAppColor),
-    _hydrateStartupSetting(
-        'stream provider order', settingsProvider.getStreamProviderOrder),
-    _hydrateStartupSetting(
-        'player time style', settingsProvider.getPlayerTimeStyle),
-    _hydrateStartupSetting('proxy mode', settingsProvider.getUseProxyMode),
-    _hydrateStartupSetting(
-        'subtitle style', settingsProvider.getSubtitleStyle),
-    _hydrateStartupSetting('next episode preference',
-        settingsProvider.getEnableNextEpisodeButton),
-    _hydrateStartupSetting(
-        'intro database settings', settingsProvider.getIntroDbSettings),
-    _hydrateStartupSetting(
-        'player ambient glow', settingsProvider.getPlayerAmbientGlowEnabled),
-    _hydrateStartupSetting(
-        'auto picture-in-picture', settingsProvider.getAutoPipOnLeave),
-    _hydrateStartupSetting(
-        'streaming do-not-disturb', settingsProvider.getStreamingDnd),
-    _hydrateStartupSetting(
-        'automatic source loading', settingsProvider.getAutoLoadSources),
+      _hydrateStartupSetting(
+          'Material 3 preference', settingsProvider.getCurrentMaterial3Mode),
+      _hydrateStartupSetting('adult mode', settingsProvider.getCurrentAdultMode),
+      _hydrateStartupSetting(
+          'default screen', settingsProvider.getCurrentDefaultScreen),
+      _hydrateStartupSetting(
+          'image quality', settingsProvider.getCurrentImageQuality),
+      _hydrateStartupSetting(
+          'watch country', settingsProvider.getCurrentWatchCountry),
+      _hydrateStartupSetting('seek duration', settingsProvider.getSeekDuration),
+      _hydrateStartupSetting('hold speeds', settingsProvider.getHoldSpeeds),
+      _hydrateStartupSetting(
+          'maximum buffer', settingsProvider.getMaxBufferDuration),
+      _hydrateStartupSetting(
+          'video resolution', settingsProvider.getVideoResolution),
+      _hydrateStartupSetting(
+          'subtitle language', settingsProvider.getSubtitleLanguage),
+      _hydrateStartupSetting('subtitle mode', settingsProvider.getSubtitleMode),
+      _hydrateStartupSetting('view mode', settingsProvider.getViewMode),
+      _hydrateStartupSetting('subtitle size', settingsProvider.getSubtitleSize),
+      _hydrateStartupSetting('subtitle foreground',
+          settingsProvider.getForegroundSubtitleColor),
+      _hydrateStartupSetting('subtitle background',
+          settingsProvider.getBackgroundSubtitleColor),
+      _hydrateStartupSetting('app color', settingsProvider.getAppColorIndex),
+      _hydrateStartupSetting(
+          'custom app color', settingsProvider.getCustomAppColor),
+      _hydrateStartupSetting(
+          'stream provider order', settingsProvider.getStreamProviderOrder),
+      _hydrateStartupSetting(
+          'player time style', settingsProvider.getPlayerTimeStyle),
+      _hydrateStartupSetting('proxy mode', settingsProvider.getUseProxyMode),
+      _hydrateStartupSetting(
+          'subtitle style', settingsProvider.getSubtitleStyle),
+      _hydrateStartupSetting('next episode preference',
+          settingsProvider.getEnableNextEpisodeButton),
+      _hydrateStartupSetting(
+          'intro database settings', settingsProvider.getIntroDbSettings),
+      _hydrateStartupSetting(
+          'player ambient glow', settingsProvider.getPlayerAmbientGlowEnabled),
+      _hydrateStartupSetting(
+          'auto picture-in-picture', settingsProvider.getAutoPipOnLeave),
+      _hydrateStartupSetting(
+          'streaming do-not-disturb', settingsProvider.getStreamingDnd),
+      _hydrateStartupSetting(
+          'automatic source loading', settingsProvider.getAutoLoadSources),
     ]);
     settingsProvider.completeHydration();
   }());
@@ -264,7 +264,7 @@ class _StartupGateState extends State<_StartupGate> {
       });
     } catch (error, stackTrace) {
       final diagnostic = '$_startupStage · ${error.runtimeType}';
-      debugPrint('[Startup] $diagnostic: $error\\n$stackTrace');
+      debugPrint('[Startup] $diagnostic: $error\n$stackTrace');
       if (!mounted) return;
       setState(() {
         _startupError = diagnostic;
