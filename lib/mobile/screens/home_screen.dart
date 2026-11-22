@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../catalog/catalog_controller.dart';
 import '../../catalog/continue_watching.dart';
@@ -682,11 +681,12 @@ class _HomeHeader extends StatelessWidget {
                         builder: (_) => const FlixAiScreen(),
                       ),
                     ),
-                    icon: SvgPicture.asset(
-                      'assets/images/7xplay_mark_monochrome.svg',
+                    icon: Image.asset(
+                      'assets/images/7xplay_mark_monochrome.png',
                       width: 22,
                       height: 22,
                       fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
                   ),
                   IconButton(
