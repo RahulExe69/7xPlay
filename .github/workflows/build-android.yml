@@ -71,6 +71,14 @@ jobs:
       - name: Resolve dependencies
         working-directory: 7xPlay
         run: flutter pub get
+      - name: Upload resolved Pub lockfile for reproducibility
+        uses: actions/upload-artifact@v6
+        with:
+          name: 7xPlay-pubspec-lock-${{ github.run_id }}-${{ github.job }}
+          path: 7xPlay/pubspec.lock
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
       - name: Test provider aggregation and fallback behavior
         working-directory: 7xPlay
@@ -231,6 +239,14 @@ jobs:
       - name: Resolve dependencies
         working-directory: 7xPlay
         run: flutter pub get
+      - name: Upload resolved Pub lockfile for reproducibility
+        uses: actions/upload-artifact@v6
+        with:
+          name: 7xPlay-pubspec-lock-${{ github.run_id }}-${{ github.job }}
+          path: 7xPlay/pubspec.lock
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
       - name: Build optimized ARM64 release APK
         working-directory: 7xPlay
@@ -340,6 +356,14 @@ jobs:
       - name: Resolve dependencies
         working-directory: 7xPlay
         run: flutter pub get
+      - name: Upload resolved Pub lockfile for reproducibility
+        uses: actions/upload-artifact@v6
+        with:
+          name: 7xPlay-pubspec-lock-${{ github.run_id }}-${{ github.job }}
+          path: 7xPlay/pubspec.lock
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
       - name: Build all optimized ABI APKs in one invocation
         working-directory: 7xPlay
