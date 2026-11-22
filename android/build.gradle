@@ -41,17 +41,6 @@ subprojects {
     project.evaluationDependsOn(':app')
 }
 
-// Keep third-party Android library plugins on the app's compile SDK.
-// Configure the Android extension as soon as the Android library plugin is
-// applied; afterEvaluate is too late under the current Gradle lifecycle.
-subprojects { subproject ->
-    subproject.plugins.withId('com.android.library') {
-        subproject.extensions.configure('android') {
-            compileSdk = 36
-        }
-    }
-}
-
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
