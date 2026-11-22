@@ -279,25 +279,32 @@ class _Intro extends StatelessWidget {
                       semanticLabel: '7xPlay icon',
                     ),
                     const SizedBox(width: AppSpace.sm),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '7xPlay',
-                          style: AppType.sectionHeader.copyWith(
-                            fontFamily: AppType.bold,
-                            fontSize: 27,
-                            color: palette.foreground,
-                          ),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '7xPlay',
+                              style: AppType.sectionHeader.copyWith(
+                                fontFamily: AppType.bold,
+                                fontSize: 27,
+                                color: palette.foreground,
+                              ),
+                            ),
+                            Text(
+                              'Stream Everything',
+                              style: AppType.metadata.copyWith(
+                                color: palette.mutedText,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          'Stream Everything',
-                          style: AppType.metadata.copyWith(
-                            color: palette.mutedText,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
