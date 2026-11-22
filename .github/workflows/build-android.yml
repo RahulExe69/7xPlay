@@ -238,6 +238,9 @@ jobs:
 
       - name: Resolve dependencies
         working-directory: 7xPlay
+      - name: Generate branded native splash screens
+        working-directory: 7xPlay
+        run: dart run flutter_native_splash:create
         run: flutter pub get
       - name: Upload resolved Pub lockfile for reproducibility
         uses: actions/upload-artifact@v6
@@ -367,6 +370,9 @@ jobs:
 
       - name: Resolve dependencies
         working-directory: 7xPlay
+      - name: Generate branded native splash screens
+        working-directory: 7xPlay
+        run: dart run flutter_native_splash:create
         run: flutter pub get
       - name: Upload resolved Pub lockfile for reproducibility
         uses: actions/upload-artifact@v6
