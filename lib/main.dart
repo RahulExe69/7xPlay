@@ -61,100 +61,144 @@ void _runStartupTask(String label, Future<void> task) {
   }));
 }
 
+Future<void> _hydrateStartupSetting(
+  String label,
+  Future<void> Function() hydrate,
+) async {
+  try {
+    await hydrate().timeout(const Duration(seconds: 4));
+  } catch (error) {
+    debugPrint('[Startup] $label hydration skipped: $error');
+  }
+}
+
 Future<DevicePresentation> appInitialize({
   DevicePresentationDetector? devicePresentationDetector,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Let Flutter paint behind Android's transparent gesture-navigation area.
-  // Individual surfaces remain responsible for applying SafeArea padding to
-  // interactive content.
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // Platform UI tweaks are useful, but do not hold the first frame.
+  _runStartupTask(
+    'edge-to-edge system UI',
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
+  );
+  _runStartupTask(
+    'orientation policy',
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]),
+  );
 
   final devicePresentation = await resolveDevicePresentation(
     detector: devicePresentationDetector,
+  ).timeout(
+    const Duration(seconds: 3),
+    onTimeout: () {
+      debugPrint('[Startup] Device detection timed out; using handheld mode.');
+      return DevicePresentation.handheld;
+    },
   );
-
-  // Initialize MediaKit for video playback with multiple codec support
-  // MediaKit.ensureInitialized();
-
-  // Reset orientation to all orientations on app start
-  // This is CRITICAL for handling ungraceful app termination (force-close, system kill)
-  // When the app is killed while streaming in landscape mode, this ensures
-  // orientation is reset on next app launch since dispose() never gets called
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
 
   // Android 7.0 predates ISRG Root X1, which anchors the API's certificate.
   try {
-    final root = await rootBundle.load('assets/ca/isrg-root-x1.pem');
+    final root = await rootBundle
+        .load('assets/ca/isrg-root-x1.pem')
+        .timeout(const Duration(seconds: 4));
     SecurityContext.defaultContext
         .setTrustedCertificatesBytes(root.buffer.asUint8List());
-  } catch (_) {/* The platform already trusts it. */}
-  await dotenv.load(fileName: '.env');
-  await EasyLocalization.ensureInitialized();
-  // Seed the shared version with the installed build so any synchronous reader
-  // matches the binary instead of a hardcoded string that drifts.
-  currentAppVersion = (await PackageInfo.fromPlatform()).version;
-  sharedPrefsSingleton = await SharedPreferencesSingleton.getInstance();
-  await settingsProvider.getCurrentAppMode();
+  } catch (_) {
+    // The platform may already trust the certificate.
+  }
+
+  await dotenv.load(fileName: '.env').timeout(const Duration(seconds: 8));
+  await EasyLocalization.ensureInitialized()
+      .timeout(const Duration(seconds: 6));
+
+  // Diagnostic only; package metadata must not hold app launch.
+  try {
+    currentAppVersion =
+        (await PackageInfo.fromPlatform().timeout(const Duration(seconds: 5)))
+            .version;
+  } catch (error) {
+    debugPrint('[Startup] Package info unavailable: $error');
+  }
+
+  sharedPrefsSingleton = await SharedPreferencesSingleton.getInstance()
+      .timeout(const Duration(seconds: 8));
+  await _hydrateStartupSetting(
+    'app mode',
+    settingsProvider.getCurrentAppMode,
+  );
   DevicePresentationService.instance.isTelevision =
       settingsProvider.appMode.resolve(devicePresentation) ==
           DevicePresentation.television;
-  // Cache cleanup, downloads and analytics are not prerequisites for the first
-  // frame. Keep them off the critical startup path.
+
+  // Non-critical services initialize alongside the first screen.
   _runStartupTask('video cache cleanup', clearVideoPlaybackCache());
   _runStartupTask(
     'download manager initialization',
     FlutterDownloader.initialize(debug: true, ignoreSsl: true),
   );
-
-  await settingsProvider.getCurrentThemeMode();
-  await settingsProvider.getCurrentMaterial3Mode();
   _runStartupTask('analytics initialization', settingsProvider.initMixpanel());
-  await settingsProvider.getCurrentAdultMode();
-  await settingsProvider.getCurrentDefaultScreen();
-  await settingsProvider.getCurrentImageQuality();
-  await settingsProvider.getCurrentWatchCountry();
-  await settingsProvider.getSeekDuration();
-  await settingsProvider.getHoldSpeeds();
-  await settingsProvider.getMaxBufferDuration();
-  await settingsProvider.getVideoResolution();
-  await settingsProvider.getSubtitleLanguage();
-  await settingsProvider.getSubtitleMode();
-  await settingsProvider.getViewMode();
-  await settingsProvider.getSubtitleSize();
-  await settingsProvider.getForegroundSubtitleColor();
-  await settingsProvider.getBackgroundSubtitleColor();
-  await settingsProvider.getAppLanguage();
-  await settingsProvider.getAppColorIndex();
-  await settingsProvider.getCustomAppColor();
-  await settingsProvider.getStreamProviderOrder();
-  await settingsProvider.getPlayerTimeStyle();
-  await settingsProvider.getUseProxyMode();
-  await settingsProvider.getSubtitleStyle();
-  await settingsProvider.getEnableNextEpisodeButton();
-  await settingsProvider.getIntroDbSettings();
-  await settingsProvider.getPlayerAmbientGlowEnabled();
-  await settingsProvider.getAutoPipOnLeave();
-  await settingsProvider.getStreamingDnd();
-  await settingsProvider.getAutoLoadSources();
-  settingsProvider.completeHydration();
-  // These are local database reads. The providers publish their results when
-  // ready, so they can hydrate after the first screen is already visible.
-  await Future.wait<void>([
-    appDependencyProvider.getFlixQuestLogo(),
-    appDependencyProvider.getOccasionalTheme(preserveSelection: true),
-    appDependencyProvider.getAmbientMode(),
-    appDependencyProvider.getFQUrl(),
-    appDependencyProvider.getTmdbProxy(),
-    appDependencyProvider.getUpdateConfiguration(),
-  ]);
 
+  // Preference reads are independent. Hydrate concurrently instead of
+  // serially waiting for dozens of tiny SharedPreferences operations.
+  await Future.wait<void>([
+    _hydrateStartupSetting('theme mode', settingsProvider.getCurrentThemeMode),
+    _hydrateStartupSetting(
+        'Material 3 preference', settingsProvider.getCurrentMaterial3Mode),
+    _hydrateStartupSetting('adult mode', settingsProvider.getCurrentAdultMode),
+    _hydrateStartupSetting(
+        'default screen', settingsProvider.getCurrentDefaultScreen),
+    _hydrateStartupSetting(
+        'image quality', settingsProvider.getCurrentImageQuality),
+    _hydrateStartupSetting(
+        'watch country', settingsProvider.getCurrentWatchCountry),
+    _hydrateStartupSetting('seek duration', settingsProvider.getSeekDuration),
+    _hydrateStartupSetting('hold speeds', settingsProvider.getHoldSpeeds),
+    _hydrateStartupSetting(
+        'maximum buffer', settingsProvider.getMaxBufferDuration),
+    _hydrateStartupSetting(
+        'video resolution', settingsProvider.getVideoResolution),
+    _hydrateStartupSetting(
+        'subtitle language', settingsProvider.getSubtitleLanguage),
+    _hydrateStartupSetting('subtitle mode', settingsProvider.getSubtitleMode),
+    _hydrateStartupSetting('view mode', settingsProvider.getViewMode),
+    _hydrateStartupSetting('subtitle size', settingsProvider.getSubtitleSize),
+    _hydrateStartupSetting('subtitle foreground',
+        settingsProvider.getForegroundSubtitleColor),
+    _hydrateStartupSetting('subtitle background',
+        settingsProvider.getBackgroundSubtitleColor),
+    _hydrateStartupSetting('app language', settingsProvider.getAppLanguage),
+    _hydrateStartupSetting('app color', settingsProvider.getAppColorIndex),
+    _hydrateStartupSetting(
+        'custom app color', settingsProvider.getCustomAppColor),
+    _hydrateStartupSetting(
+        'stream provider order', settingsProvider.getStreamProviderOrder),
+    _hydrateStartupSetting(
+        'player time style', settingsProvider.getPlayerTimeStyle),
+    _hydrateStartupSetting('proxy mode', settingsProvider.getUseProxyMode),
+    _hydrateStartupSetting(
+        'subtitle style', settingsProvider.getSubtitleStyle),
+    _hydrateStartupSetting('next episode preference',
+        settingsProvider.getEnableNextEpisodeButton),
+    _hydrateStartupSetting(
+        'intro database settings', settingsProvider.getIntroDbSettings),
+    _hydrateStartupSetting(
+        'player ambient glow', settingsProvider.getPlayerAmbientGlowEnabled),
+    _hydrateStartupSetting(
+        'auto picture-in-picture', settingsProvider.getAutoPipOnLeave),
+    _hydrateStartupSetting(
+        'streaming do-not-disturb', settingsProvider.getStreamingDnd),
+    _hydrateStartupSetting(
+        'automatic source loading', settingsProvider.getAutoLoadSources),
+  ]);
+  settingsProvider.completeHydration();
+
+  // Legacy app-specific preferences are loaded after the first frame.
   return devicePresentation;
 }
 
@@ -183,7 +227,12 @@ class _StartupGateState extends State<_StartupGate> {
 
   Future<void> _loadApplication() async {
     try {
-      final prepared = await _prepareApplication();
+      final prepared = await _prepareApplication().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw TimeoutException(
+          'Startup initialization exceeded 30 seconds. Please retry.',
+        ),
+      );
       if (!mounted) return;
       setState(() {
         _application = prepared.application;
@@ -284,28 +333,30 @@ Future<_PreparedApplication> _prepareApplication() async {
   // block first paint while Android drains any queued deep links.
   _runStartupTask('media link bridge', MediaLinkNavigationService.initialize());
   final application = MultiProvider(
-      providers: [
-        ChangeNotifierProvider<SessionViewModel>.value(value: injector.session),
-        ChangeNotifierProvider<PlusController>.value(value: injector.plus),
-        ChangeNotifierProvider<PlaylistProvider>.value(value: playlistProvider),
-      ],
-      child: Provider<AppInjector>.value(
-          value: injector,
-          child: EasyLocalization(
-            supportedLocales: Translation.all,
-            path: 'assets/translations',
-            fallbackLocale: Translation.all[0],
-            startLocale: Locale(settingsProvider.appLanguage),
-            child: FlixQuest(
-              settingsProvider: settingsProvider,
-              recentProvider: recentProvider,
-              bookmarkProvider: bookmarkProvider,
-              appDependencyProvider: appDependencyProvider,
-              devicePresentation: devicePresentation,
-              configController: configController,
-              adsController: adsController,
-            ),
-          ))));
+    providers: [
+      ChangeNotifierProvider<SessionViewModel>.value(value: injector.session),
+      ChangeNotifierProvider<PlusController>.value(value: injector.plus),
+      ChangeNotifierProvider<PlaylistProvider>.value(value: playlistProvider),
+    ],
+    child: Provider<AppInjector>.value(
+      value: injector,
+      child: EasyLocalization(
+        supportedLocales: Translation.all,
+        path: 'assets/translations',
+        fallbackLocale: Translation.all[0],
+        startLocale: Locale(settingsProvider.appLanguage),
+        child: FlixQuest(
+          settingsProvider: settingsProvider,
+          recentProvider: recentProvider,
+          bookmarkProvider: bookmarkProvider,
+          appDependencyProvider: appDependencyProvider,
+          devicePresentation: devicePresentation,
+          configController: configController,
+          adsController: adsController,
+        ),
+      ),
+    ),
+  );
   return _PreparedApplication(
     application: application,
     afterFirstFrame: () => _initializePostLaunch(injector),
@@ -313,6 +364,23 @@ Future<_PreparedApplication> _prepareApplication() async {
 }
 
 Future<void> _initializePostLaunch(AppInjector injector) async {
+  await Future.wait<void>([
+    _hydrateStartupSetting(
+        'FlixQuest logo preference', appDependencyProvider.getFlixQuestLogo),
+    _hydrateStartupSetting(
+        'occasional theme preference',
+        () => appDependencyProvider.getOccasionalTheme(preserveSelection: true)),
+    _hydrateStartupSetting(
+        'ambient mode preference', appDependencyProvider.getAmbientMode),
+    _hydrateStartupSetting(
+        'scraper endpoint preferences', appDependencyProvider.getFQUrl),
+    _hydrateStartupSetting(
+        'TMDB proxy preference', appDependencyProvider.getTmdbProxy),
+    _hydrateStartupSetting(
+        'cached update configuration',
+        appDependencyProvider.getUpdateConfiguration),
+  ]);
+
   try {
     await wellnessProvider.initialize();
   } catch (error) {
