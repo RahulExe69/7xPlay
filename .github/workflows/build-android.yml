@@ -155,13 +155,13 @@ jobs:
         working-directory: 7xPlay
         run: flutter analyze
 
-  # Fast installable preview for PRs. Build only the ABI used by modern Android
-  # phones; do not wait for the slower multi-ABI, minified release pipeline.
+  # Installable, size-optimized ARM64 preview for PRs. Release mode enables
+  # R8/resource shrinking and tree-shaking; only build the ABI used by phones.
   build-debug-apk:
     if: github.event_name == 'pull_request'
-    name: Build fast ARM64 debug APK
+    name: Build optimized ARM64 release APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Check out 7xPlay
         uses: actions/checkout@v5
@@ -222,13 +222,13 @@ jobs:
         working-directory: 7xPlay
         run: flutter pub get
 
-      - name: Build ARM64 debug APK
+      - name: Build optimized ARM64 release APK
         working-directory: 7xPlay
         run: |
-          flutter build apk --debug --flavor prod --target-platform android-arm64 --no-pub --android-skip-build-dependency-validation
+          flutter build apk --release --flavor prod --target-platform android-arm64 --split-per-abi --obfuscate --tree-shake-icons --split-debug-info="build/symbols" --no-pub --android-skip-build-dependency-validation
 
-          APK="build/app/outputs/flutter-apk/app-prod-debug.apk"
-          test -s "$APK" || { echo "::error::Debug APK was not produced"; find build/app/outputs -maxdepth 4 -type f -name '*.apk' -print; exit 1; }
+          APK="build/app/outputs/flutter-apk/app-arm64-v8a-prod-release.apk"
+          test -s "$APK" || { echo "::error::Optimized ARM64 release APK was not produced"; find build/app/outputs -maxdepth 4 -type f -name '*.apk' -print; exit 1; }
 
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           AAPT="$(find "$SDK_ROOT/build-tools" -maxdepth 2 -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
@@ -238,18 +238,26 @@ jobs:
           fi
 
           mkdir -p build/artifacts
-          cp "$APK" build/artifacts/7xPlay-debug-arm64.apk
-          echo "Debug APK size:"
-          du -h build/artifacts/7xPlay-debug-arm64.apk
+          cp "$APK" build/artifacts/7xPlay-arm64-v8a-release.apk
+          echo "Optimized ARM64 release APK size:"
+          du -h build/artifacts/7xPlay-arm64-v8a-release.apk
 
-      - name: Upload installable debug APK
+      - name: Upload installable ARM64 release APK
         uses: actions/upload-artifact@v6
         with:
-          name: 7xPlay-debug-arm64-${{ github.event.pull_request.head.sha }}
-          path: 7xPlay/build/artifacts/7xPlay-debug-arm64.apk
+          name: 7xPlay-arm64-v8a-release-${{ github.event.pull_request.head.sha }}
+          path: 7xPlay/build/artifacts/7xPlay-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+      - name: Upload Dart symbols for release diagnostics
+        uses: actions/upload-artifact@v6
+        with:
+          name: 7xPlay-symbols-${{ github.event.pull_request.head.sha }}
+          path: 7xPlay/build/symbols/
+          if-no-files-found: warn
+          retention-days: 14
 
   # PRs run the quick provider tests above. Avoid rebuilding all APKs on
   # every PR update; full APKs are built once after merge or on manual dispatch.
