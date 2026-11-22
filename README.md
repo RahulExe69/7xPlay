@@ -83,7 +83,7 @@ These are upstream FlixQuest API routes, not endpoints implemented by 7xPlay. Re
 
 ## Configuration
 
-The app reads local configuration from ` .env ` through `flutter_dotenv`. Start with the example file:
+The app reads local configuration from `.env` through `flutter_dotenv`. Start with the example file:
 
 ```bash
 cp .env.example .env
