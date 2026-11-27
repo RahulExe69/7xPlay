@@ -5580,8 +5580,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
       final missingAttempts = await DownloadCoordinator.loadProviders(
         providers: providersNeedingLoad,
-        concurrency: 4,
-        timeout: const Duration(seconds: 18),
+        concurrency: 8,
+        timeout: const Duration(seconds: 12),
         load: (provider) => isMovie
             ? ProviderLoader.loadMovieFromProvider(
                 provider: provider,
@@ -5612,7 +5612,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final discovery = await UnifiedPlaybackLanguageService.discover(
         attempts,
         candidatesPerProvider: null,
-        concurrency: 4,
+        concurrency: 8,
         probeTimeout: const Duration(seconds: 8),
       );
       if (!mounted) return;
@@ -5638,16 +5638,20 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!mounted || languageCode == null) return;
 
+      final languageCandidates = DownloadCoordinator.candidatesForLanguage(
+        attempts: attempts,
+        discovery: discovery,
+        languageCode: languageCode,
+        scraperApiUrl: apiUrl,
+      );
+
+      // Estimate only the streams that can satisfy the chosen language.
+      // Avoid spending requests/time estimating every unused dub.
       final sizeTokens = <String, String>{};
-      for (final attempt in attempts) {
-        for (final link in attempt.result.videoLinks ?? const []) {
-          final token = link.sizeToken?.trim() ?? '';
-          if (token.isNotEmpty && link.url?.trim().isNotEmpty == true) {
-            sizeTokens.putIfAbsent(
-              UnifiedPlaybackLanguageService.sourceIdentityForLink(link),
-              () => token,
-            );
-          }
+      for (final candidate in languageCandidates) {
+        final token = candidate.link.sizeToken?.trim() ?? '';
+        if (token.isNotEmpty) {
+          sizeTokens.putIfAbsent(candidate.sourceIdentity, () => token);
         }
       }
       final estimatedSizes = await StreamSizeEstimator.load(
@@ -5655,20 +5659,19 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         tokens: sizeTokens,
         cacheByToken: _streamSizeCacheByToken,
       );
-
-      final languageCandidates = DownloadCoordinator.candidatesForLanguage(
-        attempts: attempts,
-        discovery: discovery,
-        languageCode: languageCode,
-        scraperApiUrl: apiUrl,
-        estimatedSizes: estimatedSizes,
-      );
+      final sizedCandidates = languageCandidates
+          .map(
+            (candidate) => candidate.copyWith(
+              estimatedBytes: estimatedSizes[candidate.sourceIdentity],
+            ),
+          )
+          .toList(growable: false);
       if (!mounted) return;
       if (languageCandidates.isEmpty) {
         throw StateError('No sources support the selected audio language.');
       }
 
-      final formats = DownloadCoordinator.buildFormats(languageCandidates);
+      final formats = DownloadCoordinator.buildFormats(sizedCandidates);
       if (formats.isEmpty) {
         throw StateError('No downloadable formats were found.');
       }
