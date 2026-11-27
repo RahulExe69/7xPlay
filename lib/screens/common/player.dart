@@ -3746,7 +3746,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final hasHindiManifestTrack = currentManifestTracks.any((track) =>
         languageCodeForLabel(track.language) == 'hi' ||
         languageCodeForLabel(track.label) == 'hi');
-    if (discoveryPending && !options.containsKey('hi') && !hasHindiManifestTrack) {
+    if (discoveryPending &&
+        !options.containsKey('hi') &&
+        !hasHindiManifestTrack) {
       return;
     }
 
@@ -3795,10 +3797,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
       final currentUrl =
           _betterPlayerController.betterPlayerDataSource?.url;
-      if (currentUrl != null &&
-          sourceKeys.any(
-            (key) => _allVideoSources[key] == currentUrl,
-          )) {
+      final isAlreadyActive = currentUrl != null &&
+          _activeSources.entries.any(
+            (entry) =>
+                sourceKeys.contains(entry.key) && entry.value == currentUrl,
+          );
+      if (isAlreadyActive) {
         // The active progressive source was labelled with this language but
         // exposes no separate native track list. Avoid reloading the same URL.
         _activeAudioLanguageCode = languageCode;
