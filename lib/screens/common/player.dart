@@ -5662,7 +5662,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final sizedCandidates = languageCandidates
           .map(
             (candidate) => candidate.copyWith(
-              estimatedBytes: estimatedSizes[candidate.sourceIdentity],
+              estimatedBytes: estimatedSizes[candidate.estimateKey],
             ),
           )
           .toList(growable: false);
@@ -5710,9 +5710,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final posterUrl = posterPath == null
           ? null
           : '$TMDB_BASE_IMAGE_URL' 'w500$posterPath';
-      final mediaTitle = isMovie
-          ? movie?.movieName ?? 'Movie'
-          : episode?.seriesName ?? 'TV episode';
       final downloadId = isMovie
           ? 'movie_$titleId'
           : 'tv_${titleId}_s${season}_e$episodeNumber';

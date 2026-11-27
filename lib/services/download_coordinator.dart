@@ -40,6 +40,11 @@ class DownloadCandidate {
       UnifiedPlaybackLanguageService.sourceIdentityForLink(link);
   String get formatIdentity => quality.trim().toLowerCase();
 
+  /// Distinguishes provider-specific size tokens even when providers expose
+  /// the same CDN URL and headers.
+  String get estimateKey =>
+      '${provider.codeName}|$formatIdentity|$sourceIdentity';
+
   DownloadCandidate copyWith({
     int? estimatedBytes,
     OfflineAudioTrack? audioTrack,
@@ -64,9 +69,9 @@ class DownloadCandidate {
         'format': format,
         'quality': quality,
         'headers': headers,
-        'audioTrack': audioTrack?.selection,
-        'audioTrackName': audioTrack?.name,
-        'source': source?.toMap(),
+        if (audioTrack != null) 'audioTrack': audioTrack!.selection,
+        if (audioTrack != null) 'audioTrackName': audioTrack!.name,
+        if (source != null) 'source': source!.toMap(),
       };
 }
 
