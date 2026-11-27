@@ -239,9 +239,17 @@ jobs:
       - name: Resolve dependencies
         working-directory: 7xPlay
         run: flutter pub get
+      - name: Enable pinned Gradle launcher
+        working-directory: 7xPlay/android
+        run: chmod +x gradlew
+
       - name: Run native Android download recovery tests
         working-directory: 7xPlay/android
         run: ./gradlew :app:testProdDebugUnitTest --no-daemon
+
+      - name: Enable pinned Gradle launcher
+        working-directory: 7xPlay
+        run: chmod +x android/gradlew
 
       - name: Generate branded native splash screens
         working-directory: 7xPlay
