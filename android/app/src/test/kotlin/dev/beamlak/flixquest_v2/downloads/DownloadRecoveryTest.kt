@@ -192,6 +192,26 @@ class DownloadRecoveryTest {
         assertEquals(1, calls)
     }
 
+    @Test fun exhaustedProviderFallbackIsTerminalAndDoesNotRepeatTheSameSource() {
+        var attempts = 0
+        val downloader = RecoveringDownloader(
+            request(source = false),
+            state(),
+            { _, _ ->
+                attempts++
+                Task { throw response(503, "Provider unavailable") }
+            },
+            { _, _ -> fail("A non-expired provider failure must not renew the same source") },
+            {},
+            fallback = { _, _ -> null },
+        )
+
+        repeat(4) {
+            assertTrue(runCatching { downloader.download(null) }.exceptionOrNull() is IOException)
+        }
+        assertEquals("The failed source must only be attempted once", 1, attempts)
+    }
+
     @Test fun repeatedExpiredReplacementsAreBounded() {
         var calls = 0
         val downloader = RecoveringDownloader(request(), state(), { _, _ -> Task { throw response(403, "Token expired") } },

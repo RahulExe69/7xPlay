@@ -201,16 +201,19 @@ internal class RecoveringDownloader(
 
                 if (replacement == null) {
                     val failure = renewalFailure
-                    if (failure != null) {
-                        fail(IOException(
-                            failure.message ?: "No compatible download source could be prepared.",
-                            error,
-                        ))
+                    val message = when {
+                        failure != null ->
+                            failure.message ?: "No compatible download source could be prepared."
+                        expired ->
+                            "The download source expired and no compatible fallback remains."
+                        providerUnavailable ->
+                            "The download source is unavailable and no compatible fallback remains."
+                        else -> "The download source could not be recovered."
                     }
-                    if (expired && attempts >= 2) {
-                        fail(IOException("The renewed download link expired repeatedly and no fallback source remained.", error))
-                    }
-                    throw error
+                    // A qualifying provider failure is terminal when no
+                    // replacement exists. Rethrowing the raw IOException
+                    // would let Media3 schedule the same dead source again.
+                    fail(IOException(message, failure ?: error))
                 }
 
                 synchronized(this) {
