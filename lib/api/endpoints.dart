@@ -194,6 +194,29 @@ class Endpoints {
         '/movie/$id/recommendations?api_key=$TMDB_API_KEY&language=$l&page=$page';
   }
 
+  /// Discovers movies by their original audio language, independent of the
+  /// metadata language requested for display.
+  static String discoverMoviesByOriginalLanguageUrl(
+    String language, {
+    String originalLanguage = 'hi',
+    int page = 1,
+    List<int>? genreIds,
+    bool includeAdult = false,
+  }) {
+    final genres = genreIds == null || genreIds.isEmpty
+        ? ''
+        : '&with_genres=${genreIds.toSet().join(',')}';
+    return '$TMDB_API_BASE_URL/discover/movie?api_key=$TMDB_API_KEY'
+        '&language=$language'
+        '&sort_by=popularity.desc'
+        '&include_video=false'
+        '&include_adult=$includeAdult'
+        '&vote_count.gte=20'
+        '&page=$page'
+        '&with_original_language=$originalLanguage'
+        '$genres';
+  }
+
   static String getExternalLinksForMovie(int id, String l) {
     return '$TMDB_API_BASE_URL'
         '/movie/$id/external_ids?api_key=$TMDB_API_KEY&language=$l';

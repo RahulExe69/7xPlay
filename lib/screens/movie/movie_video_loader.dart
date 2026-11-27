@@ -8,6 +8,7 @@ import 'package:flixquest/functions/network.dart';
 import 'package:flixquest/functions/video_utils.dart';
 import 'package:flixquest/functions/player_route_handoff.dart';
 import 'package:flixquest/models/movie.dart';
+import 'package:flixquest/catalog/hindi_origin_movie_recommendations.dart';
 import 'package:flixquest/models/movie_stream_metadata.dart';
 import 'package:flixquest/models/offline_download.dart';
 import 'package:flixquest/models/provider_video_source.dart';
@@ -817,6 +818,76 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
     required String proxyUrl,
     required String language,
   }) async {
+    if (_metadata.originalLanguage?.trim().toLowerCase() == 'hi') {
+      final related = await Future.wait<List<Movie>>([
+        _fetchRecommendationList(
+          label: 'Hindi-origin recommendations',
+          endpoint: Endpoints.getMovieRecommendations(movieId, 1, language),
+          isProxyEnabled: isProxyEnabled,
+          proxyUrl: proxyUrl,
+        ),
+        _fetchRecommendationList(
+          label: 'Hindi-origin similar movies',
+          endpoint: Endpoints.getSimilarMovies(movieId, 1, language),
+          isProxyEnabled: isProxyEnabled,
+          proxyUrl: proxyUrl,
+        ),
+      ]);
+
+      var discoveries = <Movie>[];
+      var selected = HindiOriginMovieRecommendations.merge(
+        sourceMovieId: movieId,
+        recommendations: related[0],
+        similar: related[1],
+        discovery: discoveries,
+      );
+
+      if (selected.length < 10) {
+        discoveries = await _fetchRecommendationList(
+          label: 'Hindi-origin genre discovery',
+          endpoint: Endpoints.discoverMoviesByOriginalLanguageUrl(
+            language,
+            originalLanguage: 'hi',
+            genreIds: _metadata.genreIds,
+            includeAdult: settings.isAdult,
+          ),
+          isProxyEnabled: isProxyEnabled,
+          proxyUrl: proxyUrl,
+        );
+        selected = HindiOriginMovieRecommendations.merge(
+          sourceMovieId: movieId,
+          recommendations: related[0],
+          similar: related[1],
+          discovery: discoveries,
+        );
+      }
+
+      if (selected.length < 10 && _metadata.genreIds?.isNotEmpty == true) {
+        final broadDiscoveries = await _fetchRecommendationList(
+          label: 'Hindi-origin popular discovery',
+          endpoint: Endpoints.discoverMoviesByOriginalLanguageUrl(
+            language,
+            originalLanguage: 'hi',
+            includeAdult: settings.isAdult,
+          ),
+          isProxyEnabled: isProxyEnabled,
+          proxyUrl: proxyUrl,
+        );
+        selected = HindiOriginMovieRecommendations.merge(
+          sourceMovieId: movieId,
+          recommendations: related[0],
+          similar: related[1],
+          discovery: [...discoveries, ...broadDiscoveries],
+        );
+      }
+
+      return selected
+          .take(10)
+          .map(MovieRecommendation.fromMovie)
+          .toList(growable: false);
+    }
+
+    // Other titles keep the existing relevance-first recommendations flow.
     var movies = await _fetchRecommendationList(
       label: 'recommendations',
       endpoint: Endpoints.getMovieRecommendations(movieId, 1, language),

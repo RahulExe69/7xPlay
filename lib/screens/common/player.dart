@@ -936,6 +936,8 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // aggregate fallback.
     if (!_providerAttemptStreamActive) {
       unawaited(_discoverProviderAudioLanguages(selection));
+    } else {
+      _maybeAutoSwitchToPreferredAudioSource();
     }
   }
 
@@ -1024,6 +1026,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           !_adBlockStopped &&
           _pendingAudioLanguageAttempts.isNotEmpty) {
         unawaited(_drainAudioLanguageDiscovery());
+      } else if (mounted &&
+          !_adBlockStopped &&
+          !_backgroundProviderAggregationPending) {
+        _maybeAutoSwitchToPreferredAudioSource();
       }
     }
   }
@@ -3535,6 +3541,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           };
           _catalogCurrentManifestAudioTracks();
           final options = _audioSourceKeysByLanguage;
+          final orderedOptionCodes = PreferredAudioLanguagePolicy.orderAvailable(
+            availableLanguageLabels: options.keys,
+            originalLanguage: _contentOriginalLanguage,
+          );
           final activeManifestTracks =
               _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
           // Once a language has been added to the cross-provider catalogue,
@@ -3571,7 +3581,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
                 itemCount: manifestTracks.length +
-                    options.length +
+                    orderedOptionCodes.length +
                     (waiting ? 1 : 0) +
                     (showEmptyState ? 1 : 0),
                 separatorBuilder: (_, __) => const SizedBox(height: 2),
@@ -3610,9 +3620,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
                     );
                   }
                   final sourceIndex = index - manifestTracks.length;
-                  if (sourceIndex < options.length) {
-                    final code = options.keys.elementAt(sourceIndex);
-                    final keys = options[code]!;
+                  if (sourceIndex < orderedOptionCodes.length) {
+                    final code = orderedOptionCodes[sourceIndex];
+                    final keys = options[code] ?? const <String>[];
                     final selected = code == _activeAudioLanguageCode;
                     return PlayerChoiceCard(
                       kicker: selected ? tr('player_now_playing') : null,
@@ -3713,36 +3723,106 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
     final currentManifestTracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-    final preferred = PreferredAudioLanguagePolicy.select(
+    final options = _audioSourceKeysByLanguage;
+    final orderedLanguages = PreferredAudioLanguagePolicy.orderAvailable(
       availableLanguageLabels: {
-        ..._audioSourceKeysByLanguage.keys,
+        ...options.keys,
         ...currentManifestTracks.expand(
           (track) => <String>[track.language ?? '', track.label ?? ''],
         ),
       },
       originalLanguage: _contentOriginalLanguage,
     );
-    if (preferred == null) return;
+    if (orderedLanguages.isEmpty) return;
 
-    for (var index = 0; index < currentManifestTracks.length; index++) {
-      final track = currentManifestTracks[index];
-      final code = languageCodeForLabel(track.language) ??
-          languageCodeForLabel(track.label);
-      if (code != preferred) continue;
-      _automaticPreferredLanguageAttempted = true;
-      _betterPlayerController.setAudioTrack(track);
-      _activeAudioLanguageCode = preferred;
-      _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
-      _catalogCurrentManifestAudioTracks();
-      _audioLanguageSheetRefresh?.call();
+    final discoveryPending = _backgroundProviderAggregationPending ||
+        _audioLanguageDiscoveryRunning ||
+        _pendingAudioLanguageAttempts.isNotEmpty;
+
+    // Hindi gets first chance across every resolved provider. Do not fall back
+    // to English merely because a slower provider has not reported its stream
+    // yet; once Hindi is ruled out, the same ordered policy chooses English,
+    // then the title's original language, then another available track.
+    final hasHindiManifestTrack = currentManifestTracks.any((track) =>
+        languageCodeForLabel(track.language) == 'hi' ||
+        languageCodeForLabel(track.label) == 'hi');
+    if (discoveryPending && !options.containsKey('hi') && !hasHindiManifestTrack) {
       return;
     }
 
-    // Background provider discovery must never replace the active stream.
-    // A verified language on another provider is offered in the unified
-    // language selector; only an explicit user choice may switch providers.
-    // This avoids a surprise player reset when a slower provider completes.
     _automaticPreferredLanguageAttempted = true;
+    unawaited(
+      _applyAutomaticPreferredAudioLanguages(
+        orderedLanguages,
+        providersStillLoading: discoveryPending,
+      ),
+    );
+  }
+
+  Future<void> _applyAutomaticPreferredAudioLanguages(
+    List<String> orderedLanguages, {
+    required bool providersStillLoading,
+  }) async {
+    for (final languageCode in orderedLanguages) {
+      if (!mounted ||
+          _adBlockStopped ||
+          _audioLanguageExplicitlySelected ||
+          _manifestAudioExplicitlySelected) {
+        return;
+      }
+
+      final tracks =
+          _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
+      for (var index = 0; index < tracks.length; index++) {
+        final track = tracks[index];
+        final code = languageCodeForLabel(track.language) ??
+            languageCodeForLabel(track.label);
+        if (code != languageCode) continue;
+
+        // A native track change is the fastest path: keep the same provider
+        // and media source whenever the active manifest already has the dub.
+        _betterPlayerController.setAudioTrack(track);
+        _activeAudioLanguageCode = languageCode;
+        _activeManifestAudioTrackKey = _manifestAudioTrackKey(track, index);
+        _catalogCurrentManifestAudioTracks();
+        _audioLanguageSheetRefresh?.call();
+        return;
+      }
+
+      final sourceKeys =
+          _audioSourceKeysByLanguage[languageCode] ?? const <String>[];
+      if (sourceKeys.isEmpty) continue;
+
+      final currentUrl =
+          _betterPlayerController.betterPlayerDataSource?.url;
+      if (currentUrl != null &&
+          sourceKeys.any(
+            (key) => _allVideoSources[key] == currentUrl,
+          )) {
+        // The active progressive source was labelled with this language but
+        // exposes no separate native track list. Avoid reloading the same URL.
+        _activeAudioLanguageCode = languageCode;
+        _audioLanguageSheetRefresh?.call();
+        return;
+      }
+
+      final switched = await _switchToAudioLanguage(
+        languageCode,
+        sourceKeys,
+        userInitiated: false,
+        preserveExplicitSelection: false,
+        requirePlaybackAdvance: true,
+      );
+      if (switched) return;
+
+      // A Hindi-labelled source can still be stale or mislabelled. Give the
+      // remaining providers time to report another Hindi option before
+      // falling back to English/original audio.
+      if (languageCode == 'hi' && providersStillLoading) {
+        _automaticPreferredLanguageAttempted = false;
+        return;
+      }
+    }
   }
 
   List<String> _orderedAudioSourceKeys(List<String> sourceKeys) {
