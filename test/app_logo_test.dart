@@ -2,6 +2,17 @@ import 'package:flixquest/widgets/app_logo.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('defaults to the official 7x Brand Hub foreground icon', () {
+    expect(
+      const AppLogo().fallbackAsset,
+      'assets/images/7xplay_foreground.png',
+    );
+  });
+
+  test('account identity can ignore a saved remote logo override', () {
+    expect(const AppLogo(useRemoteLogo: false).useRemoteLogo, isFalse);
+  });
+
   test('accepts only well-formed SVG logo documents', () {
     expect(
       isValidRemoteLogoSvg(

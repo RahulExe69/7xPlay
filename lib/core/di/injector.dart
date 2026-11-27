@@ -115,7 +115,9 @@ Future<AppInjector> buildInjector({
     cacheStore = responseCacheStore;
   } else {
     try {
-      cacheStore = await ResponseCacheStore.open();
+      cacheStore = await ResponseCacheStore.open().timeout(
+        const Duration(seconds: 4),
+      );
     } catch (_) {
       cacheStore = MemCacheStore(maxSize: 16 * 1024 * 1024);
     }

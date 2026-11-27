@@ -13,8 +13,8 @@ import '../../catalog/home_hero.dart';
 import '../../catalog/media_item.dart';
 import '../../catalog/title_logos.dart';
 import '../../design/app_palette.dart';
+import '../../design/seven_x_ai_mark.dart';
 import '../../design/app_tokens.dart';
-import '../../design/flix_ai_mark.dart';
 import '../../models/genres.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../provider/recently_watched_provider.dart';
@@ -439,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen>
                       : Color.lerp(
                           palette.page,
                           tint,
-                          palette.dark ? .42 : .24,
+                          palette.dark ? .42 : .12,
                         ),
                 ),
                 duration: const Duration(milliseconds: 700),
@@ -682,7 +682,10 @@ class _HomeHeader extends StatelessWidget {
                         builder: (_) => const FlixAiScreen(),
                       ),
                     ),
-                    icon: const FlixAiMark(height: 22),
+                    icon: SevenXAiMark(
+                      height: 22,
+                      color: palette.foreground,
+                    ),
                   ),
                   IconButton(
                     tooltip: tr('search'),

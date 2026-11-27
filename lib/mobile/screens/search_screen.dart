@@ -14,7 +14,7 @@ import '../../constants/app_constants.dart';
 import '../../design/app_brand.dart';
 import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
-import '../../design/flix_ai_mark.dart';
+import '../../design/seven_x_ai_mark.dart';
 import '../../design/skeleton.dart';
 import '../../models/genres.dart';
 import '../../models/person.dart';
@@ -36,6 +36,7 @@ import '../widgets/poster_card.dart';
 import '../widgets/poster_grid.dart' show posterGridColumns;
 import '../widgets/section_header.dart';
 import '../widgets/title_sheet.dart';
+import '../widgets/video_feed_card.dart';
 
 /// Which kinds of result Search shows.
 enum SearchFilter { all, movies, series, people }
@@ -336,7 +337,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         decoration: BoxDecoration(
                             color: palette.idleFill, shape: BoxShape.circle),
                         alignment: Alignment.center,
-                        child: FlixAiMark(
+                        child: SevenXAiMark(
                             height: 22, color: palette.foreground),
                       ),
                       const SizedBox(width: AppSpace.md),
@@ -519,25 +520,20 @@ class _SearchScreenState extends State<SearchScreen> {
 
   List<Widget> _resultSlivers(BuildContext context, SearchResults results) {
     final gutter = AppSpace.gutter(context);
-    final columns = posterGridColumns(context);
     bool shows(SearchFilter filter) =>
         _filter == SearchFilter.all || _filter == filter;
     final top = results.topResult;
 
-    Widget grid(List<MediaItem> items) => SliverPadding(
-          padding: EdgeInsets.fromLTRB(gutter, 0, gutter, AppSpace.rowGap),
-          sliver: SliverGrid.builder(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: PosterCard.aspectRatio,
-            ),
+    Widget feed(List<MediaItem> items) => SliverPadding(
+          padding: const EdgeInsets.only(bottom: AppSpace.rowGap),
+          sliver: SliverList.builder(
             itemCount: items.length,
-            itemBuilder: (context, index) => LayoutBuilder(
-              builder: (context, constraints) => PosterCard(
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(
+                bottom: index == items.length - 1 ? 0 : AppSpace.xl,
+              ),
+              child: VideoFeedCard(
                 item: items[index],
-                width: constraints.maxWidth,
                 onTap: () => _open(items[index]),
               ),
             ),
@@ -565,11 +561,11 @@ class _SearchScreenState extends State<SearchScreen> {
       ],
       if (shows(SearchFilter.movies) && movies.isNotEmpty) ...<Widget>[
         header(tr('movies')),
-        grid(movies),
+        feed(movies),
       ],
       if (shows(SearchFilter.series) && series.isNotEmpty) ...<Widget>[
         header(tr('series')),
-        grid(series),
+        feed(series),
       ],
       if (shows(SearchFilter.people) && results.people.isNotEmpty) ...<Widget>[
         header(tr('people')),

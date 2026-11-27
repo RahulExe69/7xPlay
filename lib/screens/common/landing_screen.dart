@@ -26,14 +26,15 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
     final palette = AppPalette.of(context);
+    final glowStrength = palette.dark ? 1.0 : .48;
     return Scaffold(
       backgroundColor: palette.page,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const ColoredBox(
-            key: ValueKey('landing-brand-canvas'),
-            color: AppBrand.background,
+          ColoredBox(
+            key: const ValueKey('landing-brand-canvas'),
+            color: palette.page,
           ),
           // Soft, cropped brand light gives depth without the old grid image.
           Positioned(
@@ -47,8 +48,8 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppBrand.hotPink.withValues(alpha: .22),
-                      AppBrand.violet.withValues(alpha: .08),
+                      AppBrand.hotPink.withValues(alpha: .22 * glowStrength),
+                      AppBrand.violet.withValues(alpha: .08 * glowStrength),
                       Colors.transparent,
                     ],
                   ),
@@ -67,8 +68,8 @@ class _LandingScreenState extends State<LaravelLandingScreen> {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppBrand.amber.withValues(alpha: .20),
-                      AppBrand.orange.withValues(alpha: .07),
+                      AppBrand.amber.withValues(alpha: .20 * glowStrength),
+                      AppBrand.orange.withValues(alpha: .07 * glowStrength),
                       Colors.transparent,
                     ],
                   ),
@@ -246,6 +247,7 @@ class _Intro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     final alignment = wide ? CrossAxisAlignment.start : CrossAxisAlignment.center;
     final textAlign = wide ? TextAlign.start : TextAlign.center;
     return Column(
@@ -255,19 +257,64 @@ class _Intro extends StatelessWidget {
         SizedBox(
           width: wide ? 320 : 270,
           height: 86,
-          child: Image.asset(
-            'assets/images/7xplay_wordmark.png',
-            key: const ValueKey('landing-brand-mark'),
-            fit: BoxFit.contain,
-            semanticLabel: '7xPlay',
-          ),
+          child: palette.dark
+              ? Image.asset(
+                  'assets/images/7xplay_wordmark.png',
+                  key: const ValueKey('landing-brand-mark'),
+                  fit: BoxFit.contain,
+                  semanticLabel: '7xPlay',
+                )
+              : Row(
+                  key: const ValueKey('landing-brand-mark'),
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: wide
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/images/7xplay_foreground.png',
+                      width: 58,
+                      height: 58,
+                      fit: BoxFit.contain,
+                      semanticLabel: '7xPlay icon',
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '7xPlay',
+                              style: AppType.sectionHeader.copyWith(
+                                fontFamily: AppType.bold,
+                                fontSize: 27,
+                                color: palette.foreground,
+                              ),
+                            ),
+                            Text(
+                              'Stream Everything',
+                              style: AppType.metadata.copyWith(
+                                color: palette.mutedText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
         const SizedBox(height: AppSpace.md),
         Text(
           tr('thousands_of'),
           textAlign: textAlign,
           style: AppType.sectionHeader.copyWith(
-            color: Colors.white,
+            color: palette.foreground,
             fontSize: wide ? 22 : 19,
           ),
         ),

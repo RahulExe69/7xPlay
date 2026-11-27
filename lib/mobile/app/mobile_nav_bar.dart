@@ -1,4 +1,3 @@
-import 'dart:ui' show ImageFilter;
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,57 +7,54 @@ import '../../design/app_palette.dart';
 import '../../design/app_tokens.dart';
 import 'mobile_tabs.dart';
 
-/// The phone's floating destination dock, retaining all stable navigation IDs.
+/// A familiar browse-first order while preserving the enum's stable IDs.
+const _navigationOrder = <MobileTab>[
+  MobileTab.home,
+  MobileTab.discover,
+  MobileTab.newAndHot,
+  MobileTab.search,
+  MobileTab.mine,
+];
+
+/// The phone's edge-to-edge destination dock, retaining all stable navigation IDs.
 class MobileNavBar extends StatelessWidget {
   const MobileNavBar({required this.current, required this.onSelect, super.key});
   final MobileTab current;
   final ValueChanged<MobileTab> onSelect;
-  static const height = 68.0;
+  static const height = 64.0;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
     final media = MediaQuery.of(context);
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(12, 8, 12, media.padding.bottom + 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: palette.surface.withValues(alpha: .97),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: palette.hairline),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: palette.dark ? .32 : .1),
-                  blurRadius: 28,
-                  spreadRadius: -8,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: SizedBox(
-              height: height,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                child: MediaQuery.withClampedTextScaling(
-                  maxScaleFactor: 1.2,
-                  child: Row(
-                    children: <Widget>[
-                      for (final tab in MobileTab.values)
-                        Expanded(
-                          child: _DockItem(
-                            tab: tab,
-                            selected: tab == current,
-                            reduceMotion: media.disableAnimations,
-                            onTap: () => onSelect(tab),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+    return DecoratedBox(
+      key: const ValueKey<String>('mobile-nav-surface'),
+      decoration: BoxDecoration(
+        color: palette.page,
+        borderRadius: BorderRadius.zero,
+        border: Border(
+          top: BorderSide(color: palette.hairline, width: .7),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.padding.bottom),
+        child: SizedBox(
+          height: height,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.2,
+              child: Row(
+                children: <Widget>[
+                  for (final tab in _navigationOrder)
+                    Expanded(
+                      child: _DockItem(
+                        tab: tab,
+                        selected: tab == current,
+                        onTap: () => onSelect(tab),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -168,16 +164,20 @@ class MobileNavRail extends StatelessWidget {
 (IconData, IconData, String) _lookFor(MobileTab tab) => switch (tab) {
   MobileTab.home => (PhosphorIcons.house(), PhosphorIcons.house(PhosphorIconsStyle.fill), 'home'),
   MobileTab.newAndHot => (PhosphorIcons.fire(), PhosphorIcons.fire(PhosphorIconsStyle.fill), 'new_and_hot'),
-  MobileTab.discover => (PhosphorIcons.compass(), PhosphorIcons.compass(PhosphorIconsStyle.fill), 'discover'),
+  MobileTab.discover => (PhosphorIcons.compass(), PhosphorIcons.compass(PhosphorIconsStyle.fill), 'explore'),
   MobileTab.search => (PhosphorIcons.magnifyingGlass(), PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.bold), 'search'),
-  MobileTab.mine => (PhosphorIcons.userCircle(), PhosphorIcons.userCircle(PhosphorIconsStyle.fill), 'my_flixquest'),
+  MobileTab.mine => (PhosphorIcons.userCircle(), PhosphorIcons.userCircle(PhosphorIconsStyle.fill), 'you'),
 };
 
 class _DockItem extends StatelessWidget {
-  const _DockItem({required this.tab, required this.selected, required this.reduceMotion, required this.onTap});
+  const _DockItem({
+    required this.tab,
+    required this.selected,
+    required this.onTap,
+  });
+
   final MobileTab tab;
   final bool selected;
-  final bool reduceMotion;
   final VoidCallback onTap;
 
   @override
@@ -195,21 +195,16 @@ class _DockItem extends StatelessWidget {
           HapticFeedback.selectionClick();
           onTap();
         },
-        child: AnimatedContainer(
-          duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 190),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsetsDirectional.fromSTEB(2, 2, 2, 2),
-          decoration: BoxDecoration(
-            color: selected ? palette.idleFillFaint : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-            border: selected ? Border.all(color: AppBrand.amber.withValues(alpha: .22)) : null,
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Icon(selected ? selectedIcon : icon,
-                size: selected ? 23 : 21,
-                color: selected ? palette.foreground : palette.mutedText),
+              Icon(
+                selected ? selectedIcon : icon,
+                size: selected ? 24 : 22,
+                color: selected ? palette.foreground : palette.mutedText,
+              ),
               const SizedBox(height: 3),
               Text(
                 tr(labelKey),
@@ -220,19 +215,6 @@ class _DockItem extends StatelessWidget {
                   fontSize: 10,
                   height: 1.15,
                   color: selected ? palette.foreground : palette.mutedText,
-                ),
-              ),
-              const SizedBox(height: 3),
-              AnimatedContainer(
-                duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 190),
-                width: selected ? 18 : 4,
-                height: 2,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(3),
-                  gradient: selected
-                      ? const LinearGradient(colors: <Color>[AppBrand.amber, AppBrand.orange])
-                      : null,
-                  color: selected ? null : Colors.transparent,
                 ),
               ),
             ],

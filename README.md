@@ -1,332 +1,238 @@
 <p align="center">
-  <img alt="7xPlay" src="assets/images/7xplay_logo.svg" width="180">
+  <img src="assets/images/7xplay_wordmark.png" alt="7xPlay" width="280">
 </p>
 
 <h1 align="center">7xPlay</h1>
 
 <p align="center">
-  <strong>A modern, open-source streaming application for Movies, TV Shows, and Live TV built with Flutter.</strong><br>
-  Optimized for <strong>Android Mobile, Tablets</strong>, and <strong>Android TV (10-Foot UI)</strong>.
+  <strong>Movies, series and live entertainment — with a familiar video-app feel and the streaming DNA of FlixQuest.</strong><br>
+  Built with Flutter for Android phones, tablets and Android TV.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter">
+  <img src="https://img.shields.io/badge/Flutter-3.50.0-02569B?logo=flutter&logoColor=white" alt="Flutter">
   <img src="https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart&logoColor=white" alt="Dart">
-  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20Android%20TV-3DDC84?logo=android&logoColor=white" alt="Platform">
-  <img src="https://img.shields.io/badge/Version-4.0.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/License-GPL--3.0-green" alt="License">
+  <img src="https://img.shields.io/badge/Android-Mobile%20%7C%20TV-3DDC84?logo=android&logoColor=white" alt="Android">
+  <img src="https://img.shields.io/badge/Version-4.3.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/License-GPL--3.0-green" alt="GPL-3.0">
 </p>
 
 ---
 
-## ✨ Features
+## About
 
-### 🎬 Extensive Movie & TV Show Catalog
+**7xPlay** is the 7x-branded evolution of the FlixQuest-based streaming app. It brings together a familiar, feed-first browsing experience and the movie, series, episode, provider and playback workflows that make an OTT app useful.
 
-- **Discovery Feeds**: Categorized home feeds with shimmer loading effects — Trending, Top 10 This Week, New Releases, Upcoming, and Popular.
-- **Detailed Media Pages**: Media details featuring trailers, cast & crew filmographies, user reviews, and intelligent "More Like This" recommendations powered by TMDB.
-- **Explore & Filter**: Filter content by genre, release year, streaming provider, country, or sort order, alongside a random discovery tool.
-- **TV Seasons & Episodes**: Interactive episode browser with episode thumbnails, descriptions, air dates, and quick episode switcher sheets.
+The interface takes inspiration from the clarity and navigation patterns of modern video platforms without turning the product into a YouTube clone. Movies and series remain the centre of the experience: browse poster shelves, explore collections, open cinematic title pages, choose seasons and episodes, select a provider, and watch.
 
-### 📺 Android TV (10-Foot UI Experience)
+The application is developed in this repository. **The upstream FlixQuest scraper/API service is not developed or hosted by this project**; 7xPlay continues to use the existing FlixQuest service and its established endpoints.
 
-- **D-Pad Focus Navigation**: Native TV remote control navigation with directional keymaps and focus memory.
-- **TV Home Shell & Rail**: TV navigation rail, catalog screens, and hero banners designed specifically for large screens.
-- **TV Search & History**: Remote-friendly search interface with recent search query history.
-- **Automatic Presentation Detection**: Automatically detects TV devices and adapts the interface between mobile touch and TV 10-foot layout.
+## Highlights
 
-### 📡 Free Live TV & Sports Streaming
+### Browse and discover
+- A redesigned Home experience with Trending, New Movies, New Series, Continue Watching and curated catalogue shelves.
+- Consistent horizontal poster rows for catalogue sections.
+- Explore, New & Hot, Search and My 7xPlay destinations.
+- Search results with richer video-style cards, title metadata and quick actions.
+- Movie and series details, recommendations, seasons, episodes and episode information.
 
-- **Live TV Integration**: Integrated DaddyLive service providing 24/7 TV channels and scheduled live sports events.
-- **Category Browsing & Search**: Search channels by name, filter by category, and view local time-formatted schedules.
-- **Stream Recovery & Buffering**: Smart playback recovery (90-second window), auto-reconnect, and optimized live buffering.
-- **Local Caching**: Fast SQLite caching for live channels and event schedules.
+### Watch
+- Multiple streaming providers with provider prioritisation and fallback handling.
+- HLS, DASH and direct video playback through the existing player integration.
+- Audio and subtitle selection, playback recovery and resume progress.
+- Download management and an offline library.
+- Live TV browsing and playback where an upstream source is available.
 
-### 🚀 Multi-Source Video Providers & Scraper API v2
+### Mobile, tablet and TV
+- Touch-first Android phone and tablet layouts.
+- Android TV presentation with remote/D-pad navigation and focus handling.
+- Responsive navigation and restored navigation state.
+- Light and dark appearance options, including the app's dark cinematic styling.
 
-- **Dynamic Provider System**: Integrated with **7xPlay Scraper API v2** for scraping high-quality streams.
-- **Live Provider Health Status**: Real-time provider uptime monitoring (`/providers/status`) with in-app status indicators.
-- **Direct Fallback Provider**: Built-in direct VixSrc provider fallback.
-- **Custom Provider Prioritization**: Reorder and prioritize your preferred streaming providers in Settings.
-- **Stream Formats**: Full support for HLS (.m3u8), DASH (.mpd), and direct MP4 streams with custom header support.
+### 7x identity
+- 7xPlay product wordmark and product artwork.
+- Shared 7x monochrome mark sourced from the [7x Brand Hub](https://github.com/RahulExe69/7x).
+- Product-specific visual styling, separate from the launcher artwork.
 
-### 💬 Comprehensive Subtitle Management
+## Upstream services and API ownership
 
-- **Automatic External Subtitles**: Multi-language subtitle search and retrieval powered by Wyzie Subtitles API.
-- **Local Subtitle Upload**: Pick and load local `.srt` or `.vtt` subtitle files directly from your device storage.
-- **Subtitle Customization**: Adjust font size, text color, background color, and visual styling presets.
-- **Encoding & HI Support**: Smart character encoding handling (UTF-8, Latin1, ASCII) and Hearing-Impaired (HI) tags.
+7xPlay does **not** claim ownership of the FlixQuest scraper API and does not provide a replacement scraper API in this repository. The existing upstream service remains the default for provider discovery and stream resolution.
 
-### 📥 Offline Downloads
+| Service | Used for | Source |
+|---|---|---|
+| FlixQuest Scraper API v2 | Provider discovery, stream resolution and supported subtitle/stream helper endpoints | [scraper.flix.quest](https://scraper.flix.quest) |
+| FlixQuest API specification | Existing client-side request and response contract | [OpenAPI specification in this repository](openapi.json) |
+| FlixQuest BetterPlayer fork | Existing Flutter video-player integration | [flixquest-betterplayer](https://github.com/BeamlakAschalew/flixquest-betterplayer) |
+| TMDB | Movie and TV metadata, artwork and related catalogue information | [TMDB API documentation](https://developer.themoviedb.org/docs) |
 
-- **Background Downloads**: Download movies and TV episodes with background download management and progress notifications.
-- **Aspect Ratio Normalization**: Built-in video exporter with square-pixel aspect ratio normalization.
-- **Subtitle Bundling**: Automatically export and bundle subtitles with downloaded videos for offline viewing.
-- **Offline Player**: Dedicated offline library and media player for downloaded files.
+The scraper API is maintained separately by its upstream provider. Availability, provider catalogue, stream resolution and API behaviour therefore depend on that service and its providers. Do not interpret the 7xPlay app repository as an API deployment or API support endpoint.
 
-### 🎨 Modern UI, Ambient Glow & Seasonal Themes
+### Existing FlixQuest scraper routes
 
-- **Phosphor Icons**: Clean, consistent icon set using Phosphor Flutter icons across the entire app.
-- **Ambient Mode**: Dynamic color palette extraction from movie/show posters and backdrops for an immersive ambient background glow.
-- **Occasional & Seasonal Themes**: Dynamic holiday themes (Christmas, New Year, Halloween, Valentine's Day, Easter, Eid, Diwali, Ethiopian New Year, etc.) with animated vector particle overlays (snow, fireworks, bats, hearts, adey flowers, confetti, stars, sparkles). Configurable via Firebase Remote Config.
-- **Themes**: Light, Dark, AMOLED Pure Black, and Material 3 Dynamic Color palettes.
+The app's current integration includes the established FlixQuest API routes for:
+- `GET /providers` — provider discovery.
+- `GET /providers/status` — provider status information.
+- `GET /stream-movie` — movie stream discovery.
+- `GET /stream-tv` — episode stream discovery.
+- `GET /subtitles/search` — subtitle search.
+- `GET /subtitles/{provider}/{id}` — subtitle retrieval.
+- `POST /stream-size` — stream-size estimation.
+- `GET /api/v2/intro` — intro configuration.
 
-### Advertising
+These are upstream FlixQuest API routes, not endpoints implemented by 7xPlay. Refer to the upstream service and the checked-in [OpenAPI document](openapi.json) for the contract used by this client.
 
-- Centrally configured Adsterra WebView banners replace Start.io across existing phone, tablet, and Android TV slots.
-- Firebase Remote Config controls network/TV switches, banner codes, six supported sizes, and per-placement overrides with width fallbacks.
-- Hosted `/ads` announcements can stack above network banners or take priority. TV ads remain display-only.
-- Setup: [Remote Config advertising guide](docs/firebase_remote_config.md#activate-adsterra-banners) and [configured banner catalog](docs/adsterra_banners.json), with a [blank template](docs/adsterra_banners.example.json) for other accounts.
+## Configuration
 
-### 🔐 User Profiles & Cloud Synchronization
+The app reads local configuration from `config.env` through `flutter_dotenv`. Start with the example file. `config.env` is intentionally not a dotfile because Flutter 3.50.0 has an Android asset-packaging regression that can omit `.env` files from release APKs:
 
-- **Firebase Authentication**: User accounts with email/password authentication, profile management, and account deletion.
-- **Cross-Device Bookmark Sync**: Dual-layer bookmark synchronization between local SQLite and Cloud Firestore.
-- **Recently Watched & Resume**: Track watch progress across movies and episodes with quick resume playback.
+```bash
+cp .env.example config.env
+```
 
-### 🌍 Multi-Language Localization
-
-- Complete internationalization powered by `easy_localization` supporting multiple languages including English, Spanish, Arabic, Hindi, and more.
-
----
-
-## 📱 Screenshots
-
-<table style="border: none;">
-  <tr>
-    <td align="center"><b>Home & Discovery</b><br><img src="docs/screenshots/movies-home.jpg" alt="Home Screen" width="220"/></td>
-    <td align="center"><b>Movie Details</b><br><img src="docs/screenshots/movie-detail.jpg" alt="Movie Details" width="220"/></td>
-    <td align="center"><b>Series Details</b><br><img src="docs/screenshots/series-detail.jpg" alt="Series Details" width="220"/></td>
-    <td align="center"><b>Seasons & Episodes</b><br><img src="docs/screenshots/season-detail.jpg" alt="Seasons & Episodes" width="220"/></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Episode Browser</b><br><img src="docs/screenshots/episodes.jpg" alt="Episode Browser" width="220"/></td>
-    <td align="center"><b>Watch & Download</b><br><img src="docs/screenshots/episode-detail.jpg" alt="Episode Detail" width="220"/></td>
-    <td align="center"><b>Offline Downloads</b><br><img src="docs/screenshots/downloads.jpg" alt="Offline Downloads" width="220"/></td>
-    <td align="center"><b>Live TV & Sports</b><br><img src="docs/screenshots/live-tv.jpg" alt="Live TV" width="220"/></td>
-  </tr>
-  <tr>
-    <td colspan="4" align="center"><b>Immersive Video Player</b><br><img src="docs/screenshots/player.jpg" alt="Video Player" width="800"/></td>
-  </tr>
-</table>
-
----
-
-## ⚙️ Environment Variables & API Keys
-
-7xPlay uses `flutter_dotenv` to load environment variables. Create a `.env` file in the root directory of the project:
+At minimum, configure the TMDB key used by your build:
 
 ```env
-# Required: TMDB API Key for movie and TV show metadata
-TMDB_API_KEY="your_tmdb_api_key"
-
-# Required: 7xPlay Scraper API v2 instance URL
-FLIXQUEST_API_URL="https://scraper.flix.quest"
-
-# Optional: Mixpanel project token for general analytics
-MIXPANEL_API_KEY="your_mixpanel_api_key"
+TMDB_API_KEY=your_tmdb_api_key
+FLIXQUEST_API_URL=https://scraper.flix.quest
 ```
 
-### Obtaining API Keys
+The example file also documents optional integrations and existing configuration keys, including subtitle/provider URLs, analytics, the configurable Laravel backend URL and notification settings. Leave unused optional values empty. Never commit private credentials, signing keys or service secrets.
 
-- **TMDB API Key**: Register at [The Movie Database (TMDB)](https://developer.themoviedb.org/v3/reference/intro/authentication#api-key-quick-start) to get your free API key.
-- **7xPlay Scraper API**: The scraper service is closed-source. For API access, self-hosting inquiries, or support, please open an issue in this repository.
-- **Mixpanel Token** _(Optional)_: Create a free account at [Mixpanel](https://mixpanel.com).
+### API and backend notes
 
----
+- `FLIXQUEST_API_URL` defaults to the original FlixQuest scraper host, `https://scraper.flix.quest`.
+- `FLIXHQ_NEW_URL`, `FLIXAPI_URL` and `CONSUMET_URL` are existing optional provider/service configuration values in `.env.example`.
+- `LARAVEL_API_URL` is an existing configurable backend base URL used by the app's backend integration. Its default emulator address is for local development; configure a reachable instance when that integration is required.
+- Firebase Remote Config can supply runtime configuration used by existing app features. Firebase configuration and optional service integrations are separate from the FlixQuest scraper API.
 
-## 🕷️ 7xPlay Scraper API v2
+For the exact current variable list, see [`.env.example`](.env.example). For the existing Remote Config contract, see [Firebase Remote Config documentation](docs/firebase_remote_config.md).
 
-7xPlay communicates with the **FlixQuest Scraper API v2** at `https://scraper.flix.quest` for provider discovery and stream resolution. The app automatically migrates saved references to retired FlixQuest scraper hostnames to this current endpoint. The upstream service is maintained separately from this repository.
+## Development setup
 
-The client-side API contract and payload schemas are documented in [`openapi.json`](openapi.json).
+### Requirements
 
-Key endpoints consumed by the app:
+- Flutter SDK compatible with the project's Dart constraints. The CI workflow currently uses Flutter **3.50.0**.
+- Android SDK with **API 36** available.
+- Java **17**.
+- Android Studio or another Flutter-compatible editor.
+- Access to the existing FlixQuest BetterPlayer dependency and the upstream services required by the feature being tested.
 
-- `GET /providers`: Discovers available and enabled video providers.
-- `GET /providers/status`: Fetches live provider health status, latency, and uptime.
-- `GET /stream-movie`: Scrapes streaming links for movies using TMDB ID.
-- `GET /stream-tv`: Scrapes streaming links for TV episodes using TMDB ID, season, and episode number.
-- `GET /subtitles/search`: Searches every subtitle provider for a movie or episode and returns one combined catalog.
-- `GET /subtitles/{provider}/{id}`: Downloads a subtitle file. The API converts and re-encodes it, so the app never contacts a subtitle host directly.
-- `POST /stream-size`: Estimates the byte size behind a stream token so the quality picker can show sizes.
-- `GET /api/v2/intro`: Retrieves branded intro video configuration.
+The Android build currently uses Gradle **9.9.2**, Android Gradle Plugin **9.3.1** and Kotlin Gradle Plugin **2.4.20**.
 
----
+### Get the source
 
-## 🔥 Firebase Configuration
-
-7xPlay uses Firebase for several services:
-
-| Service                       | Purpose                                                                                                                                                                                                                             |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Firebase Authentication**   | User authentication, profile management, and session handling.                                                                                                                                                                      |
-| **Cloud Firestore**           | Cloud bookmark synchronization across multiple devices.                                                                                                                                                                             |
-| **Firebase Remote Config**    | Dynamic configuration for feature toggles (Watch now, Download, Live TV), app logos, seasonal themes, and vector animation effects. See [`docs/firebase_remote_config.md`](docs/firebase_remote_config.md) for full schema details. |
-| **Firebase Cloud Messaging**  | Background notifications and alerts.                                                                                                                                                                                                |
-| **Firebase In-App Messaging** | Dynamic in-app banners and update notices.                                                                                                                                                                                          |
-| **Firebase Analytics**        | Usage and performance analytics.                                                                                                                                                                                                    |
-
-> **Note**: To connect to your own Firebase project, place your `google-services.json` inside `android/app/`.
-
----
-
-## ▶️ Custom `better_player` Package
-
-This repository uses a customized version of `better_player` (`better_player_plus`) located at [github.com/BeamlakAschalew/7xplay-betterplayer](https://github.com/BeamlakAschalew/7xplay-betterplayer).
-
-You can configure it in `pubspec.yaml` using a local path or git URL:
-
-```yaml
-better_player_plus:
-  git:
-    url: https://github.com/BeamlakAschalew/7xplay-betterplayer.git
+```bash
+git clone https://github.com/RahulExe69/7xPlay.git
+cd 7xPlay
 ```
 
-Or reference a local sibling directory:
+The app uses the FlixQuest BetterPlayer fork as a local sibling dependency in the development setup. Clone it beside the app repository:
 
-```yaml
-better_player_plus:
-  path: ../7xplay-betterplayer
+```bash
+cd ..
+git clone https://github.com/BeamlakAschalew/flixquest-betterplayer.git
+cd 7xPlay
 ```
 
----
+Create and configure `config.env`, then resolve packages:
 
-## 🛠️ Getting Started & Build Instructions
+```bash
+cp .env.example config.env
+flutter pub get
+```
 
-### Prerequisites
+Run on a connected Android phone:
 
-- **Flutter SDK**: `>=3.0.0 <4.0.0`
-- **Dart SDK**: `^3.0.0`
-- **Android SDK / NDK**: Android SDK 34+, Java 17
+```bash
+flutter run --flavor prod
+```
 
-### Installation Steps
+Run on an Android TV device or emulator:
 
-1. **Clone the repository**:
+```bash
+flutter run --flavor prod -d <tv-device-id>
+```
 
-   ```bash
-   git clone https://github.com/BeamlakAschalew/7xplay.git
-   cd 7xplay
-   ```
+### Build APKs
 
-2. **Clone the custom better_player repository** (if using local path):
+Universal production APK:
 
-   ```bash
-   cd ..
-   git clone https://github.com/BeamlakAschalew/7xplay-betterplayer.git
-   cd 7xplay
-   ```
+```bash
+flutter build apk --release --flavor prod
+```
 
-3. **Configure Environment Variables**:
-   Create a `.env` file in the project root:
+Smaller per-architecture APKs:
 
-   ```bash
-   cp .env.example .env # or create a new .env file with your keys
-   ```
+```bash
+flutter build apk --release --flavor prod --split-per-abi
+```
 
-4. **Install Dependencies**:
+For an ARM64-only release build:
 
-   ```bash
-   flutter pub get
-   ```
+```bash
+flutter build apk --release --flavor prod --target-platform android-arm64
+```
 
-5. **Run the Application**:
-   - For Android Mobile / Tablet:
+The CI workflow also creates an optimized ARM64 release preview for pull requests. Release builds and debug builds are not directly comparable in file size: debug APKs include development/runtime overhead that is removed or reduced by release optimizations.
 
-     ```bash
-     flutter run
-     ```
+## Project structure
 
-   - For Android TV (Emulator or connected TV device):
+- `lib/` — Flutter application, screens, navigation, state and service integrations.
+- `assets/` — images, translations, fonts and bundled resources.
+- `android/` — Android application, flavors and platform configuration.
+- `docs/` — implementation notes, configuration references and screenshots.
+- `test/` — automated Flutter tests.
+- `openapi.json` — checked-in contract reference for the upstream FlixQuest scraper API.
 
-     ```bash
-     flutter run -d <tv-device-id>
-     ```
+## Testing and quality
 
-   The app detects TV or mobile mode automatically by default. If a custom ROM
-   reports the wrong device type, choose **Settings → Appearance → App mode →
-   TV** or **Mobile**. The interface switches immediately and the choice is saved
-   across launches. Choose **Automatic** to return to device detection.
+Run the automated Flutter tests:
 
-   Android has two flavors: `prod` (the default) and `dev`. To test real banner
-   ads using Firebase's `banner_ad_network_test` selector, run the dev flavor:
+```bash
+flutter test
+```
 
-   ```bash
-   flutter run --flavor dev
-   flutter run --flavor dev --release
-   ```
+Run static analysis:
 
-   The test selector works in dev debug/profile/release builds. Prod ignores it
-   in every build mode. See [banner testing setup](docs/firebase_remote_config.md#test-real-banners-in-development).
-   Both flavors reuse the existing Android package and Firebase registration;
-   they share an install slot. The dev launcher label is **7xPlay Dev**.
+```bash
+flutter analyze
+```
 
-6. **Build Release APK**:
+Format Dart code before submitting changes:
 
-   ```bash
-   flutter build apk --release
-   ```
+```bash
+dart format .
+```
 
-   This uses the default `prod` flavor and outputs
-   `build/app/outputs/flutter-apk/app-prod-release.apk`. You can also specify
-   `--flavor prod` explicitly. A development release APK is built with
-   `flutter build apk --flavor dev --release`.
+Pull requests should describe user-visible changes, note any upstream API assumptions, and include test/build results. Do not claim that a physical device has been tested unless it has actually been tested.
 
-   For smaller per-device downloads, also build split APKs:
+## Screenshots
 
-   ```bash
-   flutter build apk --release --split-per-abi
-   ```
+The repository includes screenshots of the current catalogue and playback flows:
 
-   The update screen downloads the APK matching the device's CPU. Publish each
-   split APK's link in Remote Config under `app_download_url_arm64_v8a`,
-   `app_download_url_armeabi_v7a` and `app_download_url_x86_64`, and keep the
-   universal APK in `app_download_url`. A device whose ABI can't be read, or
-   whose key is empty, downloads the universal APK.
+| Home | Movie details | Series details |
+|---|---|---|
+| ![Home](docs/screenshots/movies-home.jpg) | ![Movie details](docs/screenshots/movie-detail.jpg) | ![Series details](docs/screenshots/series-detail.jpg) |
 
----
+| Episodes | Downloads | Player |
+|---|---|---|
+| ![Episodes](docs/screenshots/episodes.jpg) | ![Downloads](docs/screenshots/downloads.jpg) | ![Player](docs/screenshots/player.jpg) |
 
-## 🤝 Contributing
+## Credits and acknowledgements
 
-Contributions, feature suggestions, design ideas, and translations are always welcome!
+- **FlixQuest** — upstream foundation, scraper API and related streaming integrations.
+- **FlixQuest BetterPlayer** — video-player integration.
+- **TMDB** — movie and television metadata and artwork.
+- **7x Brand Hub** — shared 7x brand identity and official product assets.
+- **Flutter and Dart** — application framework and language.
+- **Phosphor Icons** — application icon set.
 
-- **Pull Requests**: Please ensure your code passes static analysis and is properly formatted:
+## Disclaimer
 
-  ```bash
-  dart format .
-  flutter test
-  ```
+7xPlay does not host, upload or store the movies, series, channels or streams surfaced by third-party providers. Metadata, artwork, provider discovery and stream availability are supplied by their respective services. Users are responsible for complying with the laws and terms applicable in their region.
 
-- **Issue Reports**: Please follow the provided issue templates when opening bugs or feature requests.
+7xPlay is an independent project and is not affiliated with, endorsed by or operated by TMDB, FlixQuest or any streaming service mentioned above.
 
----
+## License
 
-## ⚠️ Disclaimer
-
-- The developers of this application have no affiliation with content providers like TMDB, DaddyLive, or any third-party streaming websites.
-- 7xPlay **does not host or upload any video content**. All media is retrieved via public scrapers and third-party APIs.
-- In case of copyright infringement, please contact the responsible hosting services or source providers directly.
-
----
-
-<div align="center">
-  <h3>Support the Project</h3>
-  <a href="https://www.buymeacoffee.com/cinemaxapp">
-    <img src="https://i.ibb.co/Tr4sC5X/bmc-button.png" height="60" alt="Buy Me A Coffee">
-  </a>
-</div>
-
----
-
-### 🙏 Credits & Integrations
-
-- **TMDB API**: Media metadata, cast, crew, and artwork.
-- **Phosphor Icons**: Beautiful, consistent icon pack (`phosphor_flutter`).
-- **Matinee Flutter**: Initial UI inspiration and base architecture (`bimsina/Matinee-Flutter`).
-
----
-
-<p align="center">
-  <i>GNU, but for Entertainment</i><br><br>
-  <strong>© 2022–2026 7xPlay</strong>
-</p>
+This project is distributed under the [GNU General Public License v3.0](LICENSE).

@@ -223,7 +223,7 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      tr('my_flixquest'),
+                      tr('you'),
                       style: AppType.scaled(context, AppType.pageTitle).copyWith(
                         color: palette.foreground,
                       ),
@@ -235,6 +235,13 @@ class _MyFlixQuestScreenState extends State<LaravelMyFlixQuestScreen> {
                     height: 30,
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                  IconButton(
+                    tooltip: tr('search'),
+                    color: palette.foreground,
+                    onPressed: () => MobileTabScope.maybeOf(context)
+                        ?.select(MobileTab.search),
+                    icon: Icon(PhosphorIcons.magnifyingGlass()),
                   ),
                 ],
               ),

@@ -9,7 +9,7 @@ import 'package:flixquest/mobile/app/mobile_shell.dart';
 import 'package:flixquest/mobile/app/mobile_tabs.dart';
 import 'package:flixquest/mobile/screens/search_screen.dart';
 import 'package:flixquest/mobile/widgets/category_section.dart';
-import 'package:flixquest/mobile/widgets/poster_card.dart';
+import 'package:flixquest/mobile/widgets/video_feed_card.dart';
 import 'package:flixquest/models/genres.dart';
 import 'package:flixquest/models/movie.dart';
 import 'package:flixquest/models/person.dart';
@@ -231,9 +231,9 @@ void main() {
 
     await tester.tap(find.text('series').first);
     await tester.pumpAndSettle();
-    expect(find.text('Dune: Prophecy'), findsNothing); // poster, no caption
+    expect(find.text('Dune: Prophecy'), findsOneWidget);
     final kinds = tester
-        .widgetList<PosterCard>(find.byType(PosterCard))
+        .widgetList<VideoFeedCard>(find.byType(VideoFeedCard))
         .map((card) => card.item.kind)
         .toSet();
     expect(kinds, <MediaKind>{MediaKind.series});
@@ -241,7 +241,7 @@ void main() {
 
     await tester.tap(find.text('people'));
     await tester.pumpAndSettle();
-    expect(find.byType(PosterCard), findsNothing);
+    expect(find.byType(VideoFeedCard), findsNothing);
     expect(find.text('Denis Villeneuve'), findsOneWidget);
   });
 
@@ -312,7 +312,14 @@ void main() {
         .pixels;
     expect(offset, greaterThan(0));
 
-    await tester.tap(find.byType(PosterCard).first);
+    final card = tester.widget<VideoFeedCard>(find.byType(VideoFeedCard).first);
+    final thumbnail = find.byKey(
+      ValueKey<String>('video-feed-thumbnail-${card.item.stableId}'),
+    );
+    final thumbnailRect = tester.getRect(thumbnail);
+    await tester.tapAt(
+      Offset(thumbnailRect.left + 16, thumbnailRect.top + 16),
+    );
     await tester.pumpAndSettle();
     expect(find.text('details'), findsOneWidget);
     Navigator.of(tester.element(find.text('details'))).pop();

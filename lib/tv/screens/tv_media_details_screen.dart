@@ -154,7 +154,7 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
       dependencies: context.read<AppDependencyProvider>(),
     );
     _details = details;
-    details.then((data) {
+    details.then<void>((data) {
       if (!mounted || !identical(_details, details)) return;
       setState(() => _loaded = data);
       final season = initialSeasonNumber(data.seasons, _resume());
@@ -501,8 +501,15 @@ class _TvMediaDetailsScreenState extends State<TvMediaDetailsScreen> {
   /// Plays the series from where it stands: the episode in progress, the one
   /// after a finished episode, or the very first.
   Future<void> _playSeries({bool fromStart = false}) async {
-    final data = await _details?.then((data) => data, onError: (_) => null);
-    if (data == null || !mounted) return;
+    final details = _details;
+    if (details == null) return;
+    late final TvMediaDetailsData data;
+    try {
+      data = await details;
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
     try {
       final recent = context.read<RecentProvider?>();
       // A finished episode's successor, when that's newer than any episode

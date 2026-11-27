@@ -5,6 +5,8 @@ import 'package:flixquest/catalog/up_next.dart';
 import 'package:flixquest/constants/app_constants.dart';
 import 'package:flixquest/constants/theme_data.dart';
 import 'package:flixquest/mobile/screens/home_screen.dart';
+import 'package:flixquest/design/app_palette.dart';
+import 'package:flixquest/design/seven_x_ai_mark.dart';
 import 'package:flixquest/mobile/widgets/category_section.dart';
 import 'package:flixquest/mobile/widgets/hero_card.dart';
 import 'package:flixquest/mobile/widgets/media_rows.dart';
@@ -279,6 +281,17 @@ void main() {
         HostedBannerVariant.standard,
       ],
     );
+    // Trending uses the same horizontal poster shelves as New Movies
+    // and New Episodes, with movie and series rows kept separate.
+    final trendingRows = rows.whereType<PosterRow>().where(
+      (row) =>
+          row.title == 'trending_movies_week' ||
+          row.title == 'trending_series_week',
+    ).toList();
+    expect(
+      trendingRows.map((row) => row.title),
+      <String>['trending_movies_week', 'trending_series_week'],
+    );
     // And no catalogue row mixes the two.
     for (final row in rows.whereType<PosterRow>()) {
       if (row.title == 'my_list') continue;
@@ -472,6 +485,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final aiMarkFinder = find.byType(SevenXAiMark);
+      expect(aiMarkFinder, findsOneWidget);
+      expect(
+        tester.widget<SevenXAiMark>(aiMarkFinder).color,
+        AppPalette.of(tester.element(find.byType(HomeScreen))).foreground,
+      );
       final accent = Theme.of(
         tester.element(find.byType(HomeScreen)),
       ).colorScheme.primary;

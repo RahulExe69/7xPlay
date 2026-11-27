@@ -65,7 +65,7 @@ class AccountFormPage extends StatelessWidget {
                         tag: 'logo_shadow',
                         child: SizedBox.square(
                           dimension: 84,
-                          child: AppLogo(),
+                          child: AppLogo(useRemoteLogo: false),
                         ),
                       ),
                     ),

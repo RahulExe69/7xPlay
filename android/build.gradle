@@ -1,12 +1,12 @@
 buildscript {
-    ext.kotlin_version = '2.2.21'
+    ext.kotlin_version = '2.4.20'
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.6.0'
+        classpath 'com.android.tools.build:gradle:9.3.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath 'com.google.gms:google-services:4.4.2'
         classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.3'
@@ -23,6 +23,19 @@ allprojects {
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects { subproject ->
+    // AGP 9.3.1's lintVital parser crashes on Java sources from third-party
+    // Flutter plugins (JavaDocParser.parseDataItem NoSuchMethodError).
+    // Keep release lint enabled for :app, but skip the broken dependency
+    // module preflight until an AGP lint patch is available.
+    if (subproject.name != 'app') {
+        subproject.tasks.configureEach { task ->
+            if (task.name.startsWith('lintVitalAnalyze')) {
+                task.enabled = false
+            }
+        }
+    }
 }
 subprojects {
     project.evaluationDependsOn(':app')
