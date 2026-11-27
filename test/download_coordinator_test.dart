@@ -236,6 +236,42 @@ void main() {
     expect(selected.single.audioTrack?.selection, hindi.selection);
   });
 
+  test('uses declared language metadata for fixed-audio progressive sources',
+      () async {
+    final progressive = RegularVideoLinks(
+      url: 'https://alpha.example/movie.mp4',
+      quality: '1080p',
+      audioLanguage: 'hi',
+    );
+    final attempts = [attempt(0, alpha, [progressive])];
+    final discovery = UnifiedPlaybackLanguageService.fromDetectedLanguages(
+      attempts: attempts,
+      detectedByProvider: {
+        alpha.codeName: {'hi'},
+      },
+    );
+    final candidates = DownloadCoordinator.candidatesForLanguage(
+      attempts: attempts,
+      discovery: discovery,
+      languageCode: 'hi',
+      scraperApiUrl: 'https://scraper.example',
+    );
+    var inspectedManifest = false;
+    final selected = await DownloadCoordinator.inspectAudioTracks(
+      candidates: candidates,
+      languageCode: 'hi',
+      inspect: (_) async {
+        inspectedManifest = true;
+        return const [];
+      },
+    );
+
+    expect(selected, hasLength(1));
+    expect(selected.single.format, 'progressive');
+    expect(selected.single.link.audioLanguage, 'hi');
+    expect(inspectedManifest, isFalse);
+  });
+
   test('provider discovery is bounded and preserves configured provider order',
       () async {
     final providers = List.generate(
