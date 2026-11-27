@@ -78,7 +78,7 @@ class DownloadRecoveryTest {
                     }
                 }
             },
-            { _, _ -> fail("A temporary HTTP failure should use the next candidate") },
+            { _, _ -> throw AssertionError("A temporary HTTP failure should use the next candidate") },
             {},
             fallback = { current, _ ->
                 when {
@@ -201,7 +201,7 @@ class DownloadRecoveryTest {
                 attempts++
                 Task { throw response(503, "Provider unavailable") }
             },
-            { _, _ -> fail("A non-expired provider failure must not renew the same source") },
+            { _, _ -> throw AssertionError("A non-expired provider failure must not renew the same source") },
             {},
             fallback = { _, _ -> null },
         )
