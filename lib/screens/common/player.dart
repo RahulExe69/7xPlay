@@ -5563,7 +5563,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // and query only providers whose full response is still missing.
       if (_backgroundProviderAggregationPending) {
         final cacheDeadline =
-            DateTime.now().add(const Duration(milliseconds: 1800));
+            DateTime.now().add(const Duration(milliseconds: 2500));
         while (_backgroundProviderAggregationPending &&
             DateTime.now().isBefore(cacheDeadline)) {
           await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -5575,13 +5575,36 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         for (var index = 0; index < providers.length; index++)
           providers[index].codeName: index,
       };
+      // A streaming fast result can be replaced later by an expanded result
+      // with additional mirrors. Never treat an unfinished aggregate as the
+      // complete catalogue; refresh every provider while it is still pending.
+      final forceCompleteProviderQuery = _backgroundProviderAggregationPending;
       final attemptsByCode = <String, ProviderAttempt>{};
       final providersNeedingLoad = <VideoProvider>[];
       for (final provider in providers) {
         final code = provider.codeName;
         final rawLinks = _rawVideoLinksByProvider[code];
-        if (rawLinks == null || rawLinks.isEmpty) {
+        if (forceCompleteProviderQuery ||
+            _loadingProviders.contains(code) ||
+            rawLinks == null ||
+            rawLinks.isEmpty) {
           providersNeedingLoad.add(provider);
+          // Preserve a usable fast snapshot if the full expansion request
+          // fails; a failed refresh must not erase an already working source.
+          if (rawLinks != null && rawLinks.isNotEmpty) {
+            final previous = _loadedProviderAttempts
+                .where((attempt) => attempt.provider.codeName == code)
+                .firstOrNull;
+            attemptsByCode[code] = ProviderAttempt(
+              index: providerIndexes[code]!,
+              provider: provider,
+              result: ProviderLoadResult(
+                success: true,
+                videoLinks: List<RegularVideoLinks>.of(rawLinks),
+                subtitleLinks: previous?.result.subtitleLinks,
+              ),
+            );
+          }
           continue;
         }
         final previous = _loadedProviderAttempts
@@ -5619,11 +5642,16 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
               ),
       );
       for (final attempt in missingAttempts) {
-        attemptsByCode[attempt.provider.codeName] = ProviderAttempt(
-          index: providerIndexes[attempt.provider.codeName] ?? attempt.index,
-          provider: attempt.provider,
-          result: attempt.result,
-        );
+        final code = attempt.provider.codeName;
+        // A successful expanded result replaces the fast snapshot. If the
+        // expansion fails, retain the working snapshot as a safe fallback.
+        if (attempt.hasPlayableSources || !attemptsByCode.containsKey(code)) {
+          attemptsByCode[code] = ProviderAttempt(
+            index: providerIndexes[code] ?? attempt.index,
+            provider: attempt.provider,
+            result: attempt.result,
+          );
+        }
       }
       final attempts = attemptsByCode.values.toList()
         ..sort((left, right) => left.index.compareTo(right.index));
@@ -5669,9 +5697,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         languageCode: languageCode,
         scraperApiUrl: apiUrl,
       );
-      if (languageCandidates.isEmpty) {
-        throw StateError('No sources support the selected audio language.');
-      }
 
       // Estimate only the streams that can satisfy the chosen language.
       // Avoid spending requests/time estimating every unused dub.
@@ -5695,6 +5720,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           )
           .toList(growable: false);
       if (!mounted) return;
+      if (languageCandidates.isEmpty) {
+        throw StateError('No sources support the selected audio language.');
+      }
 
       final formats = DownloadCoordinator.buildFormats(sizedCandidates);
       if (formats.isEmpty) {
@@ -5790,11 +5818,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             final fallbackSubtitle = subtitleFor(fallback);
             return <String, Object?>{
               ...fallback.toFallbackMap(),
-              if (fallbackSubtitle?.url?.trim().isNotEmpty == true) ...{
-                'subtitleTrackUrl': fallbackSubtitle!.url,
-                'subtitleTrackName': fallbackSubtitle.language,
-                'subtitleTrackHeaders': fallbackSubtitle.headers ?? const {},
-              },
+              'subtitleTrackUrl': fallbackSubtitle?.url,
+              'subtitleTrackName': fallbackSubtitle?.language,
+              'subtitleTrackHeaders': fallbackSubtitle?.headers ?? const {},
             };
           }).toList(growable: false),
           contentId: titleId,
