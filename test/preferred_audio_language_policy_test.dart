@@ -3,6 +3,35 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('PreferredAudioLanguagePolicy', () {
+    test('rejects a Hindi source label when native tracks are English only', () {
+      expect(
+        PreferredAudioLanguagePolicy.nativeTracksAllowSourceLabel(
+          requestedLanguageCode: 'hi',
+          nativeTrackLabels: ['English', 'en'],
+        ),
+        isFalse,
+      );
+    });
+
+    test('accepts a source label when native tracks confirm Hindi', () {
+      expect(
+        PreferredAudioLanguagePolicy.nativeTracksAllowSourceLabel(
+          requestedLanguageCode: 'hi',
+          nativeTrackLabels: ['English', 'Hindi'],
+        ),
+        isTrue,
+      );
+    });
+
+    test('allows source metadata when native track languages are unavailable', () {
+      expect(
+        PreferredAudioLanguagePolicy.nativeTracksAllowSourceLabel(
+          requestedLanguageCode: 'hi',
+          nativeTrackLabels: ['Audio track 1', 'Unknown'],
+        ),
+        isTrue,
+      );
+    });
     test('prefers Hindi before English and the title original language', () {
       expect(
         PreferredAudioLanguagePolicy.select(
