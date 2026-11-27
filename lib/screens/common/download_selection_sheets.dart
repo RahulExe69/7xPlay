@@ -142,7 +142,8 @@ abstract final class DownloadSelectionSheets {
                 titleDetail: format.smallestSizeBytes == null
                     ? tr('size_unknown')
                     : '~${_formatBytes(format.smallestSizeBytes!)}',
-                subtitle: '${format.sourceCount} sources · '
+                subtitle: '${format.sourceCount} '
+                    '${format.sourceCount == 1 ? "source" : "sources"} · '
                     '${format.deliveryDescription}',
                 icon: PhosphorIcons.monitorPlay(),
               ),

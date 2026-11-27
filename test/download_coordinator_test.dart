@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final alpha = VideoProvider.scraper(id: 'alpha', name: 'Provider Alpha');
   final beta = VideoProvider.scraper(id: 'beta', name: 'Provider Beta');
+  final gamma = VideoProvider.scraper(id: 'gamma', name: 'Provider Gamma');
 
   ProviderAttempt attempt(
     int index,
@@ -44,15 +45,23 @@ void main() {
       isM3U8: true,
       audioLanguage: 'hi',
     );
+    final zeroSizeLink = RegularVideoLinks(
+      url: 'https://gamma.example/720.m3u8',
+      quality: '720p',
+      isM3U8: true,
+      audioLanguage: 'hi',
+    );
     final attempts = [
       attempt(0, alpha, [alphaLink, lowerQuality]),
       attempt(1, beta, [betaLink]),
+      attempt(2, gamma, [zeroSizeLink]),
     ];
     final discovery = UnifiedPlaybackLanguageService.fromDetectedLanguages(
       attempts: attempts,
       detectedByProvider: {
         alpha.codeName: {'hi'},
         beta.codeName: {'hi'},
+        gamma.codeName: {'hi'},
       },
     );
     final candidates = DownloadCoordinator.candidatesForLanguage(
@@ -65,6 +74,7 @@ void main() {
             900 * 1024 * 1024,
         UnifiedPlaybackLanguageService.sourceIdentityForLink(betaLink):
             700 * 1024 * 1024,
+        UnifiedPlaybackLanguageService.sourceIdentityForLink(zeroSizeLink): 0,
       },
     );
 
@@ -74,6 +84,8 @@ void main() {
     expect(formats.first.smallestSizeBytes, 700 * 1024 * 1024);
     expect(formats.first.deliveryDescription, 'DASH · HLS');
     expect(formats.first.candidates.first.provider.codeName, beta.codeName);
+    expect(formats.last.sourceCount, 2);
+    expect(formats.last.smallestSizeBytes, isNull);
   });
 
   test('keeps provider renewal paths while grouping duplicate URLs into one format', () {

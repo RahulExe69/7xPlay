@@ -43,7 +43,7 @@ class DownloadCandidate {
   /// Distinguishes provider-specific size tokens even when providers expose
   /// the same CDN URL and headers.
   String get estimateKey =>
-      '${provider.codeName}|$formatIdentity|$sourceIdentity';
+      '${provider.codeName}|$formatIdentity|${link.server ?? ""}|$sourceIdentity';
 
   DownloadCandidate copyWith({
     int? estimatedBytes,
@@ -88,11 +88,13 @@ class DownloadFormatOption {
   final List<DownloadCandidate> candidates;
   final List<String> deliveryTypes;
 
-  int? get smallestSizeBytes =>
-      candidates.firstWhere(
-        (candidate) => candidate.estimatedBytes != null,
-        orElse: () => candidates.first,
-      ).estimatedBytes;
+  int? get smallestSizeBytes {
+    for (final candidate in candidates) {
+      final size = candidate.estimatedBytes;
+      if (size != null && size > 0) return size;
+    }
+    return null;
+  }
 
   int get sourceCount => candidates.length;
 
@@ -210,13 +212,18 @@ abstract final class DownloadCoordinator {
           source: source,
         );
 
-        final key =
-            '${providerCode}|${candidate.formatIdentity}|${candidate.sourceIdentity}';
+        final serverKey = candidate.source?.server ?? link.server ?? '';
+        final key = '${providerCode}|$serverKey|'
+            '${candidate.formatIdentity}|${candidate.sourceIdentity}';
         final previous = deduplicated[key];
+        final candidateSize = candidate.estimatedBytes;
+        final previousSize = previous?.estimatedBytes;
         if (previous == null ||
-            (candidate.estimatedBytes != null &&
-                (previous.estimatedBytes == null ||
-                    candidate.estimatedBytes! < previous.estimatedBytes!))) {
+            (candidateSize != null &&
+                candidateSize > 0 &&
+                (previousSize == null ||
+                    previousSize <= 0 ||
+                    candidateSize < previousSize))) {
           deduplicated[key] = candidate;
         }
       }
@@ -336,8 +343,14 @@ abstract final class DownloadCoordinator {
     DownloadCandidate left,
     DownloadCandidate right,
   ) {
-    final leftSize = left.estimatedBytes;
-    final rightSize = right.estimatedBytes;
+    final leftSize =
+        left.estimatedBytes != null && left.estimatedBytes! > 0
+            ? left.estimatedBytes
+            : null;
+    final rightSize =
+        right.estimatedBytes != null && right.estimatedBytes! > 0
+            ? right.estimatedBytes
+            : null;
     if (leftSize != null && rightSize != null && leftSize != rightSize) {
       return leftSize.compareTo(rightSize);
     }
