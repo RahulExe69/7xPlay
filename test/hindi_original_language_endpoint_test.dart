@@ -12,7 +12,7 @@ void main() {
 
     expect(url, contains('language=en-US'));
     expect(url, contains('with_original_language=hi'));
-    expect(url, contains('with_genres=18,28'));
+    expect(url, contains('with_genres=18|28'));
     expect(url, contains('include_adult=false'));
   });
 
