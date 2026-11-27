@@ -32,6 +32,16 @@ void main() {
         isTrue,
       );
     });
+
+    test('allows explicit language metadata when a source has no track list', () {
+      expect(
+        PreferredAudioLanguagePolicy.nativeTracksAllowSourceLabel(
+          requestedLanguageCode: 'hi',
+          nativeTrackLabels: const [],
+        ),
+        isTrue,
+      );
+    });
     test('prefers Hindi before English and the title original language', () {
       expect(
         PreferredAudioLanguagePolicy.select(
