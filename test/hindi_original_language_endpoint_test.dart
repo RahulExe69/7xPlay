@@ -1,7 +1,14 @@
 import 'package:flixquest/api/endpoints.dart';
+import 'package:flixquest/constants/api_constants.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUpAll(() {
+    // Set the runtime override so the URL builder never reads an uninitialized
+    // dotenv singleton during unit tests.
+    TMDB_API_KEY = 'test-api-key';
+  });
+
   test('Hindi-origin discovery is separate from the metadata display language', () {
     final url = Endpoints.discoverMoviesByOriginalLanguageUrl(
       'en-US',
