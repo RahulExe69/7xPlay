@@ -9,6 +9,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.Downloader
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -39,6 +40,111 @@ class DownloadRecoveryTest {
         override fun download(progressListener: Downloader.ProgressListener?) = operation()
         override fun cancel() { cancelled = true }
         override fun remove() {}
+    }
+
+    @Test fun providerHttpFailuresQualifyForFallbackButNetworkFailuresDoNot() {
+        for (code in listOf(400, 401, 403, 404, 408, 410, 425, 429, 500, 502, 503, 504)) {
+            assertTrue("HTTP $code should allow a provider fallback",
+                DownloadSourceFailure.isRetryable(response(code, "Unavailable")))
+        }
+        for (code in listOf(200, 301, 304, 416)) {
+            assertFalse("HTTP $code should not rotate providers",
+                DownloadSourceFailure.isRetryable(response(code, "Not a fallback status")))
+        }
+        assertFalse(DownloadSourceFailure.isRetryable(java.net.SocketTimeoutException()))
+        assertFalse(DownloadSourceFailure.isRetryable(java.net.UnknownHostException()))
+        assertTrue(DownloadSourceFailure.isRetryable(
+            java.net.SocketTimeoutException(), networkValidated = true))
+        assertTrue(DownloadSourceFailure.isRetryable(
+            java.net.UnknownHostException(), networkValidated = true))
+        assertFalse(DownloadSourceFailure.isRetryable(
+            IOException("disk full"), networkValidated = true))
+    }
+
+    @Test fun temporaryProviderFailuresAdvanceThroughCandidatesInOrder() {
+        val original = request("original:")
+        val second = request("second:")
+        val third = request("third:")
+        val attempted = mutableListOf<String>()
+        RecoveringDownloader(
+            original,
+            state(),
+            { current, _ ->
+                Task {
+                    attempted.add(current.uri.toString())
+                    if (current.uri.toString().contains("original:") ||
+                        current.uri.toString().contains("second:")) {
+                        throw response(503, "Provider temporarily unavailable")
+                    }
+                }
+            },
+            { _, _ -> fail("A temporary HTTP failure should use the next candidate") },
+            {},
+            fallback = { current, _ ->
+                when {
+                    current.uri.toString().contains("original:") -> second
+                    current.uri.toString().contains("second:") -> third
+                    else -> null
+                }
+            },
+        ).download(null)
+
+        assertEquals(
+            listOf(
+                original.uri.toString(),
+                second.uri.toString(),
+                third.uri.toString(),
+            ),
+            attempted,
+        )
+    }
+
+    @Test fun rankedFallbackArgumentsKeepAudioAndAdvanceTheRemainingCandidates() {
+        val directoryRequest = DownloadRequest.Builder(
+            "movie_42",
+            Uri.parse("https://example.test/original/master.m3u8"),
+        ).setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setData(JSONObject().apply {
+                put("title", "Fixture")
+                put("mediaType", "movie")
+                put("contentId", 42)
+                put("format", "hls")
+                put("quality", "1080p")
+                put("cacheNamespace", "original:")
+                put("audioTrack", JSONObject().put("language", "hi"))
+                put("fallbackCandidates", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("url", "https://second.example/master.m3u8")
+                        put("format", "hls")
+                        put("quality", "1080p")
+                        put("providerName", "Second")
+                        put("headers", JSONObject().put("Referer", "https://second.example/"))
+                        put("audioTrack", JSONObject().put("language", "hi").put("formatId", "hi-1"))
+                        put("audioTrackName", "Hindi")
+                    })
+                    put(JSONObject().apply {
+                        put("url", "https://third.example/master.m3u8")
+                        put("format", "hls")
+                        put("quality", "1080p")
+                        put("providerName", "Third")
+                    })
+                })
+            }.toString().toByteArray()).build()
+
+        val resolver = DownloadSourceResolver()
+        val first = resolver.nextFallbackArguments(directoryRequest)!!
+        assertEquals("https://second.example/master.m3u8", first["url"])
+        assertEquals("hls", first["format"])
+        assertEquals("1080p", first["quality"])
+        assertEquals("Hindi", first["audioTrackName"])
+        assertEquals(mapOf("language" to "hi", "formatId" to "hi-1"), first["audioTrack"])
+        assertEquals(mapOf("Referer" to "https://second.example/"), first["headers"])
+        assertEquals(1, (first["fallbackCandidates"] as List<*>).size)
+        assertNotEquals("original:", first["cacheNamespace"])
+
+        val second = resolver.nextFallbackArguments(directoryRequest, 1)!!
+        assertEquals("https://third.example/master.m3u8", second["url"])
+        assertTrue((second["fallbackCandidates"] as List<*>).isEmpty())
     }
 
     @Test fun onlyPositiveExpiryEvidenceQualifies() {

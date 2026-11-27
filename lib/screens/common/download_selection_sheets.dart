@@ -8,12 +8,13 @@ import '../../design/app_tokens.dart';
 import '../../mobile/widgets/page_kit.dart';
 import '../../models/offline_download.dart';
 import '../../services/unified_playback_language_service.dart';
+import '../../services/download_coordinator.dart';
 import '../../video_providers/names.dart';
 import 'player/player_sheet_ui.dart';
 
-/// The choices before a download or a manual playback: which provider, then
-/// which resolution and audio track. Plain rows in the app's palette, so they follow the
-/// theme; opened from the player ([inPlayer]) they take the player's.
+/// Download choices use a language-first, provider-agnostic catalogue.
+/// Plain rows follow the app palette; sheets opened from the player use its
+/// player sheet treatment.
 abstract final class DownloadSelectionSheets {
   /// Null means cancelled. A result with no track preserves the stream default.
   /// The loading sheet also lets users cancel slow manifest inspection.
@@ -33,26 +34,27 @@ abstract final class DownloadSelectionSheets {
   static Future<String?> showPlaybackLanguage(
     BuildContext context, {
     required List<UnifiedPlaybackLanguageOption> languages,
+    bool inPlayer = false,
   }) {
-    return showAppSheet<String>(
-      context,
-      builder: (context) => _ChoiceSheet<String>(
-        title: tr('player_choose_audio_language'),
-        subtitle: tr('player_audio_language_description'),
-        choices: [
-          for (final language in languages)
-            _Choice(
-              value: language.code,
-              title: language.label,
-              subtitle: tr(
-                'player_audio_language_source_count',
-                namedArgs: {'count': language.providerCodes.length.toString()},
+    Widget builder(BuildContext context) => _ChoiceSheet<String>(
+          title: tr('player_choose_audio_language'),
+          subtitle: tr('player_audio_language_description'),
+          choices: [
+            for (final language in languages)
+              _Choice(
+                value: language.code,
+                title: language.label,
+                subtitle: tr(
+                  'player_audio_language_source_count',
+                  namedArgs: {'count': language.providerCodes.length.toString()},
+                ),
+                icon: PhosphorIcons.speakerHigh(),
               ),
-              icon: PhosphorIcons.speakerHigh(),
-            ),
-        ],
-      ),
-    );
+          ],
+        );
+    return inPlayer
+        ? showPlayerSheet<String>(context: context, builder: builder)
+        : showAppSheet<String>(context, builder: builder);
   }
 
   static Future<VideoProvider?> showProvider(
@@ -115,6 +117,37 @@ abstract final class DownloadSelectionSheets {
               builder: (_, sizes, __) => buildSheet(sizes),
             );
     }
+
+    return inPlayer
+        ? showPlayerSheet<String>(context: context, builder: builder)
+        : showAppSheet<String>(context, builder: builder);
+  }
+
+  /// Shows one row per unique quality, not one row per provider.
+  /// Each row reports the smallest known size and how many source candidates
+  /// are ready for automatic failover.
+  static Future<String?> showUnifiedFormats(
+    BuildContext context, {
+    required List<DownloadFormatOption> formats,
+    bool inPlayer = false,
+  }) {
+    Widget builder(BuildContext context) => _ChoiceSheet<String>(
+          title: tr('download_choose_resolution'),
+          subtitle: tr('download_resolution_description'),
+          choices: [
+            for (final format in formats)
+              _Choice(
+                value: format.key,
+                title: format.label,
+                titleDetail: format.smallestSizeBytes == null
+                    ? tr('size_unknown')
+                    : '~${_formatBytes(format.smallestSizeBytes!)}',
+                subtitle: '${format.sourceCount} sources · '
+                    '${format.deliveryDescription}',
+                icon: PhosphorIcons.monitorPlay(),
+              ),
+          ],
+        );
 
     return inPlayer
         ? showPlayerSheet<String>(context: context, builder: builder)

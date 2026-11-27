@@ -50,6 +50,7 @@ import '../../services/introdb_service.dart';
 import '../../services/offline_download_service.dart';
 import '../../services/playback_wake_lock.dart';
 import '../../services/stream_size_estimator.dart';
+import '../../services/download_coordinator.dart';
 import '../movie/movie_video_loader.dart';
 import '../tv/tv_video_loader.dart';
 import 'player/player_data_management.dart';
@@ -5495,155 +5496,338 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> _downloadFromCurrentProvider() async {
-    if (_activeSources.isEmpty) return;
-    if (!mounted || _activeSources.isEmpty) return;
-    final providerName = _currentProviderName();
-    final downloadApiBaseUrl = _resolveScraperApiUrl();
-    final providerCode = _currentProviderCode;
-    final downloadProvider = widget.availableProviders
-        ?.where((provider) => provider.codeName == providerCode)
-        .firstOrNull;
-    final rawDownloadLinks = List<RegularVideoLinks>.of(
-      _rawVideoLinksByProvider[providerCode] ?? const [],
-    );
-    final sources = Map<String, String>.of(_activeSources);
-    final formats = _activeVideoFormats == null
-        ? <String, BetterPlayerVideoFormat?>{}
-        : Map<String, BetterPlayerVideoFormat?>.of(_activeVideoFormats!);
-    final headers = Map<String, Map<String, String>>.of(_activeVideoHeaders);
-    final estimatedSizes = ValueNotifier<Map<String, int?>>({
-      for (final entry in _activeVideoSizeTokens.entries)
-        if (_streamSizeCacheByToken.containsKey(entry.value))
-          entry.key: _streamSizeCacheByToken[entry.value],
-    });
-    var sizePickerOpen = true;
-    unawaited(StreamSizeEstimator.load(
-      scraperApiUrl: _resolveScraperApiUrl(),
-      tokens: _activeVideoSizeTokens,
-      cacheByToken: _streamSizeCacheByToken,
-      onEstimate: (token, bytes) {
-        if (!sizePickerOpen) return;
-        final next = Map<String, int?>.of(estimatedSizes.value);
-        for (final entry in _activeVideoSizeTokens.entries) {
-          if (entry.value == token) next[entry.key] = bytes;
-        }
-        estimatedSizes.value = next;
-      },
-    ));
-    final resolution = await DownloadSelectionSheets.showResolution(
-      context,
-      inPlayer: true,
-      resolutions: sources.keys.toList(),
-      providerName: providerName,
-      estimatedSizesListenable: estimatedSizes,
-    );
-    sizePickerOpen = false;
-    estimatedSizes.dispose();
-    if (!mounted || resolution == null) return;
+    if (!mounted) return;
 
-    final url = sources[resolution];
-    if (url == null) return;
-    final declaredFormat = formats[resolution];
-    final format = OfflineDownloadService.inferFormat(
-      url: url,
-      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
-      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
-    );
     final movie = widget.movieMetadata;
     final episode = widget.tvMetadata;
     final isMovie = widget.mediaType == MediaType.movie;
+    if ((isMovie && movie?.movieId == null) ||
+        (!isMovie &&
+            (episode?.tvId == null ||
+                episode?.seasonNumber == null ||
+                episode?.episodeNumber == null))) {
+      return;
+    }
+
+    final providersByCode = <String, VideoProvider>{};
+    for (final provider
+        in widget.availableProviders ?? const <VideoProvider>[]) {
+      providersByCode[provider.codeName] = provider;
+    }
+    for (final attempt in _loadedProviderAttempts) {
+      providersByCode[attempt.provider.codeName] = attempt.provider;
+    }
+    final providers = providersByCode.values.toList(growable: false);
+    if (providers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No download providers are available.')),
+      );
+      return;
+    }
+
+    final apiUrl = _resolveScraperApiUrl();
     final season = episode?.seasonNumber ?? 0;
     final episodeNumber = episode?.episodeNumber ?? 0;
-    final posterPath = isMovie ? movie?.posterPath : episode?.posterPath;
-    final subtitleTrack = _originalSubtitleTrack();
+    final titleId = isMovie ? movie!.movieId! : episode!.tvId!;
+    final displayTitle = isMovie
+        ? movie?.movieName ?? 'This movie'
+        : episode?.seriesName ?? 'This episode';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Finding languages and download formats…')),
+    );
 
     try {
-      final downloadHeaders = headers[resolution] ??
-          VideoUtils.inferVideoHeaders(url) ??
-          const <String, String>{};
-      final audioSelection = await DownloadSelectionSheets.chooseAudio(
+      // Playback already streams provider responses into this state. Give
+      // that aggregation a brief chance to finish, then reuse its raw links
+      // and query only providers whose full response is still missing.
+      if (_backgroundProviderAggregationPending) {
+        final cacheDeadline =
+            DateTime.now().add(const Duration(milliseconds: 1800));
+        while (_backgroundProviderAggregationPending &&
+            DateTime.now().isBefore(cacheDeadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          if (!mounted) return;
+        }
+      }
+
+      final providerIndexes = <String, int>{
+        for (var index = 0; index < providers.length; index++)
+          providers[index].codeName: index,
+      };
+      final attemptsByCode = <String, ProviderAttempt>{};
+      final providersNeedingLoad = <VideoProvider>[];
+      for (final provider in providers) {
+        final code = provider.codeName;
+        final rawLinks = _rawVideoLinksByProvider[code];
+        if (rawLinks == null || rawLinks.isEmpty) {
+          providersNeedingLoad.add(provider);
+          continue;
+        }
+        final previous = _loadedProviderAttempts
+            .where((attempt) => attempt.provider.codeName == code)
+            .firstOrNull;
+        attemptsByCode[code] = ProviderAttempt(
+          index: providerIndexes[code]!,
+          provider: provider,
+          result: ProviderLoadResult(
+            success: true,
+            videoLinks: List<RegularVideoLinks>.of(rawLinks),
+            subtitleLinks: previous?.result.subtitleLinks,
+          ),
+        );
+      }
+
+      final missingAttempts = await DownloadCoordinator.loadProviders(
+        providers: providersNeedingLoad,
+        concurrency: 4,
+        timeout: const Duration(seconds: 18),
+        load: (provider) => isMovie
+            ? ProviderLoader.loadMovieFromProvider(
+                provider: provider,
+                movieId: titleId,
+                scraperApiUrl: apiUrl,
+                full: true,
+              )
+            : ProviderLoader.loadTVFromProvider(
+                provider: provider,
+                tvId: titleId,
+                seasonNumber: season,
+                episodeNumber: episodeNumber,
+                scraperApiUrl: apiUrl,
+                full: true,
+              ),
+      );
+      for (final attempt in missingAttempts) {
+        attemptsByCode[attempt.provider.codeName] = ProviderAttempt(
+          index: providerIndexes[attempt.provider.codeName] ?? attempt.index,
+          provider: attempt.provider,
+          result: attempt.result,
+        );
+      }
+      final attempts = attemptsByCode.values.toList()
+        ..sort((left, right) => left.index.compareTo(right.index));
+      if (!mounted) return;
+
+      final discovery = await UnifiedPlaybackLanguageService.discover(
+        attempts,
+        candidatesPerProvider: null,
+        concurrency: 4,
+        probeTimeout: const Duration(seconds: 8),
+      );
+      if (!mounted) return;
+      if (discovery.options.isEmpty) {
+        throw StateError('No downloadable languages were found.');
+      }
+
+      final languageOptions = List<UnifiedPlaybackLanguageOption>.of(
+        discovery.options,
+      )..sort((left, right) {
+          int priority(String code) => switch (code) {
+                'hi' => 0,
+                'en' => 1,
+                'und' => 2,
+                _ => 3,
+              };
+          return priority(left.code).compareTo(priority(right.code));
+        });
+      final languageCode = await DownloadSelectionSheets.showPlaybackLanguage(
         context,
-        tracks: OfflineDownloadService.instance.getAudioTracks(
-          url: url,
-          format: format,
-          headers: downloadHeaders,
-          maxVideoHeight: _downloadResolutionHeight(resolution),
-        ),
+        languages: languageOptions,
         inPlayer: true,
       );
-      if (!mounted) return;
-      if (audioSelection == null) {
-        return;
+      if (!mounted || languageCode == null) return;
+
+      final sizeTokens = <String, String>{};
+      for (final attempt in attempts) {
+        for (final link in attempt.result.videoLinks ?? const []) {
+          final token = link.sizeToken?.trim() ?? '';
+          if (token.isNotEmpty && link.url?.trim().isNotEmpty == true) {
+            sizeTokens.putIfAbsent(
+              UnifiedPlaybackLanguageService.sourceIdentityForLink(link),
+              () => token,
+            );
+          }
+        }
       }
-      await context.read<OfflineDownloadProvider>().enqueue(
-            OfflineDownloadRequest(
-              id: isMovie
-                  ? 'movie_${movie!.movieId}'
-                  : 'tv_${episode!.tvId}_s${season}_e$episodeNumber',
-              url: url,
-              format: format,
-              title: isMovie
-                  ? movie?.movieName ?? 'Movie'
-                  : episode?.seriesName ?? 'TV episode',
-              subtitle: isMovie
-                  ? 'From $providerName'
-                  : 'S${season.toString().padLeft(2, '0')} • '
-                      'E${episodeNumber.toString().padLeft(2, '0')} '
-                      '${episode?.episodeName ?? ''} • $providerName',
-              mediaType: isMovie ? 'movie' : 'episode',
-              quality: resolution,
-              posterUrl: posterPath == null
-                  ? null
-                  : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
-              maxVideoHeight: _downloadResolutionHeight(resolution),
-              headers: downloadHeaders,
-              audioTrack: audioSelection.track,
-              source: OfflineDownloadSource.forSelection(
-                provider: downloadProvider,
-                apiBaseUrl: downloadApiBaseUrl,
-                links: rawDownloadLinks,
-                url: url,
-                headers: downloadHeaders,
-              ),
-              contentId: isMovie ? movie?.movieId : episode?.tvId,
-              seasonNumber: isMovie ? null : season,
-              episodeNumber: isMovie ? null : episodeNumber,
-              subtitleTrackUrl: subtitleTrack?.urls!.first,
-              subtitleTrackName: subtitleTrack?.name,
-              subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
-            ),
-          );
-      settings.analytics.trackDownload(
-        action: 'enqueue_from_player',
-        mediaType: _analyticsMediaType,
-        outcome: 'success',
-        provider: providerName,
-        quality: resolution,
+      final estimatedSizes = await StreamSizeEstimator.load(
+        scraperApiUrl: apiUrl,
+        tokens: sizeTokens,
+        cacheByToken: _streamSizeCacheByToken,
+      );
+
+      final languageCandidates = DownloadCoordinator.candidatesForLanguage(
+        attempts: attempts,
+        discovery: discovery,
+        languageCode: languageCode,
+        scraperApiUrl: apiUrl,
+        estimatedSizes: estimatedSizes,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$resolution download added from $providerName'),
+      if (languageCandidates.isEmpty) {
+        throw StateError('No sources support the selected audio language.');
+      }
+
+      final formats = DownloadCoordinator.buildFormats(languageCandidates);
+      if (formats.isEmpty) {
+        throw StateError('No downloadable formats were found.');
+      }
+      final formatKey = await DownloadSelectionSheets.showUnifiedFormats(
+        context,
+        formats: formats,
+        inPlayer: true,
+      );
+      if (!mounted || formatKey == null) return;
+      final selectedFormat = formats.firstWhere(
+        (format) => format.key == formatKey,
+      );
+
+      final compatibleCandidates =
+          await DownloadCoordinator.inspectAudioTracks(
+        candidates: selectedFormat.candidates,
+        languageCode: languageCode,
+        cachedTracks: discovery.audioTracksBySource,
+        concurrency: 4,
+        timeout: const Duration(seconds: 9),
+        inspect: (candidate) => OfflineDownloadService.instance.getAudioTracks(
+          url: candidate.url,
+          format: candidate.format,
+          headers: candidate.headers,
+          maxVideoHeight: _downloadResolutionHeight(candidate.quality),
         ),
       );
-    } catch (error) {
+      if (!mounted) return;
+      if (compatibleCandidates.isEmpty) {
+        throw StateError(
+          'The selected audio language is no longer available in this format.',
+        );
+      }
+
+      final posterPath = isMovie ? movie?.posterPath : episode?.posterPath;
+      final posterUrl = posterPath == null
+          ? null
+          : '$TMDB_BASE_IMAGE_URL' 'w500$posterPath';
+      final mediaTitle = isMovie
+          ? movie?.movieName ?? 'Movie'
+          : episode?.seriesName ?? 'TV episode';
+      final downloadId = isMovie
+          ? 'movie_$titleId'
+          : 'tv_${titleId}_s${season}_e$episodeNumber';
+
+      RegularSubtitleLinks? subtitleFor(DownloadCandidate candidate) {
+        final providerAttempt = attempts.where(
+          (attempt) => attempt.provider.codeName == candidate.provider.codeName,
+        ).firstOrNull;
+        final subtitles = providerAttempt?.result.subtitleLinks ??
+            const <RegularSubtitleLinks>[];
+        if (subtitles.isEmpty) return null;
+        for (final subtitle in subtitles) {
+          if (languageCodeForLabel(subtitle.language) == languageCode &&
+              subtitle.url?.trim().isNotEmpty == true) {
+            return subtitle;
+          }
+        }
+        return subtitles.firstWhere(
+          (subtitle) => subtitle.url?.trim().isNotEmpty == true,
+          orElse: () => subtitles.first,
+        );
+      }
+
+      OfflineDownloadRequest makeRequest(
+        DownloadCandidate candidate,
+        List<DownloadCandidate> fallbacks,
+      ) {
+        final subtitle = subtitleFor(candidate);
+        final resolution = candidate.quality;
+        return OfflineDownloadRequest(
+          id: downloadId,
+          url: candidate.url,
+          format: candidate.format,
+          title: displayTitle,
+          subtitle: isMovie
+              ? 'Download · $resolution'
+              : 'S${season.toString().padLeft(2, '0')} · '
+                  'E${episodeNumber.toString().padLeft(2, '0')} · $resolution',
+          mediaType: isMovie ? 'movie' : 'episode',
+          quality: resolution,
+          posterUrl: posterUrl,
+          maxVideoHeight: _downloadResolutionHeight(resolution),
+          headers: candidate.headers,
+          audioTrack: candidate.audioTrack,
+          source: candidate.source,
+          fallbackCandidates: fallbacks.map((fallback) {
+            final fallbackSubtitle = subtitleFor(fallback);
+            return <String, Object?>{
+              ...fallback.toFallbackMap(),
+              'subtitleTrackUrl': fallbackSubtitle?.url,
+              'subtitleTrackName': fallbackSubtitle?.language,
+              'subtitleTrackHeaders': fallbackSubtitle?.headers ?? const {},
+            };
+          }).toList(growable: false),
+          contentId: titleId,
+          seasonNumber: isMovie ? null : season,
+          episodeNumber: isMovie ? null : episodeNumber,
+          subtitleTrackUrl: subtitle?.url,
+          subtitleTrackName: subtitle?.language,
+          subtitleTrackHeaders: subtitle?.headers ?? const {},
+        );
+      }
+
+      Object? lastPreparationError;
+      DownloadCandidate? queuedCandidate;
+      for (var index = 0; index < compatibleCandidates.length; index++) {
+        final candidate = compatibleCandidates[index];
+        final fallbacks = compatibleCandidates.skip(index + 1).toList();
+        try {
+          await context.read<OfflineDownloadProvider>().enqueue(
+                makeRequest(candidate, fallbacks),
+              );
+          queuedCandidate = candidate;
+          break;
+        } catch (error) {
+          lastPreparationError = error;
+          if (error is PlatformException &&
+              error.code == 'PREPARE_FAILED' &&
+              fallbacks.isNotEmpty) {
+            continue;
+          }
+          rethrow;
+        }
+      }
+      if (queuedCandidate == null) {
+        throw lastPreparationError ??
+            StateError('Every compatible download source failed preparation.');
+      }
+
+      final languageLabel = discovery.options
+          .firstWhere((option) => option.code == languageCode)
+          .label;
       settings.analytics.trackDownload(
-        action: 'enqueue_from_player',
+        action: 'enqueue_unified',
         mediaType: _analyticsMediaType,
-        outcome: isAlreadyDownloaded(error) ? 'already_downloaded' : 'error',
-        provider: providerName,
-        quality: resolution,
-        error: error.toString(),
+        outcome: 'success',
+        provider: queuedCandidate.provider.displayName,
+        quality: queuedCandidate.quality,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            offlineEnqueueErrorMessage(
-              error,
-              title:
-                  isMovie ? movie?.movieName ?? 'This movie' : 'This episode',
-            ),
+            '${queuedCandidate.quality} · $languageLabel download added',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is PlatformException
+                ? offlineEnqueueErrorMessage(
+                    error,
+                    title: displayTitle,
+                  )
+                : error.toString().replaceFirst('Bad state: ', ''),
           ),
         ),
       );

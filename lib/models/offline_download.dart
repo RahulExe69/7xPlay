@@ -260,6 +260,7 @@ class OfflineDownloadRequest {
     this.subtitleTrackHeaders = const {},
     this.audioTrack,
     this.source,
+    this.fallbackCandidates = const <Map<String, Object?>>[],
   });
 
   final String id;
@@ -281,6 +282,10 @@ class OfflineDownloadRequest {
   final OfflineAudioTrack? audioTrack;
   final OfflineDownloadSource? source;
 
+  /// Ordered alternative providers for this exact language and quality.
+  /// Persisted in the native request so failover also works in background.
+  final List<Map<String, Object?>> fallbackCandidates;
+
   Map<String, Object?> toMap() => {
         'id': id,
         'url': url,
@@ -295,6 +300,7 @@ class OfflineDownloadRequest {
         'audioTrack': audioTrack?.selection,
         'audioTrackName': audioTrack?.name,
         'source': source?.toMap(),
+        'fallbackCandidates': fallbackCandidates,
         'contentId': contentId,
         'seasonNumber': seasonNumber,
         'episodeNumber': episodeNumber,

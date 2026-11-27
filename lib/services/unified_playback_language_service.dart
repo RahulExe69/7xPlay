@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 
 import 'provider_audio_language_cache.dart';
 
+import '../models/offline_download.dart';
+
 import '../functions/language_names.dart';
 import '../services/offline_download_service.dart';
 import '../video_providers/common.dart';
@@ -27,12 +29,17 @@ class UnifiedPlaybackLanguageDiscovery {
     required this.providerCodesByLanguage,
     required this.sourceKeysByLanguage,
     required this.unknownProviderCodes,
+    this.audioTracksBySource = const <String, List<OfflineAudioTrack>>{},
   });
 
   final List<UnifiedPlaybackLanguageOption> options;
   final Map<String, List<String>> providerCodesByLanguage;
   final Map<String, Map<String, List<String>>> sourceKeysByLanguage;
   final List<String> unknownProviderCodes;
+
+  /// Exact native track identities from manifests inspected in this discovery
+  /// pass, keyed by the same URL+headers identity as the source catalogue.
+  final Map<String, List<OfflineAudioTrack>> audioTracksBySource;
 
   List<String> providerCodesFor(String languageCode) {
     if (languageCode == 'und') return unknownProviderCodes;
@@ -190,6 +197,7 @@ abstract final class UnifiedPlaybackLanguageService {
     final unverifiedSourcesByProvider =
         <String, LinkedHashSet<String>>{};
     final jobs = <Future<void> Function()>[];
+    final audioTracksBySource = <String, List<OfflineAudioTrack>>{};
 
     void record(String providerCode, RegularVideoLinks link, String? code) {
       if (code == null || code == 'und') return;
@@ -278,6 +286,8 @@ abstract final class UnifiedPlaybackLanguageService {
                   headers: headers,
                 )
                 .timeout(probeTimeout);
+            audioTracksBySource[_sourceIdentity(link)] =
+                List<OfflineAudioTrack>.unmodifiable(tracks);
             for (final track in tracks) {
               final code = languageCodeForLabel(
                     track.selection['language']?.toString(),
@@ -338,6 +348,7 @@ abstract final class UnifiedPlaybackLanguageService {
         ...sourceKeysByLanguage,
         ...unknownSources,
       },
+      audioTracksBySource: audioTracksBySource,
     );
   }
 
@@ -347,6 +358,8 @@ abstract final class UnifiedPlaybackLanguageService {
     required Map<String, Set<String>> detectedByProvider,
     Set<String> unknownProviderCodes = const <String>{},
     Map<String, Map<String, LinkedHashSet<String>>>? sourceKeysByLanguage,
+    Map<String, List<OfflineAudioTrack>> audioTracksBySource =
+        const <String, List<OfflineAudioTrack>>{},
   }) {
     final providerCodesByLanguage = <String, LinkedHashSet<String>>{};
     for (final attempt in attempts) {
@@ -455,6 +468,9 @@ abstract final class UnifiedPlaybackLanguageService {
           },
       },
       unknownProviderCodes: List<String>.unmodifiable(unverifiedCodes),
+      audioTracksBySource: Map<String, List<OfflineAudioTrack>>.unmodifiable(
+        audioTracksBySource,
+      ),
     );
   }
 }

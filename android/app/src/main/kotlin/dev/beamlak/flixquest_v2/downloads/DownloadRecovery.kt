@@ -4,12 +4,17 @@ import android.net.Uri
 import android.util.AtomicFile
 import androidx.media3.common.StreamKey
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.Downloader
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.UUID
 
 /** Atomic checkpoints keep background downloads and offline playback on the same refreshed request.
@@ -85,6 +90,37 @@ internal class DownloadRecoveryState(private val directory: File) {
     }
 }
 
+/**
+ * Only explicit HTTP responses qualify for provider failover. DNS failures,
+ * socket timeouts, storage errors and generic IOExceptions are not provider
+ * evidence and must not cause us to rotate through every source.
+ */
+@UnstableApi
+internal object DownloadSourceFailure {
+    fun isRetryable(
+        error: IOException,
+        networkValidated: Boolean = false,
+    ): Boolean {
+        val causes = generateSequence<Throwable>(error) { it.cause }.toList()
+        val response = causes.filterIsInstance<HttpDataSource.InvalidResponseCodeException>()
+            .firstOrNull()
+        if (response != null) {
+            return response.responseCode in setOf(400, 401, 403, 404, 408, 410, 425, 429) ||
+                response.responseCode in 500..599
+        }
+        // A stalled/unresolvable host is provider-specific only when Android
+        // still validates the device's internet connection. This avoids
+        // rotating sources during airplane mode or a whole-device outage.
+        if (!networkValidated) return false
+        return causes.any {
+            it is SocketTimeoutException ||
+                it is UnknownHostException ||
+                it is ConnectException ||
+                it is NoRouteToHostException
+        }
+    }
+}
+
 /** The task stays alive during recovery, including when Flutter/the activity is closed. */
 @UnstableApi
 internal class RecoveringDownloader(
@@ -93,6 +129,8 @@ internal class RecoveringDownloader(
     private val create: (DownloadRequest, List<DownloadRequest>) -> Downloader,
     private val refresh: (DownloadRequest, () -> Boolean) -> DownloadRequest,
     private val clearCache: (DownloadRequest) -> Unit,
+    private val fallback: ((DownloadRequest, () -> Boolean) -> DownloadRequest?)? = null,
+    private val networkAvailable: () -> Boolean = { false },
 ) : Downloader {
     @Volatile private var cancelled = false
     @Volatile private var delegate: Downloader? = null
@@ -124,21 +162,64 @@ internal class RecoveringDownloader(
                 return
             } catch (error: IOException) {
                 checkCancelled()
-                if (!DownloadExpiry.isExpired(error) ||
-                    StreamDownloadStore.requestMetadata(current).optJSONObject("source") == null) throw error
-                if (++attempts > 2) {
-                    fail(IOException("The renewed download link has expired again. Retry later.", error))
-                }
-                try {
-                    val replacement = refresh(current) { cancelled || Thread.currentThread().isInterrupted }
-                    synchronized(this) {
-                        checkCancelled()
-                        state.save(original, replacement)
+                val expired = DownloadExpiry.isExpired(error)
+                val providerUnavailable = DownloadSourceFailure.isRetryable(error, networkAvailable())
+                if (!expired && !providerUnavailable) throw error
+
+                var replacement: DownloadRequest? = null
+                var renewalFailure: Exception? = null
+                val hasRenewableSource =
+                    StreamDownloadStore.requestMetadata(current).optJSONObject("source") != null
+
+                if (expired && hasRenewableSource && attempts < 2) {
+                    attempts++
+                    try {
+                        replacement = refresh(current) {
+                            cancelled || Thread.currentThread().isInterrupted
+                        }
+                    } catch (interrupted: InterruptedException) {
+                        throw interrupted
+                    } catch (failure: Exception) {
+                        renewalFailure = failure
                     }
-                } catch (interrupted: InterruptedException) {
-                    throw interrupted
-                } catch (failure: Exception) {
-                    fail(IOException(failure.message ?: "Could not renew this download. Retry later.", failure))
+                }
+
+                // A confirmed expired link first gets a same-provider renewal.
+                // A temporary HTTP source failure, or a failed renewal, moves
+                // to the next language/quality-compatible provider candidate.
+                if (replacement == null) {
+                    try {
+                        replacement = fallback?.invoke(current) {
+                            cancelled || Thread.currentThread().isInterrupted
+                        }
+                    } catch (interrupted: InterruptedException) {
+                        throw interrupted
+                    } catch (failure: Exception) {
+                        renewalFailure = renewalFailure ?: failure
+                    }
+                }
+
+                if (replacement == null) {
+                    val failure = renewalFailure
+                    if (failure != null) {
+                        fail(IOException(
+                            failure.message ?: "No compatible download source could be prepared.",
+                            error,
+                        ))
+                    }
+                    if (expired && attempts >= 2) {
+                        fail(IOException("The renewed download link expired repeatedly and no fallback source remained.", error))
+                    }
+                    throw error
+                }
+
+                synchronized(this) {
+                    checkCancelled()
+                    try {
+                        state.save(original, replacement)
+                    } catch (failure: IOException) {
+                        fail(IOException("Could not checkpoint the replacement download source.", failure))
+                    }
                 }
             }
         }
