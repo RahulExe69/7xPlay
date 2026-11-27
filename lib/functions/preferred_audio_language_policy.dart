@@ -6,6 +6,22 @@ import 'language_names.dart';
 /// language, followed by other known languages. This is an audio preference,
 /// not a statement about the movie's country or original language.
 abstract final class PreferredAudioLanguagePolicy {
+  /// Whether source metadata can be trusted for [requestedLanguageCode].
+  ///
+  /// A manifest with recognised native languages is authoritative. If it
+  /// exposes only English, a provider's stale "Hindi" label must not make the
+  /// source eligible as Hindi. Empty/unrecognised track metadata leaves the
+  /// provider label as the only available evidence (e.g. progressive files).
+  static bool nativeTracksAllowSourceLabel({
+    required String requestedLanguageCode,
+    required Iterable<String> nativeTrackLabels,
+  }) {
+    final nativeCodes = <String>{
+      for (final label in nativeTrackLabels)
+        if (languageCodeForLabel(label) case final code?) code,
+    };
+    return nativeCodes.isEmpty || nativeCodes.contains(requestedLanguageCode);
+  }
   static List<String> orderAvailable({
     required Iterable<String> availableLanguageLabels,
     String? originalLanguage,
