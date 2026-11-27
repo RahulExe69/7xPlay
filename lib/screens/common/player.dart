@@ -5533,9 +5533,29 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         ? movie?.movieName ?? 'This movie'
         : episode?.seriesName ?? 'This episode';
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Finding languages and download formats…')),
-    );
+    void showDownloadProgress(String message) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(minutes: 1),
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(message)),
+              ],
+            ),
+          ),
+        );
+    }
+
+    showDownloadProgress('Finding languages and download formats…');
 
     try {
       // Playback already streams provider responses into this state. Give
@@ -5636,14 +5656,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         languages: languageOptions,
         inPlayer: true,
       );
-      if (!mounted || languageCode == null) return;
+      if (!mounted) return;
+      if (languageCode == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
 
+      showDownloadProgress('Checking sizes for the selected language…');
       final languageCandidates = DownloadCoordinator.candidatesForLanguage(
         attempts: attempts,
         discovery: discovery,
         languageCode: languageCode,
         scraperApiUrl: apiUrl,
       );
+      if (languageCandidates.isEmpty) {
+        throw StateError('No sources support the selected audio language.');
+      }
 
       // Estimate only the streams that can satisfy the chosen language.
       // Avoid spending requests/time estimating every unused dub.
@@ -5651,7 +5679,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       for (final candidate in languageCandidates) {
         final token = candidate.link.sizeToken?.trim() ?? '';
         if (token.isNotEmpty) {
-          sizeTokens.putIfAbsent(candidate.sourceIdentity, () => token);
+          sizeTokens.putIfAbsent(candidate.estimateKey, () => token);
         }
       }
       final estimatedSizes = await StreamSizeEstimator.load(
@@ -5667,24 +5695,27 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           )
           .toList(growable: false);
       if (!mounted) return;
-      if (languageCandidates.isEmpty) {
-        throw StateError('No sources support the selected audio language.');
-      }
 
       final formats = DownloadCoordinator.buildFormats(sizedCandidates);
       if (formats.isEmpty) {
         throw StateError('No downloadable formats were found.');
       }
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       final formatKey = await DownloadSelectionSheets.showUnifiedFormats(
         context,
         formats: formats,
         inPlayer: true,
       );
-      if (!mounted || formatKey == null) return;
+      if (!mounted) return;
+      if (formatKey == null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        return;
+      }
       final selectedFormat = formats.firstWhere(
         (format) => format.key == formatKey,
       );
 
+      showDownloadProgress('Verifying the selected audio language…');
       final compatibleCandidates =
           await DownloadCoordinator.inspectAudioTracks(
         candidates: selectedFormat.candidates,
@@ -5759,9 +5790,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             final fallbackSubtitle = subtitleFor(fallback);
             return <String, Object?>{
               ...fallback.toFallbackMap(),
-              'subtitleTrackUrl': fallbackSubtitle?.url,
-              'subtitleTrackName': fallbackSubtitle?.language,
-              'subtitleTrackHeaders': fallbackSubtitle?.headers ?? const {},
+              if (fallbackSubtitle?.url?.trim().isNotEmpty == true) ...{
+                'subtitleTrackUrl': fallbackSubtitle!.url,
+                'subtitleTrackName': fallbackSubtitle.language,
+                'subtitleTrackHeaders': fallbackSubtitle.headers ?? const {},
+              },
             };
           }).toList(growable: false),
           contentId: titleId,
@@ -5773,6 +5806,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         );
       }
 
+      showDownloadProgress('Preparing the best available download source…');
       Object? lastPreparationError;
       DownloadCandidate? queuedCandidate;
       for (var index = 0; index < compatibleCandidates.length; index++) {
@@ -5810,16 +5844,20 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         quality: queuedCandidate.quality,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${queuedCandidate.quality} · $languageLabel download added',
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '${queuedCandidate.quality} · $languageLabel download added',
+            ),
           ),
-        ),
-      );
+        );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
         SnackBar(
           content: Text(
             error is PlatformException
