@@ -50,7 +50,6 @@ import '../../services/introdb_service.dart';
 import '../../services/offline_download_service.dart';
 import '../../services/playback_wake_lock.dart';
 import '../../services/stream_size_estimator.dart';
-import '../../services/download_coordinator.dart';
 import '../movie/movie_video_loader.dart';
 import '../tv/tv_video_loader.dart';
 import 'player/player_data_management.dart';
@@ -1087,11 +1086,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     return codes.contains(selected);
   }
 
-  bool _applyPreferredAudioTrack() {
+  bool _applyPreferredAudioTrack({String? requiredLanguageCode}) {
     final tracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-    var selected = _activeAudioLanguageCode;
-    if (tracks.isNotEmpty &&
+    // An automatic source probe must validate the language it is currently
+    // testing. It must not replace Hindi with the manifest's default English
+    // track and then report that the Hindi attempt succeeded.
+    var selected = requiredLanguageCode ?? _activeAudioLanguageCode;
+    if (requiredLanguageCode == null &&
+        tracks.isNotEmpty &&
         !_audioLanguageExplicitlySelected &&
         !_manifestAudioExplicitlySelected) {
       final manifestPreference = PreferredAudioLanguagePolicy.select(
@@ -1141,7 +1144,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // silently continue with a different native rendition.
     if (nativeTrackCodes.isNotEmpty) {
       return nativeTrackCodes.contains(selected) ||
-          !_audioLanguageExplicitlySelected;
+          (requiredLanguageCode == null && !_audioLanguageExplicitlySelected);
     }
     final providerCode = _currentProviderCode;
     final knownCodes = (providerCode == null
@@ -1151,6 +1154,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         .whereType<String>()
         .toSet();
     if (knownCodes.contains(selected)) return true;
+    // A strict automatic probe is no more permissive than an explicit
+    // selection: without matching native tracks, declared source metadata
+    // must affirm the requested language.
+    if (requiredLanguageCode != null) return false;
     // Unlabelled adaptive sources remain best-effort for automatic defaults,
     // but an explicit selection is a hard constraint.
     return !_audioLanguageExplicitlySelected;
@@ -3755,17 +3762,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
     _automaticPreferredLanguageAttempted = true;
     unawaited(
-      _applyAutomaticPreferredAudioLanguages(
-        orderedLanguages,
-        providersStillLoading: discoveryPending,
-      ),
+      _applyAutomaticPreferredAudioLanguages(orderedLanguages),
     );
   }
 
   Future<void> _applyAutomaticPreferredAudioLanguages(
-    List<String> orderedLanguages, {
-    required bool providersStillLoading,
-  }) async {
+    List<String> orderedLanguages,
+  ) async {
     for (final languageCode in orderedLanguages) {
       if (!mounted ||
           _adBlockStopped ||
@@ -3803,9 +3806,18 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             (entry) =>
                 sourceKeys.contains(entry.key) && entry.value == currentUrl,
           );
-      if (isAlreadyActive) {
-        // The active progressive source was labelled with this language but
-        // exposes no separate native track list. Avoid reloading the same URL.
+      final nativeTrackLabels = tracks.expand(
+        (track) => <String>[track.language ?? '', track.label ?? ''],
+      );
+      final activeManifestConfirmsLanguage =
+          PreferredAudioLanguagePolicy.nativeTracksAllowSourceLabel(
+        requestedLanguageCode: languageCode,
+        nativeTrackLabels: nativeTrackLabels,
+      );
+      if (isAlreadyActive && activeManifestConfirmsLanguage) {
+        // Progressive sources may not expose a native track catalogue. Trust
+        // the provider label only in that case, or when native tracks confirm
+        // it; a contradictory manifest must trigger another source attempt.
         _activeAudioLanguageCode = languageCode;
         _audioLanguageSheetRefresh?.call();
         return;
@@ -3823,7 +3835,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // A Hindi-labelled source can still be stale or mislabelled. Give the
       // remaining providers time to report another Hindi option before
       // falling back to English/original audio.
-      if (languageCode == 'hi' && providersStillLoading) {
+      final discoveryStillPending =
+          _backgroundProviderAggregationPending ||
+          _audioLanguageDiscoveryRunning ||
+          _pendingAudioLanguageAttempts.isNotEmpty;
+      if (languageCode == 'hi' && discoveryStillPending) {
+        // Discovery may have completed while this source was being checked.
+        // Re-check now so a completed pass falls through to English/original,
+        // while pending providers can still trigger another Hindi attempt.
         _automaticPreferredLanguageAttempted = false;
         return;
       }
@@ -3919,7 +3938,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!mounted || _adBlockStopped) return false;
       final tracks =
           _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-      if (tracks.isNotEmpty && _applyPreferredAudioTrack()) return true;
+      if (tracks.isNotEmpty &&
+          _applyPreferredAudioTrack(requiredLanguageCode: languageCode)) {
+        return true;
+      }
       // A source explicitly labelled with the requested language can be used
       // when the manifest has no separate track list (e.g. progressive files).
       // For a language learned from an adaptive manifest, keep waiting for the
@@ -3929,7 +3951,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     } while (DateTime.now().isBefore(deadline));
     final tracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-    if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+    if (tracks.isNotEmpty) {
+      return _applyPreferredAudioTrack(requiredLanguageCode: languageCode);
+    }
     return providerLanguage == languageCode;
   }
 
@@ -5496,402 +5520,155 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> _downloadFromCurrentProvider() async {
-    if (!mounted) return;
+    if (_activeSources.isEmpty) return;
+    if (!mounted || _activeSources.isEmpty) return;
+    final providerName = _currentProviderName();
+    final downloadApiBaseUrl = _resolveScraperApiUrl();
+    final providerCode = _currentProviderCode;
+    final downloadProvider = widget.availableProviders
+        ?.where((provider) => provider.codeName == providerCode)
+        .firstOrNull;
+    final rawDownloadLinks = List<RegularVideoLinks>.of(
+      _rawVideoLinksByProvider[providerCode] ?? const [],
+    );
+    final sources = Map<String, String>.of(_activeSources);
+    final formats = _activeVideoFormats == null
+        ? <String, BetterPlayerVideoFormat?>{}
+        : Map<String, BetterPlayerVideoFormat?>.of(_activeVideoFormats!);
+    final headers = Map<String, Map<String, String>>.of(_activeVideoHeaders);
+    final estimatedSizes = ValueNotifier<Map<String, int?>>({
+      for (final entry in _activeVideoSizeTokens.entries)
+        if (_streamSizeCacheByToken.containsKey(entry.value))
+          entry.key: _streamSizeCacheByToken[entry.value],
+    });
+    var sizePickerOpen = true;
+    unawaited(StreamSizeEstimator.load(
+      scraperApiUrl: _resolveScraperApiUrl(),
+      tokens: _activeVideoSizeTokens,
+      cacheByToken: _streamSizeCacheByToken,
+      onEstimate: (token, bytes) {
+        if (!sizePickerOpen) return;
+        final next = Map<String, int?>.of(estimatedSizes.value);
+        for (final entry in _activeVideoSizeTokens.entries) {
+          if (entry.value == token) next[entry.key] = bytes;
+        }
+        estimatedSizes.value = next;
+      },
+    ));
+    final resolution = await DownloadSelectionSheets.showResolution(
+      context,
+      inPlayer: true,
+      resolutions: sources.keys.toList(),
+      providerName: providerName,
+      estimatedSizesListenable: estimatedSizes,
+    );
+    sizePickerOpen = false;
+    estimatedSizes.dispose();
+    if (!mounted || resolution == null) return;
 
+    final url = sources[resolution];
+    if (url == null) return;
+    final declaredFormat = formats[resolution];
+    final format = OfflineDownloadService.inferFormat(
+      url: url,
+      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
+      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
+    );
     final movie = widget.movieMetadata;
     final episode = widget.tvMetadata;
     final isMovie = widget.mediaType == MediaType.movie;
-    if ((isMovie && movie?.movieId == null) ||
-        (!isMovie &&
-            (episode?.tvId == null ||
-                episode?.seasonNumber == null ||
-                episode?.episodeNumber == null))) {
-      return;
-    }
-
-    final providersByCode = <String, VideoProvider>{};
-    for (final provider
-        in widget.availableProviders ?? const <VideoProvider>[]) {
-      providersByCode[provider.codeName] = provider;
-    }
-    for (final attempt in _loadedProviderAttempts) {
-      providersByCode[attempt.provider.codeName] = attempt.provider;
-    }
-    final providers = providersByCode.values.toList(growable: false);
-    if (providers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No download providers are available.')),
-      );
-      return;
-    }
-
-    final apiUrl = _resolveScraperApiUrl();
     final season = episode?.seasonNumber ?? 0;
     final episodeNumber = episode?.episodeNumber ?? 0;
-    final titleId = isMovie ? movie!.movieId! : episode!.tvId!;
-    final displayTitle = isMovie
-        ? movie?.movieName ?? 'This movie'
-        : episode?.seriesName ?? 'This episode';
-
-    void showDownloadProgress(String message) {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            duration: const Duration(minutes: 1),
-            content: Row(
-              children: [
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(message)),
-              ],
-            ),
-          ),
-        );
-    }
-
-    showDownloadProgress('Finding languages and download formats…');
+    final posterPath = isMovie ? movie?.posterPath : episode?.posterPath;
+    final subtitleTrack = _originalSubtitleTrack();
 
     try {
-      // Playback already streams provider responses into this state. Give
-      // that aggregation a brief chance to finish, then reuse its raw links
-      // and query only providers whose full response is still missing.
-      if (_backgroundProviderAggregationPending) {
-        final cacheDeadline =
-            DateTime.now().add(const Duration(milliseconds: 2500));
-        while (_backgroundProviderAggregationPending &&
-            DateTime.now().isBefore(cacheDeadline)) {
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-          if (!mounted) return;
-        }
-      }
-
-      final providerIndexes = <String, int>{
-        for (var index = 0; index < providers.length; index++)
-          providers[index].codeName: index,
-      };
-      // A streaming fast result can be replaced later by an expanded result
-      // with additional mirrors. Never treat an unfinished aggregate as the
-      // complete catalogue; refresh every provider while it is still pending.
-      final forceCompleteProviderQuery = _backgroundProviderAggregationPending;
-      final attemptsByCode = <String, ProviderAttempt>{};
-      final providersNeedingLoad = <VideoProvider>[];
-      for (final provider in providers) {
-        final code = provider.codeName;
-        final rawLinks = _rawVideoLinksByProvider[code];
-        if (forceCompleteProviderQuery ||
-            _loadingProviders.contains(code) ||
-            rawLinks == null ||
-            rawLinks.isEmpty) {
-          providersNeedingLoad.add(provider);
-          // Preserve a usable fast snapshot if the full expansion request
-          // fails; a failed refresh must not erase an already working source.
-          if (rawLinks != null && rawLinks.isNotEmpty) {
-            final previous = _loadedProviderAttempts
-                .where((attempt) => attempt.provider.codeName == code)
-                .firstOrNull;
-            attemptsByCode[code] = ProviderAttempt(
-              index: providerIndexes[code]!,
-              provider: provider,
-              result: ProviderLoadResult(
-                success: true,
-                videoLinks: List<RegularVideoLinks>.of(rawLinks),
-                subtitleLinks: previous?.result.subtitleLinks,
-              ),
-            );
-          }
-          continue;
-        }
-        final previous = _loadedProviderAttempts
-            .where((attempt) => attempt.provider.codeName == code)
-            .firstOrNull;
-        attemptsByCode[code] = ProviderAttempt(
-          index: providerIndexes[code]!,
-          provider: provider,
-          result: ProviderLoadResult(
-            success: true,
-            videoLinks: List<RegularVideoLinks>.of(rawLinks),
-            subtitleLinks: previous?.result.subtitleLinks,
-          ),
-        );
-      }
-
-      final missingAttempts = await DownloadCoordinator.loadProviders(
-        providers: providersNeedingLoad,
-        concurrency: 8,
-        timeout: const Duration(seconds: 12),
-        load: (provider) => isMovie
-            ? ProviderLoader.loadMovieFromProvider(
-                provider: provider,
-                movieId: titleId,
-                scraperApiUrl: apiUrl,
-                full: true,
-              )
-            : ProviderLoader.loadTVFromProvider(
-                provider: provider,
-                tvId: titleId,
-                seasonNumber: season,
-                episodeNumber: episodeNumber,
-                scraperApiUrl: apiUrl,
-                full: true,
-              ),
-      );
-      for (final attempt in missingAttempts) {
-        final code = attempt.provider.codeName;
-        // A successful expanded result replaces the fast snapshot. If the
-        // expansion fails, retain the working snapshot as a safe fallback.
-        if (attempt.hasPlayableSources || !attemptsByCode.containsKey(code)) {
-          attemptsByCode[code] = ProviderAttempt(
-            index: providerIndexes[code] ?? attempt.index,
-            provider: attempt.provider,
-            result: attempt.result,
-          );
-        }
-      }
-      final attempts = attemptsByCode.values.toList()
-        ..sort((left, right) => left.index.compareTo(right.index));
-      if (!mounted) return;
-
-      final discovery = await UnifiedPlaybackLanguageService.discover(
-        attempts,
-        candidatesPerProvider: null,
-        concurrency: 8,
-        probeTimeout: const Duration(seconds: 8),
-      );
-      if (!mounted) return;
-      if (discovery.options.isEmpty) {
-        throw StateError('No downloadable languages were found.');
-      }
-
-      final languageOptions = List<UnifiedPlaybackLanguageOption>.of(
-        discovery.options,
-      )..sort((left, right) {
-          int priority(String code) => switch (code) {
-                'hi' => 0,
-                'en' => 1,
-                'und' => 2,
-                _ => 3,
-              };
-          return priority(left.code).compareTo(priority(right.code));
-        });
-      final languageCode = await DownloadSelectionSheets.showPlaybackLanguage(
+      final downloadHeaders = headers[resolution] ??
+          VideoUtils.inferVideoHeaders(url) ??
+          const <String, String>{};
+      final audioSelection = await DownloadSelectionSheets.chooseAudio(
         context,
-        languages: languageOptions,
-        inPlayer: true,
-      );
-      if (!mounted) return;
-      if (languageCode == null) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        return;
-      }
-
-      showDownloadProgress('Checking sizes for the selected language…');
-      final languageCandidates = DownloadCoordinator.candidatesForLanguage(
-        attempts: attempts,
-        discovery: discovery,
-        languageCode: languageCode,
-        scraperApiUrl: apiUrl,
-      );
-
-      // Estimate only the streams that can satisfy the chosen language.
-      // Avoid spending requests/time estimating every unused dub.
-      final sizeTokens = <String, String>{};
-      for (final candidate in languageCandidates) {
-        final token = candidate.link.sizeToken?.trim() ?? '';
-        if (token.isNotEmpty) {
-          sizeTokens.putIfAbsent(candidate.estimateKey, () => token);
-        }
-      }
-      final estimatedSizes = await StreamSizeEstimator.load(
-        scraperApiUrl: apiUrl,
-        tokens: sizeTokens,
-        cacheByToken: _streamSizeCacheByToken,
-      );
-      final sizedCandidates = languageCandidates
-          .map(
-            (candidate) => candidate.copyWith(
-              estimatedBytes: estimatedSizes[candidate.estimateKey],
-            ),
-          )
-          .toList(growable: false);
-      if (!mounted) return;
-      if (languageCandidates.isEmpty) {
-        throw StateError('No sources support the selected audio language.');
-      }
-
-      final formats = DownloadCoordinator.buildFormats(sizedCandidates);
-      if (formats.isEmpty) {
-        throw StateError('No downloadable formats were found.');
-      }
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      final formatKey = await DownloadSelectionSheets.showUnifiedFormats(
-        context,
-        formats: formats,
-        inPlayer: true,
-      );
-      if (!mounted) return;
-      if (formatKey == null) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        return;
-      }
-      final selectedFormat = formats.firstWhere(
-        (format) => format.key == formatKey,
-      );
-
-      showDownloadProgress('Verifying the selected audio language…');
-      final compatibleCandidates =
-          await DownloadCoordinator.inspectAudioTracks(
-        candidates: selectedFormat.candidates,
-        languageCode: languageCode,
-        cachedTracks: discovery.audioTracksBySource,
-        concurrency: 4,
-        timeout: const Duration(seconds: 9),
-        inspect: (candidate) => OfflineDownloadService.instance.getAudioTracks(
-          url: candidate.url,
-          format: candidate.format,
-          headers: candidate.headers,
-          maxVideoHeight: _downloadResolutionHeight(candidate.quality),
-        ),
-      );
-      if (!mounted) return;
-      if (compatibleCandidates.isEmpty) {
-        throw StateError(
-          'The selected audio language is no longer available in this format.',
-        );
-      }
-
-      final posterPath = isMovie ? movie?.posterPath : episode?.posterPath;
-      final posterUrl = posterPath == null
-          ? null
-          : '$TMDB_BASE_IMAGE_URL' 'w500$posterPath';
-      final downloadId = isMovie
-          ? 'movie_$titleId'
-          : 'tv_${titleId}_s${season}_e$episodeNumber';
-
-      RegularSubtitleLinks? subtitleFor(DownloadCandidate candidate) {
-        final providerAttempt = attempts.where(
-          (attempt) => attempt.provider.codeName == candidate.provider.codeName,
-        ).firstOrNull;
-        final subtitles = providerAttempt?.result.subtitleLinks ??
-            const <RegularSubtitleLinks>[];
-        if (subtitles.isEmpty) return null;
-        for (final subtitle in subtitles) {
-          if (languageCodeForLabel(subtitle.language) == languageCode &&
-              subtitle.url?.trim().isNotEmpty == true) {
-            return subtitle;
-          }
-        }
-        return subtitles.firstWhere(
-          (subtitle) => subtitle.url?.trim().isNotEmpty == true,
-          orElse: () => subtitles.first,
-        );
-      }
-
-      OfflineDownloadRequest makeRequest(
-        DownloadCandidate candidate,
-        List<DownloadCandidate> fallbacks,
-      ) {
-        final subtitle = subtitleFor(candidate);
-        final resolution = candidate.quality;
-        return OfflineDownloadRequest(
-          id: downloadId,
-          url: candidate.url,
-          format: candidate.format,
-          title: displayTitle,
-          subtitle: isMovie
-              ? 'Download · $resolution'
-              : 'S${season.toString().padLeft(2, '0')} · '
-                  'E${episodeNumber.toString().padLeft(2, '0')} · $resolution',
-          mediaType: isMovie ? 'movie' : 'episode',
-          quality: resolution,
-          posterUrl: posterUrl,
+        tracks: OfflineDownloadService.instance.getAudioTracks(
+          url: url,
+          format: format,
+          headers: downloadHeaders,
           maxVideoHeight: _downloadResolutionHeight(resolution),
-          headers: candidate.headers,
-          audioTrack: candidate.audioTrack,
-          source: candidate.source,
-          fallbackCandidates: fallbacks.map((fallback) {
-            final fallbackSubtitle = subtitleFor(fallback);
-            return <String, Object?>{
-              ...fallback.toFallbackMap(),
-              'subtitleTrackUrl': fallbackSubtitle?.url,
-              'subtitleTrackName': fallbackSubtitle?.language,
-              'subtitleTrackHeaders': fallbackSubtitle?.headers ?? const {},
-            };
-          }).toList(growable: false),
-          contentId: titleId,
-          seasonNumber: isMovie ? null : season,
-          episodeNumber: isMovie ? null : episodeNumber,
-          subtitleTrackUrl: subtitle?.url,
-          subtitleTrackName: subtitle?.language,
-          subtitleTrackHeaders: subtitle?.headers ?? const {},
-        );
+        ),
+        inPlayer: true,
+      );
+      if (!mounted) return;
+      if (audioSelection == null) {
+        return;
       }
-
-      showDownloadProgress('Preparing the best available download source…');
-      Object? lastPreparationError;
-      DownloadCandidate? queuedCandidate;
-      for (var index = 0; index < compatibleCandidates.length; index++) {
-        final candidate = compatibleCandidates[index];
-        final fallbacks = compatibleCandidates.skip(index + 1).toList();
-        try {
-          await context.read<OfflineDownloadProvider>().enqueue(
-                makeRequest(candidate, fallbacks),
-              );
-          queuedCandidate = candidate;
-          break;
-        } catch (error) {
-          lastPreparationError = error;
-          if (error is PlatformException &&
-              error.code == 'PREPARE_FAILED' &&
-              fallbacks.isNotEmpty) {
-            continue;
-          }
-          rethrow;
-        }
-      }
-      if (queuedCandidate == null) {
-        throw lastPreparationError ??
-            StateError('Every compatible download source failed preparation.');
-      }
-
-      final languageLabel = discovery.options
-          .firstWhere((option) => option.code == languageCode)
-          .label;
+      await context.read<OfflineDownloadProvider>().enqueue(
+            OfflineDownloadRequest(
+              id: isMovie
+                  ? 'movie_${movie!.movieId}'
+                  : 'tv_${episode!.tvId}_s${season}_e$episodeNumber',
+              url: url,
+              format: format,
+              title: isMovie
+                  ? movie?.movieName ?? 'Movie'
+                  : episode?.seriesName ?? 'TV episode',
+              subtitle: isMovie
+                  ? 'From $providerName'
+                  : 'S${season.toString().padLeft(2, '0')} • '
+                      'E${episodeNumber.toString().padLeft(2, '0')} '
+                      '${episode?.episodeName ?? ''} • $providerName',
+              mediaType: isMovie ? 'movie' : 'episode',
+              quality: resolution,
+              posterUrl: posterPath == null
+                  ? null
+                  : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
+              maxVideoHeight: _downloadResolutionHeight(resolution),
+              headers: downloadHeaders,
+              audioTrack: audioSelection.track,
+              source: OfflineDownloadSource.forSelection(
+                provider: downloadProvider,
+                apiBaseUrl: downloadApiBaseUrl,
+                links: rawDownloadLinks,
+                url: url,
+                headers: downloadHeaders,
+              ),
+              contentId: isMovie ? movie?.movieId : episode?.tvId,
+              seasonNumber: isMovie ? null : season,
+              episodeNumber: isMovie ? null : episodeNumber,
+              subtitleTrackUrl: subtitleTrack?.urls!.first,
+              subtitleTrackName: subtitleTrack?.name,
+              subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
+            ),
+          );
       settings.analytics.trackDownload(
-        action: 'enqueue_unified',
+        action: 'enqueue_from_player',
         mediaType: _analyticsMediaType,
         outcome: 'success',
-        provider: queuedCandidate.provider.displayName,
-        quality: queuedCandidate.quality,
+        provider: providerName,
+        quality: resolution,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              '${queuedCandidate.quality} · $languageLabel download added',
-            ),
-          ),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$resolution download added from $providerName'),
+        ),
+      );
     } catch (error) {
+      settings.analytics.trackDownload(
+        action: 'enqueue_from_player',
+        mediaType: _analyticsMediaType,
+        outcome: isAlreadyDownloaded(error) ? 'already_downloaded' : 'error',
+        provider: providerName,
+        quality: resolution,
+        error: error.toString(),
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            error is PlatformException
-                ? offlineEnqueueErrorMessage(
-                    error,
-                    title: displayTitle,
-                  )
-                : error.toString().replaceFirst('Bad state: ', ''),
+            offlineEnqueueErrorMessage(
+              error,
+              title:
+                  isMovie ? movie?.movieName ?? 'This movie' : 'This episode',
+            ),
           ),
         ),
       );
