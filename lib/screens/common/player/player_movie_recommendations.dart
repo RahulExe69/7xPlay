@@ -41,6 +41,7 @@ class PlayerMovieRecommendations {
       final newMetadata = MovieStreamMetadata(
         movieId: recommendedMovie.movieId,
         movieName: recommendedMovie.title,
+        originalLanguage: recommendedMovie.originalLanguage,
         posterPath: recommendedMovie.posterPath,
         backdropPath: recommendedMovie.backdropPath,
         releaseDate: recommendedMovie.releaseDate,

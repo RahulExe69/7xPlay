@@ -326,6 +326,7 @@ class _TitleDetailsScreenState extends State<TitleDetailsScreen> {
       elapsed: elapsed,
       movieId: item.id,
       movieName: item.title,
+      originalLanguage: item.movie?.originalLanguage,
       posterPath: item.posterPath,
       releaseYear: int.tryParse(item.year ?? '') ?? 0,
       isAdult: item.movie?.adult,

@@ -1,12 +1,28 @@
 import 'language_names.dart';
 
-/// Chooses a sensible default audio track without assuming every title is
-/// English. Prefer the title's TMDB original language whenever the source
-/// exposes it. Hindi/Urdu are fallback preferences when that original is absent.
+/// Selects a predictable default audio language for 7xPlay.
+///
+/// The app prefers Hindi first, then English, then the title's original
+/// language, followed by other known languages. This is an audio preference,
+/// not a statement about the movie's country or original language.
 abstract final class PreferredAudioLanguagePolicy {
-  static const List<String> _preferredDubOrder = <String>['hi', 'ur'];
-
-  static String? select({
+  /// Whether source metadata can be trusted for [requestedLanguageCode].
+  ///
+  /// A manifest with recognised native languages is authoritative. If it
+  /// exposes only English, a provider's stale "Hindi" label must not make the
+  /// source eligible as Hindi. Empty/unrecognised track metadata leaves the
+  /// provider label as the only available evidence (e.g. progressive files).
+  static bool nativeTracksAllowSourceLabel({
+    required String requestedLanguageCode,
+    required Iterable<String> nativeTrackLabels,
+  }) {
+    final nativeCodes = <String>{
+      for (final label in nativeTrackLabels)
+        if (languageCodeForLabel(label) case final code?) code,
+    };
+    return nativeCodes.isEmpty || nativeCodes.contains(requestedLanguageCode);
+  }
+  static List<String> orderAvailable({
     required Iterable<String> availableLanguageLabels,
     String? originalLanguage,
   }) {
@@ -14,23 +30,38 @@ abstract final class PreferredAudioLanguagePolicy {
       for (final label in availableLanguageLabels)
         if (languageCodeForLabel(label) case final code?) code,
     };
-    if (available.isEmpty) return null;
+    if (available.isEmpty) return const <String>[];
 
-    final original = languageCodeForLabel(originalLanguage);
-    if (original != null && available.contains(original)) return original;
+    final ordered = <String>[];
 
-    for (final preferred in _preferredDubOrder) {
-      if (available.contains(preferred)) return preferred;
+    void addIfAvailable(String? code) {
+      if (code != null && available.contains(code) && !ordered.contains(code)) {
+        ordered.add(code);
+      }
     }
 
-    if (original != null && available.contains(original)) return original;
-    if (available.contains('en')) return 'en';
+    addIfAvailable('hi');
+    addIfAvailable('en');
+    addIfAvailable(languageCodeForLabel(originalLanguage));
 
-    // When metadata is incomplete, use a stable available language rather
-    // than silently forcing English.
+    // Keep the remaining choices deterministic and familiar.
     for (final language in appLanguages) {
-      if (available.contains(language.code)) return language.code;
+      addIfAvailable(language.code);
     }
-    return available.first;
+    for (final code in available.toList()..sort()) {
+      addIfAvailable(code);
+    }
+    return List<String>.unmodifiable(ordered);
+  }
+
+  static String? select({
+    required Iterable<String> availableLanguageLabels,
+    String? originalLanguage,
+  }) {
+    final ordered = orderAvailable(
+      availableLanguageLabels: availableLanguageLabels,
+      originalLanguage: originalLanguage,
+    );
+    return ordered.isEmpty ? null : ordered.first;
   }
 }

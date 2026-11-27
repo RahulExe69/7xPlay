@@ -82,7 +82,7 @@ jobs:
 
       - name: Test provider aggregation and fallback behavior
         working-directory: 7xPlay
-        run: flutter test test/provider_loader_test.dart test/video_provider_order_test.dart test/provider_audio_language_cache_test.dart test/offline_download_test.dart test/download_audio_selection_test.dart test/scraper_api_test.dart test/flixquest_api_instances_test.dart test/unified_playback_language_service_test.dart test/language_names_test.dart test/unified_playback_compile_test.dart test/preferred_audio_language_policy_test.dart test/data/scraper_cache_test.dart
+        run: flutter test test/provider_loader_test.dart test/video_provider_order_test.dart test/provider_audio_language_cache_test.dart test/offline_download_test.dart test/download_audio_selection_test.dart test/scraper_api_test.dart test/flixquest_api_instances_test.dart test/unified_playback_language_service_test.dart test/language_names_test.dart test/unified_playback_compile_test.dart test/preferred_audio_language_policy_test.dart test/hindi_original_language_endpoint_test.dart test/data/scraper_cache_test.dart
 
       - name: Test 7x AI screen branding and chat states
         working-directory: 7xPlay
@@ -162,7 +162,7 @@ jobs:
 
       - name: Test movie, series, Live TV and offline player behavior
         working-directory: 7xPlay
-        run: flutter test test/player_background_save_test.dart test/player_buffering_configuration_test.dart test/player_completion_detector_test.dart test/player_data_management_test.dart test/player_feedback_ui_test.dart test/player_menu_route_test.dart test/player_next_episode_policy_test.dart test/player_route_handoff_test.dart test/player_sheet_ui_test.dart test/player_subtitle_configuration_test.dart test/player_subtitle_timing_sheet_test.dart test/unified_playback_language_service_test.dart test/preferred_audio_language_policy_test.dart test/provider_audio_language_cache_test.dart test/provider_loader_test.dart test/download_audio_selection_test.dart test/live_playback_policy_test.dart test/tv_subtitle_timing_panel_test.dart test/video_provider_order_test.dart test/provider_order_test.dart test/provider_loading_widget_test.dart test/subtitle_options_test.dart test/subtitle_provider_tag_test.dart
+        run: flutter test test/player_background_save_test.dart test/player_buffering_configuration_test.dart test/player_completion_detector_test.dart test/player_data_management_test.dart test/player_feedback_ui_test.dart test/player_menu_route_test.dart test/player_next_episode_policy_test.dart test/player_route_handoff_test.dart test/player_sheet_ui_test.dart test/player_subtitle_configuration_test.dart test/player_subtitle_timing_sheet_test.dart test/unified_playback_language_service_test.dart test/preferred_audio_language_policy_test.dart test/hindi_origin_movie_recommendations_test.dart test/provider_audio_language_cache_test.dart test/provider_loader_test.dart test/download_audio_selection_test.dart test/live_playback_policy_test.dart test/tv_subtitle_timing_panel_test.dart test/video_provider_order_test.dart test/provider_order_test.dart test/provider_loading_widget_test.dart test/subtitle_options_test.dart test/subtitle_provider_tag_test.dart
 
       - name: Analyze the Flutter project
         working-directory: 7xPlay
