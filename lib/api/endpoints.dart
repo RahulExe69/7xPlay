@@ -205,7 +205,7 @@ class Endpoints {
   }) {
     final genres = genreIds == null || genreIds.isEmpty
         ? ''
-        : '&with_genres=${genreIds.toSet().join(',')}';
+        : '&with_genres=${genreIds.toSet().join('|')}';
     return '$TMDB_API_BASE_URL/discover/movie?api_key=$TMDB_API_KEY'
         '&language=$language'
         '&sort_by=popularity.desc'
