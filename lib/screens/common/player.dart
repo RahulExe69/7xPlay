@@ -1086,11 +1086,15 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     return codes.contains(selected);
   }
 
-  bool _applyPreferredAudioTrack() {
+  bool _applyPreferredAudioTrack({String? requiredLanguageCode}) {
     final tracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-    var selected = _activeAudioLanguageCode;
-    if (tracks.isNotEmpty &&
+    // An automatic source probe must validate the language it is currently
+    // testing. It must not replace Hindi with the manifest's default English
+    // track and then report that the Hindi attempt succeeded.
+    var selected = requiredLanguageCode ?? _activeAudioLanguageCode;
+    if (requiredLanguageCode == null &&
+        tracks.isNotEmpty &&
         !_audioLanguageExplicitlySelected &&
         !_manifestAudioExplicitlySelected) {
       final manifestPreference = PreferredAudioLanguagePolicy.select(
@@ -1140,7 +1144,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     // silently continue with a different native rendition.
     if (nativeTrackCodes.isNotEmpty) {
       return nativeTrackCodes.contains(selected) ||
-          !_audioLanguageExplicitlySelected;
+          (requiredLanguageCode == null && !_audioLanguageExplicitlySelected);
     }
     final providerCode = _currentProviderCode;
     final knownCodes = (providerCode == null
@@ -1150,6 +1154,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         .whereType<String>()
         .toSet();
     if (knownCodes.contains(selected)) return true;
+    // A strict automatic probe is no more permissive than an explicit
+    // selection: without matching native tracks, declared source metadata
+    // must affirm the requested language.
+    if (requiredLanguageCode != null) return false;
     // Unlabelled adaptive sources remain best-effort for automatic defaults,
     // but an explicit selection is a hard constraint.
     return !_audioLanguageExplicitlySelected;
@@ -3754,17 +3762,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
     _automaticPreferredLanguageAttempted = true;
     unawaited(
-      _applyAutomaticPreferredAudioLanguages(
-        orderedLanguages,
-        providersStillLoading: discoveryPending,
-      ),
+      _applyAutomaticPreferredAudioLanguages(orderedLanguages),
     );
   }
 
   Future<void> _applyAutomaticPreferredAudioLanguages(
-    List<String> orderedLanguages, {
-    required bool providersStillLoading,
-  }) async {
+    List<String> orderedLanguages,
+  ) async {
     for (final languageCode in orderedLanguages) {
       if (!mounted ||
           _adBlockStopped ||
@@ -3802,9 +3806,18 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
             (entry) =>
                 sourceKeys.contains(entry.key) && entry.value == currentUrl,
           );
-      if (isAlreadyActive) {
-        // The active progressive source was labelled with this language but
-        // exposes no separate native track list. Avoid reloading the same URL.
+      final nativeTrackLabels = tracks.expand(
+        (track) => <String>[track.language ?? '', track.label ?? ''],
+      );
+      final activeManifestConfirmsLanguage =
+          PreferredAudioLanguagePolicy.nativeTracksAllowSourceLabel(
+        requestedLanguageCode: languageCode,
+        nativeTrackLabels: nativeTrackLabels,
+      );
+      if (isAlreadyActive && activeManifestConfirmsLanguage) {
+        // Progressive sources may not expose a native track catalogue. Trust
+        // the provider label only in that case, or when native tracks confirm
+        // it; a contradictory manifest must trigger another source attempt.
         _activeAudioLanguageCode = languageCode;
         _audioLanguageSheetRefresh?.call();
         return;
@@ -3822,7 +3835,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // A Hindi-labelled source can still be stale or mislabelled. Give the
       // remaining providers time to report another Hindi option before
       // falling back to English/original audio.
-      if (languageCode == 'hi' && providersStillLoading) {
+      final discoveryStillPending =
+          _backgroundProviderAggregationPending ||
+          _audioLanguageDiscoveryRunning ||
+          _pendingAudioLanguageAttempts.isNotEmpty;
+      if (languageCode == 'hi' && discoveryStillPending) {
+        // Discovery may have completed while this source was being checked.
+        // Re-check now so a completed pass falls through to English/original,
+        // while pending providers can still trigger another Hindi attempt.
         _automaticPreferredLanguageAttempted = false;
         return;
       }
@@ -3918,7 +3938,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       if (!mounted || _adBlockStopped) return false;
       final tracks =
           _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-      if (tracks.isNotEmpty && _applyPreferredAudioTrack()) return true;
+      if (tracks.isNotEmpty &&
+          _applyPreferredAudioTrack(requiredLanguageCode: languageCode)) {
+        return true;
+      }
       // A source explicitly labelled with the requested language can be used
       // when the manifest has no separate track list (e.g. progressive files).
       // For a language learned from an adaptive manifest, keep waiting for the
@@ -3928,7 +3951,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     } while (DateTime.now().isBefore(deadline));
     final tracks =
         _betterPlayerController.betterPlayerAsmsAudioTracks ?? const [];
-    if (tracks.isNotEmpty) return _applyPreferredAudioTrack();
+    if (tracks.isNotEmpty) {
+      return _applyPreferredAudioTrack(requiredLanguageCode: languageCode);
+    }
     return providerLanguage == languageCode;
   }
 
