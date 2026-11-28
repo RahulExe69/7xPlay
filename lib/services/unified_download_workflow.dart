@@ -90,7 +90,7 @@ abstract final class UnifiedDownloadWorkflow {
         scraperApiUrl: scraperApiUrl,
         estimatedSizes: {
           for (final candidate in candidates)
-            candidate.sourceIdentity: estimates[candidate.estimateKey],
+            candidate.estimateKey: estimates[candidate.estimateKey],
         },
       );
     }
