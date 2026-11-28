@@ -263,6 +263,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _audioLanguageExplicitlySelected = false;
   bool _manifestAudioExplicitlySelected = false;
   bool _automaticPreferredLanguageAttempted = false;
+  // BetterPlayer can temporarily report isPlaying=false while a source is
+  // buffering or being replaced. Keep the viewer's play/pause intent separately.
+  bool _playbackIntent = true;
   bool _audioLanguageDiscoveryRunning = false;
   final Map<String, ProviderAttempt> _pendingAudioLanguageAttempts = {};
   StreamSubscription<ProviderAttempt>? _providerAttemptsSubscription;
@@ -1391,6 +1394,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         }
         break;
       case BetterPlayerEventType.play:
+        if (!_isSwitchingProvider && !_preRollActive) {
+          _playbackIntent = true;
+        }
         if (_preRollActive) _prerollAd.onPlay();
         _analyticsPlayingStartedAt ??= DateTime.now();
         if (!_preRollActive) _wellnessTracker.play();
@@ -1399,6 +1405,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _saveWellnessSession();
         break;
       case BetterPlayerEventType.pause:
+        if (!_isSwitchingProvider && !_preRollActive) {
+          _playbackIntent = false;
+        }
         if (_preRollActive) _prerollAd.onPause();
         _analyticsWasPlayingBeforeBuffering = false;
         _stopAnalyticsWatchClock();
@@ -3999,6 +4008,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     bool preserveExplicitSelection = false,
     bool requirePlaybackAdvance = false,
     bool preservePlaybackIntent = false,
+    bool forcePlaybackForRecovery = false,
   }) async {
     if (!mounted ||
         _adBlockStopped ||
@@ -4010,7 +4020,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final wasPlaying = _betterPlayerController
             .videoPlayerController?.value.isPlaying ==
         true;
-    final shouldResumePlayback = wasPlaying || preservePlaybackIntent;
+    final shouldResumePlayback = wasPlaying ||
+        forcePlaybackForRecovery ||
+        (preservePlaybackIntent && _playbackIntent);
 
     // Prefer an in-place native track change when the active stream already
     // contains the requested language. This avoids needless provider reloads
@@ -4749,7 +4761,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           userInitiated: false,
           preserveExplicitSelection: true,
           requirePlaybackAdvance: true,
-          preservePlaybackIntent: true,
+          forcePlaybackForRecovery: true,
         );
         if (switched) {
           playbackRecovered = true;
