@@ -70,11 +70,11 @@ void main() {
       languageCode: 'hi',
       scraperApiUrl: 'https://scraper.example',
       estimatedSizes: {
-        UnifiedPlaybackLanguageService.sourceIdentityForLink(alphaLink):
+        '${alpha.codeName}|1080p||${UnifiedPlaybackLanguageService.sourceIdentityForLink(alphaLink)}':
             900 * 1024 * 1024,
-        UnifiedPlaybackLanguageService.sourceIdentityForLink(betaLink):
+        '${beta.codeName}|1080p||${UnifiedPlaybackLanguageService.sourceIdentityForLink(betaLink)}':
             700 * 1024 * 1024,
-        UnifiedPlaybackLanguageService.sourceIdentityForLink(zeroSizeLink): 0,
+        '${gamma.codeName}|720p||${UnifiedPlaybackLanguageService.sourceIdentityForLink(zeroSizeLink)}': 0,
       },
     );
 
