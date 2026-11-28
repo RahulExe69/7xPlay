@@ -1,6 +1,5 @@
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
 import 'package:flixquest/data/ads/content_ads.dart';
-import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 // ignore_for_file: use_build_context_synchronously
 import 'dart:async';
 import 'package:flixquest/functions/function.dart';
