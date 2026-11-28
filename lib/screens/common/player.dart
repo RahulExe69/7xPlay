@@ -263,6 +263,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   bool _audioLanguageExplicitlySelected = false;
   bool _manifestAudioExplicitlySelected = false;
   bool _automaticPreferredLanguageAttempted = false;
+  // BetterPlayer can temporarily report isPlaying=false while a source is
+  // buffering or being replaced. Keep the viewer's play/pause intent separately.
+  bool _playbackIntent = true;
   bool _audioLanguageDiscoveryRunning = false;
   final Map<String, ProviderAttempt> _pendingAudioLanguageAttempts = {};
   StreamSubscription<ProviderAttempt>? _providerAttemptsSubscription;
@@ -1391,6 +1394,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         }
         break;
       case BetterPlayerEventType.play:
+        if (!_isSwitchingProvider && !_preRollActive) {
+          _playbackIntent = true;
+        }
         if (_preRollActive) _prerollAd.onPlay();
         _analyticsPlayingStartedAt ??= DateTime.now();
         if (!_preRollActive) _wellnessTracker.play();
@@ -1399,6 +1405,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _saveWellnessSession();
         break;
       case BetterPlayerEventType.pause:
+        if (!_isSwitchingProvider && !_preRollActive) {
+          _playbackIntent = false;
+        }
         if (_preRollActive) _prerollAd.onPause();
         _analyticsWasPlayingBeforeBuffering = false;
         _stopAnalyticsWatchClock();
@@ -3823,6 +3832,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         userInitiated: false,
         preserveExplicitSelection: false,
         requirePlaybackAdvance: true,
+        // This preference pass follows initial source initialization.
+        // Preserve the configured autoplay intent across a source replacement
+        // even if BetterPlayer temporarily reports isPlaying=false while
+        // reconfiguring or buffering; an explicit viewer pause is tracked
+        // separately and remains paused.
+        preservePlaybackIntent: true,
       );
       if (switched) return;
 
@@ -3993,8 +4008,22 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     bool userInitiated = true,
     bool preserveExplicitSelection = false,
     bool requirePlaybackAdvance = false,
+    bool preservePlaybackIntent = false,
+    bool forcePlaybackForRecovery = false,
   }) async {
-    if (!mounted || _isSwitchingProvider || sourceKeys.isEmpty) return false;
+    if (!mounted ||
+        _adBlockStopped ||
+        _isSwitchingProvider ||
+        sourceKeys.isEmpty) {
+      return false;
+    }
+
+    final wasPlaying = _betterPlayerController
+            .videoPlayerController?.value.isPlaying ==
+        true;
+    final shouldResumePlayback = wasPlaying ||
+        forcePlaybackForRecovery ||
+        (preservePlaybackIntent && _playbackIntent);
 
     // Prefer an in-place native track change when the active stream already
     // contains the requested language. This avoids needless provider reloads
@@ -4013,6 +4042,9 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!requirePlaybackAdvance) return true;
       // A matching native track is not proof that a stalled source recovered.
+      if (!shouldResumePlayback) return true;
+      if (!mounted || _adBlockStopped) return false;
+      await _betterPlayerController.play();
       return _waitForSourceReady(expectPlaying: true);
     }
 
@@ -4022,9 +4054,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final position = _betterPlayerController
             .videoPlayerController?.value.position ??
         Duration.zero;
-    final wasPlaying = _betterPlayerController
-            .videoPlayerController?.value.isPlaying ==
-        true;
     final previousDataSource = _betterPlayerController.betterPlayerDataSource;
     final previousAudioLanguage = _activeAudioLanguageCode;
     final previousExplicitSelection = _audioLanguageExplicitlySelected;
@@ -4044,7 +4073,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     for (final key in orderedKeys) {
       if (!mounted) return false;
       if (_adBlockStopped) {
-        setState(() => _isSwitchingProvider = false);
         return false;
       }
       final url = _allVideoSources[key];
@@ -4067,6 +4095,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
       try {
         await _betterPlayerController.pause();
+        if (!mounted || _adBlockStopped) return false;
         attemptedSource = true;
         _clearStaleManifestAudioTracks();
         await _betterPlayerController.setupDataSource(
@@ -4080,12 +4109,14 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           initialPosition: position,
         );
         if (!mounted) return false;
-        if (_adBlockStopped) {
-          setState(() => _isSwitchingProvider = false);
-          return false;
-        }
+        if (_adBlockStopped) return false;
         _applyPreferredAdaptiveQuality();
-        if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
+        if (shouldResumePlayback) {
+          await _betterPlayerController.play();
+        }
+        if (!await _waitForSourceReady(
+          expectPlaying: shouldResumePlayback,
+        )) {
           throw TimeoutException(tr('provider_playback_failed'));
         }
         _currentProviderCode = _allVideoProviderCodes[key];
@@ -4095,7 +4126,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         )) {
           throw StateError(tr('provider_language_unavailable'));
         }
-        if (!wasPlaying) await _betterPlayerController.pause();
+        if (!mounted || _adBlockStopped) return false;
+        if (!shouldResumePlayback) {
+          await _betterPlayerController.pause();
+        }
+        if (!mounted || _adBlockStopped) return false;
 
         _recordAudioSourceSuccess(key);
         final successfulProviderCode = _allVideoProviderCodes[key];
@@ -4117,6 +4152,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         );
         return true;
       } catch (error) {
+        if (!mounted || _adBlockStopped) return false;
         lastError = error;
         _recordAudioSourceFailure(key, error);
         // Provider metadata can claim a language that the actual HLS/DASH
@@ -4173,22 +4209,30 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
     }
 
-    if (mounted && attemptedSource && previousDataSource != null) {
+    if (mounted &&
+        !_adBlockStopped &&
+        attemptedSource &&
+        previousDataSource != null) {
       try {
         _clearStaleManifestAudioTracks();
         await _betterPlayerController.setupDataSource(
           previousDataSource,
           initialPosition: position,
         );
-        if (!wasPlaying) {
+        if (!mounted || _adBlockStopped) return false;
+        if (!shouldResumePlayback) {
           await _betterPlayerController.pause();
         } else {
+          await _betterPlayerController.play();
+          if (!mounted || _adBlockStopped) return false;
           await _waitForSourceReady(
             expectPlaying: true,
             timeout: const Duration(seconds: 6),
           );
+          if (!mounted || _adBlockStopped) return false;
         }
       } catch (restoreError) {
+        if (!mounted || _adBlockStopped) return false;
         debugPrint(
           '[Player][AudioFailover] Previous stream restore failed: '
           '$restoreError',
@@ -4196,7 +4240,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       }
     }
 
-    if (mounted) {
+    if (mounted && !_adBlockStopped) {
       _activeAudioLanguageCode = previousAudioLanguage;
       _audioLanguageExplicitlySelected = previousExplicitSelection;
       _manifestAudioExplicitlySelected = previousManifestSelection;
@@ -4718,6 +4762,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           userInitiated: false,
           preserveExplicitSelection: true,
           requirePlaybackAdvance: true,
+          forcePlaybackForRecovery: true,
         );
         if (switched) {
           playbackRecovered = true;

@@ -93,14 +93,14 @@ class StreamDownloadService : DownloadService(
     ): String {
         val quality = metadata?.optString("quality")?.takeIf { it.isNotBlank() }
         val subtitle = metadata?.optString("subtitle")?.takeIf { it.isNotBlank() }
-        val total = totalBytes(download)
+        val total = download.contentLength.takeIf { it > 0 }
         return buildList {
             subtitle?.let(::add)
             quality?.let(::add)
             if (progress != null) add("$progress%")
             add(
                 if (total != null) {
-                    "${formatBytes(download.bytesDownloaded)} of ${total.second}${formatBytes(total.first)}"
+                    "${formatBytes(download.bytesDownloaded)} of ${formatBytes(total)}"
                 } else {
                     "${formatBytes(download.bytesDownloaded)} downloaded"
                 },
@@ -137,13 +137,6 @@ class StreamDownloadService : DownloadService(
             ?.average()
             ?.toInt()
             ?.coerceIn(0, 100)
-    }
-
-    private fun totalBytes(download: Download): Pair<Long, String>? {
-        if (download.contentLength > 0) return download.contentLength to ""
-        val percent = download.percentDownloaded
-        if (download.bytesDownloaded <= 0 || percent.isNaN() || percent <= 0) return null
-        return ((download.bytesDownloaded * 100) / percent).toLong() to "~"
     }
 
     private fun updateTransferRate(downloads: List<Download>): Long {

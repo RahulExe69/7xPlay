@@ -338,6 +338,11 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
           _showErrorSheet(tr('tv_vid_404'));
         }
       }
+    } on StateError catch (error) {
+      debugPrint('[TVVideoLoader] State error loading video: $error');
+      if (mounted) {
+        _showErrorSheet(error.message.toString());
+      }
     } on Exception catch (e) {
       debugPrint('[TVVideoLoader] Exception loading video: $e');
       if (mounted) {

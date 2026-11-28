@@ -72,34 +72,23 @@ abstract final class UnifiedDownloadWorkflow {
           candidate.estimateKey: candidate.link.sizeToken!.trim(),
     };
     final sizeCache = <String, int?>{};
-    if (tokens.isNotEmpty) {
+
+    // Size metadata is optional. Resolve it alongside audio verification so
+    // a slow estimate endpoint does not add another wait before format choice.
+    final sizeFuture = () async {
+      if (tokens.isEmpty) return <String, int?>{};
       try {
-        final sizes = await StreamSizeEstimator.load(
+        return await StreamSizeEstimator.load(
           scraperApiUrl: scraperApiUrl,
           tokens: tokens,
           cacheByToken: sizeCache,
         );
-        final estimates = <String, int?>{
-          for (final candidate in candidates)
-            candidate.estimateKey: sizes[candidate.estimateKey],
-        };
-        candidates = DownloadCoordinator.candidatesForLanguage(
-          attempts: usableAttempts,
-          discovery: discovery,
-          languageCode: languageCode,
-          scraperApiUrl: scraperApiUrl,
-          estimatedSizes: {
-            for (final candidate in candidates)
-              candidate.estimateKey: estimates[candidate.estimateKey],
-          },
-        );
       } catch (_) {
-        // Size estimates are optional metadata; a slow or unavailable
-        // estimate endpoint must never prevent a user from downloading.
+        return <String, int?>{};
       }
-    }
+    }();
 
-    candidates = await DownloadCoordinator.inspectAudioTracks(
+    final inspectionFuture = DownloadCoordinator.inspectAudioTracks(
       candidates: candidates,
       languageCode: languageCode,
       cachedTracks: discovery.audioTracksBySource,
@@ -114,6 +103,19 @@ abstract final class UnifiedDownloadWorkflow {
         maxVideoHeight: DownloadCoordinator.resolutionHeight(candidate.quality),
       ),
     );
+
+    candidates = await inspectionFuture;
+    final estimatedSizes = await sizeFuture;
+    if (estimatedSizes.isNotEmpty) {
+      candidates = candidates
+          .map((candidate) {
+            final size = estimatedSizes[candidate.estimateKey];
+            return size != null && size > 0
+                ? candidate.copyWith(estimatedBytes: size)
+                : candidate;
+          })
+          .toList(growable: false);
+    }
     if (!context.mounted) return false;
     if (candidates.isEmpty) {
       throw StateError('No compatible download sources were found.');

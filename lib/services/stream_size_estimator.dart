@@ -3,7 +3,7 @@ import '../video_providers/scraper_api.dart';
 /// Loads signed stream-size estimates in parallel without making an estimate a
 /// prerequisite for selecting a resolution.
 abstract final class StreamSizeEstimator {
-  static const Duration timeout = Duration(seconds: 10);
+  static const Duration timeout = Duration(seconds: 3);
   static final Map<String, Future<StreamSizeEstimate?>> _inFlightByRequest = {};
 
   static Future<Map<String, int?>> load({
