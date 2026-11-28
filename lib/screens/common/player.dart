@@ -3987,6 +3987,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         .contains(selected);
   }
 
+  /// BetterPlayer retains the previous manifest's audio catalogue until the
+  /// replacement manifest is parsed. Clear it before a source change so a
+  /// provider switch cannot accidentally select a stale track ID.
+  void _clearStaleManifestAudioTracks() {
+    _betterPlayerController.betterPlayerAsmsAudioTracks?.clear();
+  }
+
   Future<bool> _switchToAudioLanguage(
     String languageCode,
     List<String> sourceKeys, {
@@ -4071,6 +4078,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       try {
         await _betterPlayerController.pause();
         attemptedSource = true;
+        _clearStaleManifestAudioTracks();
         await _betterPlayerController.setupDataSource(
           _buildDataSource(
             sources: candidateSources,
@@ -4178,6 +4186,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
     if (mounted && attemptedSource && previousDataSource != null) {
       try {
+        _clearStaleManifestAudioTracks();
         await _betterPlayerController.setupDataSource(
           previousDataSource,
           initialPosition: position,
@@ -4384,6 +4393,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       replacementStarted = true;
       _preRollActive = false;
+      _clearStaleManifestAudioTracks();
       await _betterPlayerController.setupDataSource(
         _buildDataSource(
           sources: nextSource.videoSources,
@@ -4488,6 +4498,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // that failed.
       if (!reload && !automatic && replacementStarted && previousDataSource != null) {
         try {
+          _clearStaleManifestAudioTracks();
           await _betterPlayerController.setupDataSource(
             previousDataSource,
             initialPosition: position,
