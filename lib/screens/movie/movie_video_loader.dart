@@ -17,6 +17,7 @@ import 'package:flixquest/services/globle_method.dart';
 import 'package:flixquest/services/offline_download_service.dart';
 import 'package:flixquest/widgets/playback_loading_screen.dart';
 import 'package:flixquest/services/stream_size_estimator.dart';
+import 'package:flixquest/services/unified_download_workflow.dart';
 import 'package:flixquest/video_providers/provider_loader.dart';
 import 'package:flixquest/video_providers/scraper_api.dart';
 import '../../controllers/recently_watched_database_controller.dart';
@@ -185,29 +186,26 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
       final bookmarkedFuture =
           recentlyWatchedMoviesController.contain(_metadata.movieId!);
       await _loadProviders();
-      VideoProvider? selectedDownloadProvider;
+      ProviderSelection? selection;
+      Future<ProviderSelection?>? backgroundProviderSelection;
+      Stream<ProviderAttempt>? backgroundProviderAttempts;
       if (widget.download) {
-        if (!mounted) return;
-        selectedDownloadProvider = await DownloadSelectionSheets.showProvider(
-          context,
-          providers: videoProviders,
-        );
-        if (!mounted) return;
-        if (selectedDownloadProvider == null) {
-          settings.analytics.trackDownload(
-            action: 'provider_selection',
-            mediaType: 'movie',
-            outcome: 'cancelled',
+        // Downloads discover every enabled provider before asking the user
+        // for language and quality; provider choice is an internal detail.
+        selection = await _fetchSelection(providers: videoProviders);
+      } else {
+        final session = _startProviderSelection(providers: videoProviders);
+        final firstAttempt = await session.firstPlayable;
+        if (firstAttempt != null) {
+          selection = ProviderSelection(
+            index: firstAttempt.index,
+            provider: firstAttempt.provider,
+            result: firstAttempt.result,
+            attempts: <ProviderAttempt>[firstAttempt],
           );
-          Navigator.pop(context, false);
-          return;
         }
-        setState(() {
-          currentProviderIndex = videoProviders.indexWhere(
-            (provider) =>
-                provider.codeName == selectedDownloadProvider!.codeName,
-          );
-        });
+        backgroundProviderSelection = session.allSuccessful;
+        backgroundProviderAttempts = session.providerAttempts;
       }
       final isBookmarked = await bookmarkedFuture;
       int elapsed = 0;
@@ -304,14 +302,24 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
 
       if (firstWorkingProviderCode != null && mounted) {
         if (widget.download) {
-          await _enqueueDownload(
-            sources: reversedVids,
-            videoFormats: videoFormats,
-            videoHeaders: videoHeaders,
-            videoSizeTokens: videoSizeTokens,
-            providerName: selection?.provider.displayName,
-            downloadProvider: selection?.provider,
+          final subtitleTrack = _preferredSubtitle(movieVideoSubs);
+          final queued = await UnifiedDownloadWorkflow.enqueue(
+            context,
+            attempts: selection?.attempts ?? const <ProviderAttempt>[],
+            scraperApiUrl: _scraperApiUrl,
+            id: 'movie_${_metadata.movieId}',
+            title: _metadata.movieName ?? 'Movie',
+            mediaType: 'movie',
+            contentId: _metadata.movieId,
+            posterUrl: (_metadata.posterPath == null ? null : '${TMDB_BASE_IMAGE_URL}w500${_metadata.posterPath}'),
+            seasonNumber: null,
+            episodeNumber: null,
+            episodeLabel: null,
+            subtitleTrackUrl: subtitleTrack?.url,
+            subtitleTrackName: subtitleTrack?.language,
+            subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
           );
+          if (mounted) Navigator.pop(context, queued);
           return;
         }
         if (!isUnreleased) {
