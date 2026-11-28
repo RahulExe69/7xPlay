@@ -73,25 +73,30 @@ abstract final class UnifiedDownloadWorkflow {
     };
     final sizeCache = <String, int?>{};
     if (tokens.isNotEmpty) {
-      final sizes = await StreamSizeEstimator.load(
-        scraperApiUrl: scraperApiUrl,
-        tokens: tokens,
-        cacheByToken: sizeCache,
-      );
-      final estimates = <String, int?>{
-        for (final candidate in candidates)
-          candidate.estimateKey: sizes[candidate.estimateKey],
-      };
-      candidates = DownloadCoordinator.candidatesForLanguage(
-        attempts: usableAttempts,
-        discovery: discovery,
-        languageCode: languageCode,
-        scraperApiUrl: scraperApiUrl,
-        estimatedSizes: {
+      try {
+        final sizes = await StreamSizeEstimator.load(
+          scraperApiUrl: scraperApiUrl,
+          tokens: tokens,
+          cacheByToken: sizeCache,
+        );
+        final estimates = <String, int?>{
           for (final candidate in candidates)
-            candidate.estimateKey: estimates[candidate.estimateKey],
-        },
-      );
+            candidate.estimateKey: sizes[candidate.estimateKey],
+        };
+        candidates = DownloadCoordinator.candidatesForLanguage(
+          attempts: usableAttempts,
+          discovery: discovery,
+          languageCode: languageCode,
+          scraperApiUrl: scraperApiUrl,
+          estimatedSizes: {
+            for (final candidate in candidates)
+              candidate.estimateKey: estimates[candidate.estimateKey],
+          },
+        );
+      } catch (_) {
+        // Size estimates are optional metadata; a slow or unavailable
+        // estimate endpoint must never prevent a user from downloading.
+      }
     }
 
     candidates = await DownloadCoordinator.inspectAudioTracks(
