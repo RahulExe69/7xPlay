@@ -114,7 +114,7 @@ jobs:
 
       - name: Test catalogue, New & Hot, Discover and Search flows
         working-directory: 7xPlay
-        run: flutter test test/home_feed_controller_test.dart test/home_catalog_test.dart test/continue_watching_test.dart test/new_and_hot_screen_test.dart test/discover_screen_test.dart test/search_screen_test.dart
+        run: flutter test test/home_feed_controller_test.dart test/home_catalog_test.dart test/continue_watching_test.dart test/new_and_hot_screen_test.dart test/discover_screen_test.dart test/search_screen_test.dart test/smart_home_test.dart
 
       - name: Test title details, episode actions and themed components
         working-directory: 7xPlay

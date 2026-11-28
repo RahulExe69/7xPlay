@@ -11,6 +11,7 @@ import '../../catalog/continue_watching.dart';
 import '../../catalog/home_feed_controller.dart';
 import '../../catalog/home_hero.dart';
 import '../../catalog/media_item.dart';
+import '../../catalog/smart_home.dart';
 import '../../catalog/title_logos.dart';
 import '../../design/app_palette.dart';
 import '../../design/seven_x_ai_mark.dart';
@@ -746,10 +747,42 @@ List<Widget> homeRows(
   String titled(MediaKind kind, String movies, String series) =>
       tr(kind == MediaKind.movie ? movies : series);
 
-  // The rows that share the first screens; keep them from repeating the
-  // same few titles.
+  // Score only titles already in the Home response: personalization adds
+  // no network requests and remains available when the viewer is offline.
+  final candidates = <MediaItem>[
+    ...feed.spotlight,
+    for (final kind in kinds) ...<MediaItem>[
+      ...feed.of(kind).topTen,
+      ...feed.of(kind).trending,
+      ...feed.of(kind).popular,
+      ...feed.of(kind).newReleases,
+      ...feed.of(kind).topRated,
+      ...feed.of(kind).upcoming,
+      for (final shelf in feed.of(kind).serviceShelves) ...shelf.items,
+    ],
+  ];
+  final recommended = <MediaKind, List<MediaItem>>{
+    for (final kind in kinds)
+      kind: SmartHome.personalized(
+        candidates: candidates.where((item) => item.kind == kind),
+        saved: myList.where((item) => item.kind == kind),
+        continueWatching:
+            continueWatching.where((item) => item.kind == kind),
+      ),
+  };
+  final updates = <MediaKind, List<MediaItem>>{
+    for (final kind in kinds)
+      kind: SmartHome.watchlistUpdates(
+        saved: myList.where((item) => item.kind == kind),
+        current: feed.of(kind).newReleases,
+        upcoming: feed.of(kind).upcoming,
+      ),
+  };
+
+  // Keep smart rows inside the same repetition budget as the leading feed.
   final lead = limitRepeats(<List<MediaItem>>[
     continueWatching,
+    for (final kind in kinds) recommended[kind]!,
     for (final kind in kinds) feed.of(kind).topTen,
     for (final kind in kinds) feed.of(kind).trending,
     myList,
@@ -758,11 +791,18 @@ List<Widget> homeRows(
   var next = 0;
   List<MediaItem> take() => lead[next++];
   final shownContinue = take();
+  final shownRecommended = <MediaKind, List<MediaItem>>{
+    for (final kind in kinds) kind: take(),
+  };
   final topTen = <MediaKind, List<MediaItem>>{for (final k in kinds) k: take()};
   final trending = <MediaKind, List<MediaItem>>{
     for (final k in kinds) k: take(),
   };
   final shownMyList = take();
+  // Updates are a dedicated saved-title signal. Keep them visible even
+  // when the same title has already appeared in Top Ten or Trending; the
+  // ordinary lead rows and My List retain their existing repetition budget.
+  final shownUpdates = updates;
   final newReleases = <MediaKind, List<MediaItem>>{
     for (final k in kinds) k: take(),
   };
@@ -805,6 +845,13 @@ List<Widget> homeRows(
     if (shownContinue.isNotEmpty)
       ContinueRow(title: tr('continue_watching'), items: shownContinue),
     for (final kind in kinds)
+      if (shownRecommended[kind]!.isNotEmpty)
+        PosterRow(
+          title: tr('picked_for_you'),
+          kicker: titled(kind, 'movies', 'series'),
+          items: shownRecommended[kind]!,
+        ),
+    for (final kind in kinds)
       if (topTen[kind]!.isNotEmpty)
         TopTenRow(
           title: titled(kind, 'top_10_movies_today', 'top_10_series_today'),
@@ -827,6 +874,13 @@ List<Widget> homeRows(
           MaterialPageRoute<void>(builder: (_) => const BookmarkScreen()),
         ),
       ),
+    for (final kind in kinds)
+      if (shownUpdates[kind]!.isNotEmpty)
+        PosterRow(
+          title: tr('my_list_updates'),
+          kicker: titled(kind, 'movies', 'series'),
+          items: shownUpdates[kind]!,
+        ),
     for (final kind in kinds)
       if (newReleases[kind]!.isNotEmpty)
         listRow(
