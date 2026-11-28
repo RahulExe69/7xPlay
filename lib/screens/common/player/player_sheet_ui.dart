@@ -102,7 +102,15 @@ Future<T?> showPlayerSheet<T>({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (_) => Theme(data: theme, child: Builder(builder: builder)),
+    builder: (sheetContext) => Theme(
+      data: theme,
+      // Modal sheets intentionally extend to the screen edge. Keep their
+      // content clear of Android's gesture/three-button navigation area.
+      child: SafeArea(
+        top: false,
+        child: Builder(builder: builder),
+      ),
+    ),
   );
 }
 

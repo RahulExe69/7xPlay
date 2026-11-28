@@ -1,6 +1,5 @@
 import 'package:flixquest/models/adsterra_playback_ads_config.dart';
 import 'package:flixquest/data/ads/content_ads.dart';
-import 'package:flixquest/services/adsterra_playback_ads_service.dart';
 // ignore_for_file: use_build_context_synchronously
 import 'dart:async';
 import 'package:flixquest/functions/function.dart';
@@ -8,14 +7,12 @@ import 'package:flixquest/functions/network.dart';
 import 'package:flixquest/functions/video_utils.dart';
 import 'package:flixquest/functions/player_route_handoff.dart';
 import 'package:flixquest/models/tv_stream_metadata.dart';
-import 'package:flixquest/models/offline_download.dart';
 import 'package:flixquest/models/provider_video_source.dart';
 import 'package:flixquest/constants/app_constants.dart' show MediaType;
 import 'package:flixquest/models/provider_load_state.dart';
 import 'package:flixquest/services/globle_method.dart';
-import 'package:flixquest/services/offline_download_service.dart';
 import 'package:flixquest/widgets/playback_loading_screen.dart';
-import 'package:flixquest/services/stream_size_estimator.dart';
+import 'package:flixquest/services/unified_download_workflow.dart';
 import 'package:flixquest/video_providers/provider_loader.dart';
 import 'package:flixquest/video_providers/scraper_api.dart';
 import '../../controllers/recently_watched_database_controller.dart';
@@ -25,7 +22,6 @@ import '../../video_providers/names.dart';
 import '/api/endpoints.dart';
 import '/constants/api_constants.dart';
 import '/provider/app_dependency_provider.dart';
-import '/provider/offline_download_provider.dart';
 import '/provider/settings_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:provider/provider.dart';
@@ -35,7 +31,6 @@ import '../../widgets/common_widgets.dart';
 
 import 'package:flutter/material.dart';
 import '../../screens/common/player.dart';
-import '../../screens/common/download_selection_sheets.dart';
 import '../../tv/player/tv_player_screen.dart';
 
 /// Finds an episode stream and keeps the complete playback route ad-free.
@@ -104,7 +99,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
   final Map<String, Stopwatch> _providerStopwatches = {};
   int currentProviderIndex = 0;
   String _scraperApiUrl = '';
-  final Map<String, int?> _streamSizeCacheByToken = {};
 
   Map<String, String> videos = {};
   List<BetterPlayerSubtitlesSource> subs = [];
@@ -167,30 +161,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       final bookmarkedFuture = recentlyWatchedEpisodeController
           .contain(widget.metadata.episodeId!);
       await _loadProviders();
-      VideoProvider? selectedDownloadProvider;
-      if (widget.download) {
-        if (!mounted) return;
-        selectedDownloadProvider = await DownloadSelectionSheets.showProvider(
-          context,
-          providers: videoProviders,
-        );
-        if (!mounted) return;
-        if (selectedDownloadProvider == null) {
-          settings.analytics.trackDownload(
-            action: 'provider_selection',
-            mediaType: 'tv',
-            outcome: 'cancelled',
-          );
-          Navigator.pop(context, false);
-          return;
-        }
-        setState(() {
-          currentProviderIndex = videoProviders.indexWhere(
-            (provider) =>
-                provider.codeName == selectedDownloadProvider!.codeName,
-          );
-        });
-      }
       final isBookmarked = await bookmarkedFuture;
       int elapsed = 0;
       if (isBookmarked) {
@@ -224,9 +194,7 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       Future<ProviderSelection?>? backgroundProviderSelection;
       Stream<ProviderAttempt>? backgroundProviderAttempts;
       if (widget.download) {
-        final provider = selectedDownloadProvider;
-        if (provider == null) return;
-        selection = await _fetchSelection(providers: [provider]);
+        selection = await _fetchSelection(providers: videoProviders);
       } else {
         // Start all providers together but hand off to playback as soon as a
         // single usable result arrives. Alternatives continue in background.
@@ -288,14 +256,24 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
 
       if (firstWorkingProviderCode != null && mounted) {
         if (widget.download) {
-          await _enqueueDownload(
-            sources: reversedVids,
-            videoFormats: videoFormats,
-            videoHeaders: videoHeaders,
-            videoSizeTokens: videoSizeTokens,
-            providerName: selection?.provider.displayName,
-            downloadProvider: selection?.provider,
+          final subtitleTrack = _preferredSubtitle(tvVideoSubs);
+          final queued = await UnifiedDownloadWorkflow.enqueue(
+            context,
+            attempts: selection?.attempts ?? const <ProviderAttempt>[],
+            scraperApiUrl: _scraperApiUrl,
+            id: 'tv_${widget.metadata.tvId}_s${widget.metadata.seasonNumber ?? 0}_e${widget.metadata.episodeNumber ?? 0}',
+            title: widget.metadata.seriesName ?? 'TV episode',
+            mediaType: 'episode',
+            contentId: widget.metadata.tvId,
+            posterUrl: (widget.metadata.posterPath == null ? null : '${TMDB_BASE_IMAGE_URL}w500${widget.metadata.posterPath}'),
+            seasonNumber: widget.metadata.seasonNumber,
+            episodeNumber: widget.metadata.episodeNumber,
+            episodeLabel: 'S${(widget.metadata.seasonNumber ?? 0).toString().padLeft(2, '0')} • E${(widget.metadata.episodeNumber ?? 0).toString().padLeft(2, '0')} • ${widget.metadata.episodeName ?? ''}',
+            subtitleTrackUrl: subtitleTrack?.url,
+            subtitleTrackName: subtitleTrack?.language,
+            subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
           );
+          if (mounted) Navigator.pop(context, queued);
           return;
         }
         if (!isUnreleased) {
@@ -548,149 +526,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       ),
     );
   }
-
-  Future<void> _enqueueDownload({
-    required Map<String, String> sources,
-    required Map<String, BetterPlayerVideoFormat?> videoFormats,
-    required Map<String, Map<String, String>> videoHeaders,
-    required Map<String, String> videoSizeTokens,
-    String? providerName,
-    VideoProvider? downloadProvider,
-  }) async {
-    final estimatedSizes = ValueNotifier<Map<String, int?>>({
-      for (final entry in videoSizeTokens.entries)
-        if (_streamSizeCacheByToken.containsKey(entry.value))
-          entry.key: _streamSizeCacheByToken[entry.value],
-    });
-    var sizePickerOpen = true;
-    unawaited(StreamSizeEstimator.load(
-      scraperApiUrl: _scraperApiUrl,
-      tokens: videoSizeTokens,
-      cacheByToken: _streamSizeCacheByToken,
-      onEstimate: (token, bytes) {
-        if (!sizePickerOpen) return;
-        final next = Map<String, int?>.of(estimatedSizes.value);
-        for (final entry in videoSizeTokens.entries) {
-          if (entry.value == token) next[entry.key] = bytes;
-        }
-        estimatedSizes.value = next;
-      },
-    ));
-    if (!mounted) return;
-    final quality = await DownloadSelectionSheets.showResolution(
-      context,
-      resolutions: sources.keys.toList(),
-      providerName: providerName,
-      estimatedSizesListenable: estimatedSizes,
-    );
-    sizePickerOpen = false;
-    estimatedSizes.dispose();
-    if (!mounted) return;
-    if (quality == null) {
-      settings.analytics.trackDownload(
-        action: 'resolution_selection',
-        mediaType: 'tv',
-        outcome: 'cancelled',
-        provider: providerName,
-      );
-      Navigator.pop(context, false);
-      return;
-    }
-    final url = sources[quality]!;
-    final declaredFormat = videoFormats[quality];
-    final format = OfflineDownloadService.inferFormat(
-      url: url,
-      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
-      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
-    );
-    final posterPath = widget.metadata.posterPath;
-    final season = widget.metadata.seasonNumber ?? 0;
-    final episode = widget.metadata.episodeNumber ?? 0;
-    final subtitleTrack = _preferredSubtitle(tvVideoSubs);
-    try {
-      final downloadHeaders = videoHeaders[quality] ??
-          VideoUtils.inferVideoHeaders(url) ??
-          const <String, String>{};
-      final audioSelection = await DownloadSelectionSheets.chooseAudio(
-        context,
-        tracks: OfflineDownloadService.instance.getAudioTracks(
-          url: url,
-          format: format,
-          headers: downloadHeaders,
-          maxVideoHeight: _qualityHeight(quality),
-        ),
-      );
-      if (!mounted) return;
-      if (audioSelection == null) {
-        Navigator.pop(context, false);
-        return;
-      }
-      await context.read<OfflineDownloadProvider>().enqueue(
-            OfflineDownloadRequest(
-              id: 'tv_${widget.metadata.tvId}_s${season}_e$episode',
-              url: url,
-              format: format,
-              title: widget.metadata.seriesName ?? 'TV episode',
-              subtitle:
-                  'S${season.toString().padLeft(2, '0')} • E${episode.toString().padLeft(2, '0')} '
-                  '${widget.metadata.episodeName ?? ''}'
-                  '${providerName == null ? '' : ' • $providerName'}',
-              mediaType: 'episode',
-              quality: quality,
-              posterUrl: posterPath == null
-                  ? null
-                  : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
-              maxVideoHeight: _qualityHeight(quality),
-              headers: downloadHeaders,
-              audioTrack: audioSelection.track,
-              source: OfflineDownloadSource.forSelection(
-                provider: downloadProvider,
-                apiBaseUrl: _scraperApiUrl,
-                links: tvVideoLinks ?? const [],
-                url: url,
-                headers: downloadHeaders,
-              ),
-              contentId: widget.metadata.tvId,
-              seasonNumber: season,
-              episodeNumber: episode,
-              subtitleTrackUrl: subtitleTrack?.url,
-              subtitleTrackName: subtitleTrack?.language,
-              subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
-            ),
-          );
-      settings.analytics.trackDownload(
-        action: 'enqueue',
-        mediaType: 'tv',
-        outcome: 'success',
-        provider: providerName,
-        quality: quality,
-      );
-      if (mounted) {
-        AdsterraPlaybackAdsService.instance.afterDownloadQueued(context);
-        Navigator.pop(context, true);
-      }
-    } catch (error) {
-      settings.analytics.trackDownload(
-        action: 'enqueue',
-        mediaType: 'tv',
-        outcome: isAlreadyDownloaded(error) ? 'already_downloaded' : 'error',
-        provider: providerName,
-        quality: quality,
-        error: error.toString(),
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            offlineEnqueueErrorMessage(error, title: 'This episode'),
-          ),
-        ),
-      );
-      Navigator.pop(context, false);
-    }
-  }
-
-  int? _qualityHeight(String quality) => VideoUtils.videoQualityHeight(quality);
 
   RegularSubtitleLinks? _preferredSubtitle(
     List<RegularSubtitleLinks>? subtitles,

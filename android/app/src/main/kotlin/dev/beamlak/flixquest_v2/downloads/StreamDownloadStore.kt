@@ -1,6 +1,8 @@
 package dev.beamlak.flixquest_v2.downloads
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -65,6 +67,8 @@ class StreamDownloadStore private constructor(context: Context) {
             RecoveringDownloader(request, recovery,
                 create = { current, previous -> createDownloader(current, previous) },
                 refresh = ::refreshRequest,
+                fallback = ::fallbackRequest,
+                networkAvailable = ::hasUsableInternet,
                 clearCache = { current ->
                     val namespace = DownloadRecoveryState.namespace(current)
                     if (namespace.isNotEmpty()) {
@@ -106,10 +110,12 @@ class StreamDownloadStore private constructor(context: Context) {
             helper.release()
             callback(result)
         }
+        val preparationTimeoutMs = (arguments["preparationTimeoutMs"] as? Number)
+            ?.toLong()?.coerceIn(10_000L, 60_000L) ?: 60_000L
         handler.postAtTime(
             { complete(Result.failure(IOException("Download preparation timed out."))) },
             helper,
-            android.os.SystemClock.uptimeMillis() + 60_000L,
+            android.os.SystemClock.uptimeMillis() + preparationTimeoutMs,
         )
         helper.prepare(object : DownloadHelper.Callback {
             override fun onPrepared(helper: DownloadHelper, tracksInfoAvailable: Boolean) {
@@ -357,9 +363,18 @@ class StreamDownloadStore private constructor(context: Context) {
         put("maxVideoHeight", arguments["maxVideoHeight"] ?: JSONObject.NULL)
         (arguments["source"] as? Map<*, *>)?.let {
             put("source", JSONObject(it))
-            put("cacheNamespace", arguments["cacheNamespace"] as? String ?: DownloadRecoveryState.newNamespace())
         }
+        // Every request, including direct/progressive sources without scraper
+        // metadata, needs a unique cache namespace. Provider failover must not
+        // accidentally treat an unrelated partial file as the same stream.
+        put(
+            "cacheNamespace",
+            arguments["cacheNamespace"] as? String ?: DownloadRecoveryState.newNamespace(),
+        )
         (arguments["selectedTracks"] as? List<*>)?.let { put("selectedTracks", JSONArray(it)) }
+        (arguments["fallbackCandidates"] as? List<*>)?.let {
+            put("fallbackCandidates", JSONArray(it))
+        }
         for (key in listOf("offlineSubtitlePath", "offlineSubtitleName")) {
             (arguments[key] as? String)?.let { put(key, it) }
         }
@@ -432,25 +447,92 @@ class StreamDownloadStore private constructor(context: Context) {
     }
 
     /** Runs on Media3's download thread while the service remains active. */
-    private fun refreshRequest(request: DownloadRequest, cancelled: () -> Boolean): DownloadRequest {
+    private fun hasUsableInternet(): Boolean {
+        val manager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE)
+            as? ConnectivityManager ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun refreshRequest(
+        request: DownloadRequest,
+        cancelled: () -> Boolean,
+    ): DownloadRequest {
         val arguments = sourceResolver.resolve(request).toMutableMap().apply {
             put("cacheNamespace", DownloadRecoveryState.newNamespace())
         }
+        return prepareRequestBlocking(arguments, cancelled, 65)
+    }
+
+    /**
+     * Tries persisted alternatives in their ranked order. Each candidate gets
+     * a fresh cache namespace and its own native audio-track selection.
+     */
+    private fun fallbackRequest(
+        request: DownloadRequest,
+        cancelled: () -> Boolean,
+    ): DownloadRequest? {
+        val candidates = requestMetadata(request).optJSONArray("fallbackCandidates")
+            ?: return null
+        val limit = minOf(candidates.length(), 12)
+        if (limit == 0) return null
+        var lastFailure: Exception? = null
+
+        for (index in 0 until limit) {
+            if (cancelled()) throw InterruptedException("Download cancelled")
+            try {
+                val arguments = sourceResolver.nextFallbackArguments(request, index)
+                    ?: continue
+                val preparedArguments = arguments.toMutableMap().apply {
+                    put("preparationTimeoutMs", 20_000L)
+                }
+                return prepareRequestBlocking(preparedArguments, cancelled, 25)
+            } catch (error: InterruptedException) {
+                throw error
+            } catch (error: Exception) {
+                lastFailure = error
+                android.util.Log.w(
+                    "7xPlayDownloads",
+                    "Fallback candidate ${index + 1} could not be prepared: ${error.message}",
+                )
+            }
+        }
+        throw IOException(
+            "No compatible alternative download source could be prepared.",
+            lastFailure,
+        )
+    }
+
+    private fun prepareRequestBlocking(
+        arguments: Map<String, Any?>,
+        cancelled: () -> Boolean,
+        timeoutSeconds: Long,
+    ): DownloadRequest {
         if (cancelled()) throw InterruptedException("Download cancelled")
         val completed = CountDownLatch(1)
         var prepared: Result<DownloadRequest>? = null
         Handler(Looper.getMainLooper()).post {
-            if (cancelled()) completed.countDown() else {
-                prepareRequest(arguments) { result -> prepared = result; completed.countDown() }
+            if (cancelled()) {
+                completed.countDown()
+            } else {
+                prepareRequest(arguments) { result ->
+                    prepared = result
+                    completed.countDown()
+                }
             }
         }
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(65)
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
         while (!completed.await(100, TimeUnit.MILLISECONDS)) {
             if (cancelled()) throw InterruptedException("Download cancelled")
-            if (System.nanoTime() > deadline) throw IOException("Download renewal timed out. Retry later.")
+            if (System.nanoTime() > deadline) {
+                throw IOException("Download source preparation timed out.")
+            }
         }
         if (cancelled()) throw InterruptedException("Download cancelled")
-        return prepared?.getOrThrow() ?: throw IOException("Download renewal was interrupted.")
+        return prepared?.getOrThrow()
+            ?: throw IOException("Download source preparation was interrupted.")
     }
 
     companion object {

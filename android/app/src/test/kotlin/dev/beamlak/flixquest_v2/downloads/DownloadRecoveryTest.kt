@@ -9,6 +9,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.Downloader
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -41,6 +42,111 @@ class DownloadRecoveryTest {
         override fun remove() {}
     }
 
+    @Test fun providerHttpFailuresQualifyForFallbackButNetworkFailuresDoNot() {
+        for (code in listOf(400, 401, 403, 404, 408, 410, 425, 429, 500, 502, 503, 504)) {
+            assertTrue("HTTP $code should allow a provider fallback",
+                DownloadSourceFailure.isRetryable(response(code, "Unavailable")))
+        }
+        for (code in listOf(200, 301, 304, 416)) {
+            assertFalse("HTTP $code should not rotate providers",
+                DownloadSourceFailure.isRetryable(response(code, "Not a fallback status")))
+        }
+        assertFalse(DownloadSourceFailure.isRetryable(java.net.SocketTimeoutException()))
+        assertFalse(DownloadSourceFailure.isRetryable(java.net.UnknownHostException()))
+        assertTrue(DownloadSourceFailure.isRetryable(
+            java.net.SocketTimeoutException(), networkValidated = true))
+        assertTrue(DownloadSourceFailure.isRetryable(
+            java.net.UnknownHostException(), networkValidated = true))
+        assertFalse(DownloadSourceFailure.isRetryable(
+            IOException("disk full"), networkValidated = true))
+    }
+
+    @Test fun temporaryProviderFailuresAdvanceThroughCandidatesInOrder() {
+        val original = request("original:")
+        val second = request("second:")
+        val third = request("third:")
+        val attempted = mutableListOf<String>()
+        RecoveringDownloader(
+            original,
+            state(),
+            { current, _ ->
+                Task {
+                    attempted.add(current.uri.toString())
+                    if (current.uri.toString().contains("original:") ||
+                        current.uri.toString().contains("second:")) {
+                        throw response(503, "Provider temporarily unavailable")
+                    }
+                }
+            },
+            { _, _ -> throw AssertionError("A temporary HTTP failure should use the next candidate") },
+            {},
+            fallback = { current, _ ->
+                when {
+                    current.uri.toString().contains("original:") -> second
+                    current.uri.toString().contains("second:") -> third
+                    else -> null
+                }
+            },
+        ).download(null)
+
+        assertEquals(
+            listOf(
+                original.uri.toString(),
+                second.uri.toString(),
+                third.uri.toString(),
+            ),
+            attempted,
+        )
+    }
+
+    @Test fun rankedFallbackArgumentsKeepAudioAndAdvanceTheRemainingCandidates() {
+        val directoryRequest = DownloadRequest.Builder(
+            "movie_42",
+            Uri.parse("https://example.test/original/master.m3u8"),
+        ).setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setData(JSONObject().apply {
+                put("title", "Fixture")
+                put("mediaType", "movie")
+                put("contentId", 42)
+                put("format", "hls")
+                put("quality", "1080p")
+                put("cacheNamespace", "original:")
+                put("audioTrack", JSONObject().put("language", "hi"))
+                put("fallbackCandidates", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("url", "https://second.example/master.m3u8")
+                        put("format", "hls")
+                        put("quality", "1080p")
+                        put("providerName", "Second")
+                        put("headers", JSONObject().put("Referer", "https://second.example/"))
+                        put("audioTrack", JSONObject().put("language", "hi").put("formatId", "hi-1"))
+                        put("audioTrackName", "Hindi")
+                    })
+                    put(JSONObject().apply {
+                        put("url", "https://third.example/master.m3u8")
+                        put("format", "hls")
+                        put("quality", "1080p")
+                        put("providerName", "Third")
+                    })
+                })
+            }.toString().toByteArray()).build()
+
+        val resolver = DownloadSourceResolver()
+        val first = resolver.nextFallbackArguments(directoryRequest)!!
+        assertEquals("https://second.example/master.m3u8", first["url"])
+        assertEquals("hls", first["format"])
+        assertEquals("1080p", first["quality"])
+        assertEquals("Hindi", first["audioTrackName"])
+        assertEquals(mapOf("language" to "hi", "formatId" to "hi-1"), first["audioTrack"])
+        assertEquals(mapOf("Referer" to "https://second.example/"), first["headers"])
+        assertEquals(1, (first["fallbackCandidates"] as List<*>).size)
+        assertNotEquals("original:", first["cacheNamespace"])
+
+        val second = resolver.nextFallbackArguments(directoryRequest, 1)!!
+        assertEquals("https://third.example/master.m3u8", second["url"])
+        assertTrue((second["fallbackCandidates"] as List<*>).isEmpty())
+    }
+
     @Test fun onlyPositiveExpiryEvidenceQualifies() {
         for (code in listOf(400, 401, 403, 404, 410)) assertTrue(DownloadExpiry.isExpired(response(code, "Token expired")))
         for (code in listOf(401, 403, 404, 410, 429, 500, 503)) assertFalse(DownloadExpiry.isExpired(response(code, "Forbidden")))
@@ -70,20 +176,60 @@ class DownloadRecoveryTest {
     }
 
     @Test fun ordinaryErrorsAndLegacyDownloadsNeverRegenerate() {
-        for ((original, failure) in listOf(request() to response(503), request() to response(403, "Forbidden"),
-            request(source = false) to response(403, "Token expired"))) {
-            val downloader = RecoveringDownloader(original, state(), { _, _ -> Task { throw failure } },
-                { _, _ -> fail("Unexpected regeneration"); original }, {})
-            assertSame(failure, runCatching { downloader.download(null) }.exceptionOrNull())
-        }
-    }
+        var renewals = 0
+        val ordinaryFailure = response(416, "Range not satisfiable")
+        val ordinary = RecoveringDownloader(request(), state(),
+            { _, _ -> Task { throw ordinaryFailure } },
+            { _, _ -> renewals++; request("unexpected:") }, {})
+        assertSame(ordinaryFailure, runCatching { ordinary.download(null) }.exceptionOrNull())
 
+        val providerFailure = response(503, "Provider unavailable")
+        var fallbackAttempts = 0
+        val providerUnavailable = RecoveringDownloader(request(), state(),
+            { _, _ -> Task { throw providerFailure } },
+            { _, _ -> renewals++; request("unexpected:") }, {},
+            fallback = { _, _ -> fallbackAttempts++; null })
+        val terminalProviderError = runCatching { providerUnavailable.download(null) }.exceptionOrNull()
+        assertTrue(terminalProviderError is IOException)
+        assertSame(providerFailure, terminalProviderError?.cause)
+        assertEquals(1, fallbackAttempts)
+
+        val legacyFailure = response(403, "Token expired")
+        val legacy = RecoveringDownloader(request(source = false), state(),
+            { _, _ -> Task { throw legacyFailure } },
+            { _, _ -> renewals++; request("unexpected:") }, {},
+            fallback = { _, _ -> null })
+        val terminalLegacyError = runCatching { legacy.download(null) }.exceptionOrNull()
+        assertTrue(terminalLegacyError is IOException)
+        assertSame(legacyFailure, terminalLegacyError?.cause)
+        assertEquals("Legacy requests must not be renewed", 0, renewals)
+    }
     @Test fun failedRenewalIsNotRepeatedByMedia3AutomaticRetries() {
         var calls = 0
         val downloader = RecoveringDownloader(request(), state(), { _, _ -> Task { throw response(403, "Token expired") } },
             { _, _ -> calls++; throw IOException("Provider unavailable") }, {})
         repeat(5) { assertTrue(runCatching { downloader.download(null) }.exceptionOrNull() is IOException) }
         assertEquals(1, calls)
+    }
+
+    @Test fun exhaustedProviderFallbackIsTerminalAndDoesNotRepeatTheSameSource() {
+        var attempts = 0
+        val downloader = RecoveringDownloader(
+            request(source = false),
+            state(),
+            { _, _ ->
+                attempts++
+                Task { throw response(503, "Provider unavailable") }
+            },
+            { _, _ -> throw AssertionError("A non-expired provider failure must not renew the same source") },
+            {},
+            fallback = { _, _ -> null },
+        )
+
+        repeat(4) {
+            assertTrue(runCatching { downloader.download(null) }.exceptionOrNull() is IOException)
+        }
+        assertEquals("The failed source must only be attempted once", 1, attempts)
     }
 
     @Test fun repeatedExpiredReplacementsAreBounded() {

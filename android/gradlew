@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+set -eu
+
+# This repository intentionally keeps the Android wrapper launcher lightweight.
+# Download the pinned Gradle distribution on first use and cache it in the
+# standard Gradle user home so Flutter and CI can use the same entry point.
+VERSION="9.9.2"
+SHA256="971fcd7150ca4ba04852c0b2ca0d2d0ab9468e14b03473eab19528809914c76b"
+GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}"
+DIST_PARENT="$GRADLE_USER_HOME/wrapper/dists/gradle-${VERSION}-bin/manual"
+DIST_DIR="$DIST_PARENT/gradle-${VERSION}"
+
+if [ ! -x "$DIST_DIR/bin/gradle" ]; then
+  mkdir -p "$DIST_PARENT"
+  ZIP_FILE="$(mktemp)"
+  trap 'rm -f "$ZIP_FILE"' EXIT HUP INT TERM
+  curl --fail --location --silent --show-error \
+    "https://services.gradle.org/distributions/gradle-${VERSION}-bin.zip" \
+    --output "$ZIP_FILE"
+  printf '%s  %s\n' "$SHA256" "$ZIP_FILE" | sha256sum --check
+  unzip -q "$ZIP_FILE" -d "$DIST_PARENT"
+fi
+
+exec "$DIST_DIR/bin/gradle" "$@"

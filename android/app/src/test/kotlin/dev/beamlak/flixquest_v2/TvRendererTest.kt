@@ -65,7 +65,7 @@ class TvRendererTest {
         try {
             assertTrue(injector.flutterLoader() is TvCompatibilityFlutterLoader)
             assertFalse(injector.flutterLoader().initialized())
-            assertTrue(ShadowLog.getLogsForTag("FlixQuestRenderer").any {
+            assertTrue(ShadowLog.getLogsForTag("7xPlayRenderer").any {
                 it.msg.contains("policy=skia") && it.msg.contains("brand=Philips")
             })
         } finally {
@@ -157,7 +157,7 @@ class TvRendererTest {
     private fun attachApplication() {
         // Android calls Application.attach before providers or Application.onCreate.
         ReflectionHelpers.callInstanceMethod<Void>(
-            FlixQuestApplication(), "attach", ClassParameter.from(Context::class.java, context),
+            SevenXPlayApplication(), "attach", ClassParameter.from(Context::class.java, context),
         )
     }
 

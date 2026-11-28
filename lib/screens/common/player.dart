@@ -14,7 +14,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flixquest/models/tv_stream_metadata.dart';
 import 'package:flixquest/models/wellness.dart';
 import 'package:flixquest/provider/wellness_provider.dart';
-import 'package:flixquest/models/offline_download.dart';
 
 import '../../models/movie_stream_metadata.dart';
 import '../../models/provider_video_source.dart';
@@ -38,7 +37,6 @@ import 'package:provider/provider.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 import '../../functions/function.dart';
 import '../../provider/settings_provider.dart';
-import '../../provider/offline_download_provider.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../constants/api_constants.dart';
 import '../../api/endpoints.dart';
@@ -49,7 +47,7 @@ import '../../services/provider_audio_language_cache.dart';
 import '../../services/introdb_service.dart';
 import '../../services/offline_download_service.dart';
 import '../../services/playback_wake_lock.dart';
-import '../../services/stream_size_estimator.dart';
+import '../../services/unified_download_workflow.dart';
 import '../movie/movie_video_loader.dart';
 import '../tv/tv_video_loader.dart';
 import 'player/player_data_management.dart';
@@ -74,7 +72,6 @@ import '../../widgets/ad_block_playback_guard.dart';
 import '../../design/app_tokens.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
-import 'download_selection_sheets.dart';
 
 class PlayerOne extends StatefulWidget {
   const PlayerOne(
@@ -250,7 +247,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late List<BetterPlayerSubtitlesSource> _activeSubtitles;
   late Map<String, BetterPlayerVideoFormat?>? _activeVideoFormats;
   late Map<String, Map<String, String>> _activeVideoHeaders;
-  late Map<String, String> _activeVideoSizeTokens;
   late Map<String, String> _activeVideoAudioLanguages;
   late Map<String, String> _allVideoSources;
   late Map<String, BetterPlayerVideoFormat?>? _allVideoFormats;
@@ -282,7 +278,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   final Map<String, Set<String>> _rejectedAudioSourceKeysByLanguage = {};
   final Map<String, int> _audioSourceFailureCounts = {};
   final Map<String, int> _providerFailureCounts = {};
-  final Map<String, int?> _streamSizeCacheByToken = {};
   final Set<String> _loadingProviders =
       {}; // Track which providers are being loaded
   final Map<String, String> _providerErrors = {};
@@ -322,7 +317,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _activeVideoFormats =
         widget.videoFormats == null ? null : Map.of(widget.videoFormats!);
     _activeVideoHeaders = Map.of(widget.videoHeaders);
-    _activeVideoSizeTokens = Map.of(widget.videoSizeTokens);
     _activeVideoAudioLanguages = Map.of(widget.videoAudioLanguages);
     _allVideoSources = Map.of(widget.sources);
     _allVideoFormats =
@@ -3986,6 +3980,13 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         .contains(selected);
   }
 
+  /// BetterPlayer retains the previous manifest's audio catalogue until the
+  /// replacement manifest is parsed. Clear it before a source change so a
+  /// provider switch cannot accidentally select a stale track ID.
+  void _clearStaleManifestAudioTracks() {
+    _betterPlayerController.betterPlayerAsmsAudioTracks?.clear();
+  }
+
   Future<bool> _switchToAudioLanguage(
     String languageCode,
     List<String> sourceKeys, {
@@ -4054,9 +4055,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final headers = suppliedHeaders == null
           ? const <String, Map<String, String>>{}
           : <String, Map<String, String>>{key: suppliedHeaders};
-      final sizes = _allVideoSizeTokens.containsKey(key)
-          ? <String, String>{key: _allVideoSizeTokens[key]!}
-          : const <String, String>{};
       // Use the chosen language for source ranking even when the language was
       // discovered from the manifest rather than supplied by the scraper.
       final candidateAudioLanguages = <String, String>{
@@ -4070,6 +4068,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       try {
         await _betterPlayerController.pause();
         attemptedSource = true;
+        _clearStaleManifestAudioTracks();
         await _betterPlayerController.setupDataSource(
           _buildDataSource(
             sources: candidateSources,
@@ -4108,7 +4107,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           _activeSources = candidateSources;
           _activeVideoFormats = candidateFormats;
           _activeVideoHeaders = headers;
-          _activeVideoSizeTokens = sizes;
           _activeVideoAudioLanguages = candidateAudioLanguages;
           _isSwitchingProvider = false;
         });
@@ -4177,6 +4175,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
 
     if (mounted && attemptedSource && previousDataSource != null) {
       try {
+        _clearStaleManifestAudioTracks();
         await _betterPlayerController.setupDataSource(
           previousDataSource,
           initialPosition: position,
@@ -4383,6 +4382,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       replacementStarted = true;
       _preRollActive = false;
+      _clearStaleManifestAudioTracks();
       await _betterPlayerController.setupDataSource(
         _buildDataSource(
           sources: nextSource.videoSources,
@@ -4424,7 +4424,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _activeSubtitles = List.of(nextSource.subtitles);
         _activeVideoFormats = Map.of(nextSource.videoFormats);
         _activeVideoHeaders = Map.of(nextSource.videoHeaders);
-        _activeVideoSizeTokens = Map.of(nextSource.videoSizeTokens);
         _activeVideoAudioLanguages = nextAudioLanguages;
         final switchedDuration = _betterPlayerController
             .videoPlayerController?.value.duration?.inSeconds;
@@ -4487,6 +4486,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       // that failed.
       if (!reload && !automatic && replacementStarted && previousDataSource != null) {
         try {
+          _clearStaleManifestAudioTracks();
           await _betterPlayerController.setupDataSource(
             previousDataSource,
             initialPosition: position,
@@ -5520,144 +5520,88 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   }
 
   Future<void> _downloadFromCurrentProvider() async {
-    if (_activeSources.isEmpty) return;
     if (!mounted || _activeSources.isEmpty) return;
-    final providerName = _currentProviderName();
-    final downloadApiBaseUrl = _resolveScraperApiUrl();
-    final providerCode = _currentProviderCode;
-    final downloadProvider = widget.availableProviders
-        ?.where((provider) => provider.codeName == providerCode)
-        .firstOrNull;
-    final rawDownloadLinks = List<RegularVideoLinks>.of(
-      _rawVideoLinksByProvider[providerCode] ?? const [],
-    );
-    final sources = Map<String, String>.of(_activeSources);
-    final formats = _activeVideoFormats == null
-        ? <String, BetterPlayerVideoFormat?>{}
-        : Map<String, BetterPlayerVideoFormat?>.of(_activeVideoFormats!);
-    final headers = Map<String, Map<String, String>>.of(_activeVideoHeaders);
-    final estimatedSizes = ValueNotifier<Map<String, int?>>({
-      for (final entry in _activeVideoSizeTokens.entries)
-        if (_streamSizeCacheByToken.containsKey(entry.value))
-          entry.key: _streamSizeCacheByToken[entry.value],
-    });
-    var sizePickerOpen = true;
-    unawaited(StreamSizeEstimator.load(
-      scraperApiUrl: _resolveScraperApiUrl(),
-      tokens: _activeVideoSizeTokens,
-      cacheByToken: _streamSizeCacheByToken,
-      onEstimate: (token, bytes) {
-        if (!sizePickerOpen) return;
-        final next = Map<String, int?>.of(estimatedSizes.value);
-        for (final entry in _activeVideoSizeTokens.entries) {
-          if (entry.value == token) next[entry.key] = bytes;
-        }
-        estimatedSizes.value = next;
-      },
-    ));
-    final resolution = await DownloadSelectionSheets.showResolution(
-      context,
-      inPlayer: true,
-      resolutions: sources.keys.toList(),
-      providerName: providerName,
-      estimatedSizesListenable: estimatedSizes,
-    );
-    sizePickerOpen = false;
-    estimatedSizes.dispose();
-    if (!mounted || resolution == null) return;
-
-    final url = sources[resolution];
-    if (url == null) return;
-    final declaredFormat = formats[resolution];
-    final format = OfflineDownloadService.inferFormat(
-      url: url,
-      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
-      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
-    );
+    final isMovie = widget.mediaType == MediaType.movie;
     final movie = widget.movieMetadata;
     final episode = widget.tvMetadata;
-    final isMovie = widget.mediaType == MediaType.movie;
     final season = episode?.seasonNumber ?? 0;
     final episodeNumber = episode?.episodeNumber ?? 0;
-    final posterPath = isMovie ? movie?.posterPath : episode?.posterPath;
-    final subtitleTrack = _originalSubtitleTrack();
 
     try {
-      final downloadHeaders = headers[resolution] ??
-          VideoUtils.inferVideoHeaders(url) ??
-          const <String, String>{};
-      final audioSelection = await DownloadSelectionSheets.chooseAudio(
-        context,
-        tracks: OfflineDownloadService.instance.getAudioTracks(
-          url: url,
-          format: format,
-          headers: downloadHeaders,
-          maxVideoHeight: _downloadResolutionHeight(resolution),
-        ),
-        inPlayer: true,
-      );
-      if (!mounted) return;
-      if (audioSelection == null) {
-        return;
+      // Playback hands off before slower providers finish. Wait briefly for
+      // that shared aggregation so the download catalogue includes every
+      // available provider, not just the stream currently on screen.
+      final pending = widget.backgroundProviderSelection;
+      if (pending != null && _backgroundProviderAggregationPending) {
+        try {
+          await pending.timeout(const Duration(seconds: 35));
+          await Future<void>.delayed(Duration.zero);
+        } on TimeoutException {
+          debugPrint('[Download] Provider aggregation timed out; using sources discovered so far.');
+        }
       }
-      await context.read<OfflineDownloadProvider>().enqueue(
-            OfflineDownloadRequest(
-              id: isMovie
-                  ? 'movie_${movie!.movieId}'
-                  : 'tv_${episode!.tvId}_s${season}_e$episodeNumber',
-              url: url,
-              format: format,
-              title: isMovie
-                  ? movie?.movieName ?? 'Movie'
-                  : episode?.seriesName ?? 'TV episode',
-              subtitle: isMovie
-                  ? 'From $providerName'
-                  : 'S${season.toString().padLeft(2, '0')} • '
-                      'E${episodeNumber.toString().padLeft(2, '0')} '
-                      '${episode?.episodeName ?? ''} • $providerName',
-              mediaType: isMovie ? 'movie' : 'episode',
-              quality: resolution,
-              posterUrl: posterPath == null
-                  ? null
-                  : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
-              maxVideoHeight: _downloadResolutionHeight(resolution),
-              headers: downloadHeaders,
-              audioTrack: audioSelection.track,
-              source: OfflineDownloadSource.forSelection(
-                provider: downloadProvider,
-                apiBaseUrl: downloadApiBaseUrl,
-                links: rawDownloadLinks,
-                url: url,
-                headers: downloadHeaders,
-              ),
-              contentId: isMovie ? movie?.movieId : episode?.tvId,
-              seasonNumber: isMovie ? null : season,
-              episodeNumber: isMovie ? null : episodeNumber,
-              subtitleTrackUrl: subtitleTrack?.urls!.first,
-              subtitleTrackName: subtitleTrack?.name,
-              subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
+      if (!mounted) return;
+
+      final attempts = List<ProviderAttempt>.of(_loadedProviderAttempts);
+      final currentCode = _currentProviderCode;
+      if (currentCode != null &&
+          !attempts.any((attempt) => attempt.provider.codeName == currentCode)) {
+        final provider = widget.availableProviders
+            ?.where((item) => item.codeName == currentCode)
+            .firstOrNull;
+        final links = _rawVideoLinksByProvider[currentCode] ??
+            widget.initialVideoLinks;
+        if (provider != null && links.isNotEmpty) {
+          attempts.add(
+            ProviderAttempt(
+              index: attempts.length,
+              provider: provider,
+              result: ProviderLoadResult(success: true, videoLinks: links),
             ),
           );
+        }
+      }
+
+      final subtitleTrack = _originalSubtitleTrack();
+      final queued = await UnifiedDownloadWorkflow.enqueue(
+        context,
+        attempts: attempts,
+        scraperApiUrl: _resolveScraperApiUrl(),
+        id: isMovie
+            ? 'movie_${movie!.movieId}'
+            : 'tv_${episode!.tvId}_s${season}_e$episodeNumber',
+        title: isMovie ? movie?.movieName ?? 'Movie' : episode?.seriesName ?? 'TV episode',
+        mediaType: isMovie ? 'movie' : 'episode',
+        contentId: isMovie ? movie?.movieId : episode?.tvId,
+        posterUrl: (isMovie ? movie?.posterPath : episode?.posterPath) == null
+            ? null
+            : '${TMDB_BASE_IMAGE_URL}w500${isMovie ? movie!.posterPath : episode!.posterPath}',
+        seasonNumber: isMovie ? null : season,
+        episodeNumber: isMovie ? null : episodeNumber,
+        episodeLabel: isMovie
+            ? null
+            : 'S${season.toString().padLeft(2, '0')} • E${episodeNumber.toString().padLeft(2, '0')} ${episode?.episodeName ?? ''}',
+        subtitleTrackUrl: subtitleTrack?.urls?.first,
+        subtitleTrackName: subtitleTrack?.name,
+        subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
+        inPlayer: true,
+      );
+      if (!mounted || !queued) return;
+
       settings.analytics.trackDownload(
         action: 'enqueue_from_player',
         mediaType: _analyticsMediaType,
         outcome: 'success',
-        provider: providerName,
-        quality: resolution,
+        provider: 'unified',
       );
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$resolution download added from $providerName'),
-        ),
+        const SnackBar(content: Text('Download added to queue')),
       );
     } catch (error) {
       settings.analytics.trackDownload(
         action: 'enqueue_from_player',
         mediaType: _analyticsMediaType,
         outcome: isAlreadyDownloaded(error) ? 'already_downloaded' : 'error',
-        provider: providerName,
-        quality: resolution,
         error: error.toString(),
       );
       if (!mounted) return;
@@ -5666,8 +5610,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           content: Text(
             offlineEnqueueErrorMessage(
               error,
-              title:
-                  isMovie ? movie?.movieName ?? 'This movie' : 'This episode',
+              title: isMovie ? movie?.movieName ?? 'This movie' : 'This episode',
             ),
           ),
         ),
@@ -5685,11 +5628,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     return code;
   }
-
-  String _currentProviderName() => _providerDisplayName(_currentProviderCode);
-
-  int? _downloadResolutionHeight(String resolution) =>
-      VideoUtils.videoQualityHeight(resolution);
 
   BetterPlayerSubtitlesSource? _originalSubtitleTrack() {
     BetterPlayerSubtitlesSource? fallback;

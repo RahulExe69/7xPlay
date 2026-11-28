@@ -53,8 +53,11 @@ class OfflineDownloadProvider extends ChangeNotifier {
   Future<void> enqueue(OfflineDownloadRequest request) async {
     _error = null;
     try {
+      // The native bridge acknowledges only after Media3 has prepared and
+      // accepted the request. Do not make a successful enqueue wait for a
+      // separate full queue refresh; the event stream also updates the list.
       await _service.enqueue(request);
-      await refresh();
+      unawaited(refresh());
     } catch (error) {
       _error = error.toString();
       notifyListeners();

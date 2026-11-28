@@ -113,6 +113,68 @@ internal class DownloadSourceResolver {
         )
     }
 
+    /**
+     * Returns preparation arguments for one ranked alternative source.
+     * The new request receives a fresh cache namespace and only the remaining
+     * candidates, so a changed stream can never reuse unrelated partial bytes.
+     */
+    fun nextFallbackArguments(
+        request: DownloadRequest,
+        candidateIndex: Int = 0,
+    ): Map<String, Any?>? {
+        val metadata = StreamDownloadStore.requestMetadata(request)
+        val candidates = metadata.optJSONArray("fallbackCandidates") ?: return null
+        if (candidateIndex !in 0 until candidates.length()) return null
+        val candidate = candidates.optJSONObject(candidateIndex) ?: return null
+        val url = candidate.optString("url").trim()
+        val format = candidate.optString("format").trim().lowercase()
+        val quality = candidate.optString("quality").trim()
+        val uri = Uri.parse(url)
+        if (url.isBlank() || uri.scheme !in listOf("http", "https") ||
+            uri.host.isNullOrBlank() || format !in listOf("hls", "dash", "progressive") ||
+            quality.isBlank()) {
+            throw IOException("The next download source contains invalid metadata.")
+        }
+
+        val remaining = (candidateIndex + 1 until candidates.length()).mapNotNull { index ->
+            candidates.optJSONObject(index)?.let(::jsonMap)
+        }
+        val height = Regex("(\\d{3,4})").find(quality)?.groupValues?.getOrNull(1)?.toIntOrNull()
+        return buildMap {
+            put("id", request.id)
+            put("url", url)
+            put("format", format)
+            put("title", metadata.optString("title", "Untitled"))
+            put("subtitle", metadata.optString("subtitle"))
+            put("mediaType", metadata.optString("mediaType", "video"))
+            put("quality", quality)
+            put("posterUrl", metadata.optString("posterUrl"))
+            put("maxVideoHeight", height ?: metadata.optInt("maxVideoHeight").takeIf { it > 0 })
+            put("headers", candidate.optJSONObject("headers")?.let(::jsonMap) ?: emptyMap<String, Any?>())
+            candidate.optJSONObject("audioTrack")?.let { put("audioTrack", jsonMap(it)) }
+            put("audioTrackName", candidate.optString("audioTrackName").ifBlank { "" })
+            candidate.optJSONObject("source")?.let { put("source", jsonMap(it)) }
+            put("fallbackCandidates", remaining)
+            put("cacheNamespace", DownloadRecoveryState.newNamespace())
+            put("contentId", metadata.optInt("contentId"))
+            put("seasonNumber", metadata.optInt("seasonNumber", -1))
+            put("episodeNumber", metadata.optInt("episodeNumber", -1))
+            val subtitleUrl = candidate.optString("subtitleTrackUrl").trim()
+            if (subtitleUrl.isNotEmpty()) {
+                put("subtitleTrackUrl", subtitleUrl)
+                put("subtitleTrackName", candidate.optString("subtitleTrackName"))
+                put(
+                    "subtitleTrackHeaders",
+                    candidate.optJSONObject("subtitleTrackHeaders")?.let(::jsonMap)
+                        ?: emptyMap<String, Any?>(),
+                )
+            } else {
+                put("offlineSubtitlePath", metadata.optString("offlineSubtitlePath").ifBlank { null })
+                put("offlineSubtitleName", metadata.optString("offlineSubtitleName").ifBlank { null })
+            }
+        }
+    }
+
     private fun checkSource(source: JSONObject, metadata: JSONObject) {
         val format = metadata.optString("format")
         val needsAdaptiveTrackIdentity = format == "hls" || format == "dash"
