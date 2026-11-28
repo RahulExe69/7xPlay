@@ -14,7 +14,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flixquest/models/tv_stream_metadata.dart';
 import 'package:flixquest/models/wellness.dart';
 import 'package:flixquest/provider/wellness_provider.dart';
-import 'package:flixquest/models/offline_download.dart';
 
 import '../../models/movie_stream_metadata.dart';
 import '../../models/provider_video_source.dart';
@@ -38,7 +37,6 @@ import 'package:provider/provider.dart';
 import 'package:better_player_plus/better_player_plus.dart';
 import '../../functions/function.dart';
 import '../../provider/settings_provider.dart';
-import '../../provider/offline_download_provider.dart';
 import '../../provider/app_dependency_provider.dart';
 import '../../constants/api_constants.dart';
 import '../../api/endpoints.dart';
@@ -49,7 +47,6 @@ import '../../services/provider_audio_language_cache.dart';
 import '../../services/introdb_service.dart';
 import '../../services/offline_download_service.dart';
 import '../../services/playback_wake_lock.dart';
-import '../../services/stream_size_estimator.dart';
 import '../../services/unified_download_workflow.dart';
 import '../movie/movie_video_loader.dart';
 import '../tv/tv_video_loader.dart';
@@ -75,7 +72,6 @@ import '../../widgets/ad_block_playback_guard.dart';
 import '../../design/app_tokens.dart';
 import 'player/player_watch_page.dart';
 import 'player/player_strings.dart';
-import 'download_selection_sheets.dart';
 
 class PlayerOne extends StatefulWidget {
   const PlayerOne(
@@ -251,7 +247,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   late List<BetterPlayerSubtitlesSource> _activeSubtitles;
   late Map<String, BetterPlayerVideoFormat?>? _activeVideoFormats;
   late Map<String, Map<String, String>> _activeVideoHeaders;
-  late Map<String, String> _activeVideoSizeTokens;
   late Map<String, String> _activeVideoAudioLanguages;
   late Map<String, String> _allVideoSources;
   late Map<String, BetterPlayerVideoFormat?>? _allVideoFormats;
@@ -283,7 +278,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
   final Map<String, Set<String>> _rejectedAudioSourceKeysByLanguage = {};
   final Map<String, int> _audioSourceFailureCounts = {};
   final Map<String, int> _providerFailureCounts = {};
-  final Map<String, int?> _streamSizeCacheByToken = {};
   final Set<String> _loadingProviders =
       {}; // Track which providers are being loaded
   final Map<String, String> _providerErrors = {};
@@ -323,7 +317,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     _activeVideoFormats =
         widget.videoFormats == null ? null : Map.of(widget.videoFormats!);
     _activeVideoHeaders = Map.of(widget.videoHeaders);
-    _activeVideoSizeTokens = Map.of(widget.videoSizeTokens);
     _activeVideoAudioLanguages = Map.of(widget.videoAudioLanguages);
     _allVideoSources = Map.of(widget.sources);
     _allVideoFormats =
@@ -4062,9 +4055,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       final headers = suppliedHeaders == null
           ? const <String, Map<String, String>>{}
           : <String, Map<String, String>>{key: suppliedHeaders};
-      final sizes = _allVideoSizeTokens.containsKey(key)
-          ? <String, String>{key: _allVideoSizeTokens[key]!}
-          : const <String, String>{};
       // Use the chosen language for source ranking even when the language was
       // discovered from the manifest rather than supplied by the scraper.
       final candidateAudioLanguages = <String, String>{
@@ -4117,7 +4107,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           _activeSources = candidateSources;
           _activeVideoFormats = candidateFormats;
           _activeVideoHeaders = headers;
-          _activeVideoSizeTokens = sizes;
           _activeVideoAudioLanguages = candidateAudioLanguages;
           _isSwitchingProvider = false;
         });
@@ -5640,11 +5629,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     }
     return code;
   }
-
-  String _currentProviderName() => _providerDisplayName(_currentProviderCode);
-
-  int? _downloadResolutionHeight(String resolution) =>
-      VideoUtils.videoQualityHeight(resolution);
 
   BetterPlayerSubtitlesSource? _originalSubtitleTrack() {
     BetterPlayerSubtitlesSource? fallback;
