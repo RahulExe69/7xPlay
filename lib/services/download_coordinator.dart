@@ -208,7 +208,7 @@ abstract final class DownloadCoordinator {
           format: format,
           providerIndex: attempt.index,
           linkIndex: index,
-          estimatedBytes: estimatedSizes[identity],
+          estimatedBytes: estimatedSizes['${providerCode}|${quality.trim().toLowerCase()}|${source?.server ?? link.server ?? ''}|${identity}'],
           source: source,
         );
 
