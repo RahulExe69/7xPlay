@@ -168,27 +168,6 @@ class _TVVideoLoaderState extends State<_TVVideoLoader> {
       final bookmarkedFuture = recentlyWatchedEpisodeController
           .contain(widget.metadata.episodeId!);
       await _loadProviders();
-      ProviderSelection? selection;
-      Future<ProviderSelection?>? backgroundProviderSelection;
-      Stream<ProviderAttempt>? backgroundProviderAttempts;
-      if (widget.download) {
-        // Downloads discover every enabled provider before asking the user
-        // for language and quality; provider choice is an internal detail.
-        selection = await _fetchSelection(providers: videoProviders);
-      } else {
-        final session = _startProviderSelection(providers: videoProviders);
-        final firstAttempt = await session.firstPlayable;
-        if (firstAttempt != null) {
-          selection = ProviderSelection(
-            index: firstAttempt.index,
-            provider: firstAttempt.provider,
-            result: firstAttempt.result,
-            attempts: <ProviderAttempt>[firstAttempt],
-          );
-        }
-        backgroundProviderSelection = session.allSuccessful;
-        backgroundProviderAttempts = session.providerAttempts;
-      }
       final isBookmarked = await bookmarkedFuture;
       int elapsed = 0;
       if (isBookmarked) {
