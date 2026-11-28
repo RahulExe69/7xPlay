@@ -815,7 +815,12 @@ Future<T?> showAppSheet<T>(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),
-    builder: builder,
+    builder: (sheetContext) => SafeArea(
+      // showModalBottomSheet's useSafeArea protects top/side intrusions;
+      // explicitly inset the content above the bottom system navigation bar.
+      top: false,
+      child: Builder(builder: builder),
+    ),
   );
 }
 
