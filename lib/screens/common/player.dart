@@ -4424,7 +4424,6 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         _activeSubtitles = List.of(nextSource.subtitles);
         _activeVideoFormats = Map.of(nextSource.videoFormats);
         _activeVideoHeaders = Map.of(nextSource.videoHeaders);
-        _activeVideoSizeTokens = Map.of(nextSource.videoSizeTokens);
         _activeVideoAudioLanguages = nextAudioLanguages;
         final switchedDuration = _betterPlayerController
             .videoPlayerController?.value.duration?.inSeconds;
