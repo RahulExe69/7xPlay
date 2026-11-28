@@ -208,12 +208,12 @@ abstract final class DownloadCoordinator {
           format: format,
           providerIndex: attempt.index,
           linkIndex: index,
-          estimatedBytes: estimatedSizes['${providerCode}|${quality.trim().toLowerCase()}|${source?.server ?? link.server ?? ''}|${identity}'] ?? estimatedSizes[identity],
+          estimatedBytes: estimatedSizes['$providerCode|${quality.trim().toLowerCase()}|${source?.server ?? link.server ?? ''}|$identity'] ?? estimatedSizes[identity],
           source: source,
         );
 
         final serverKey = candidate.source?.server ?? link.server ?? '';
-        final key = '${providerCode}|$serverKey|'
+        final key = '$providerCode|$serverKey|'
             '${candidate.formatIdentity}|${candidate.sourceIdentity}';
         final previous = deduplicated[key];
         final candidateSize = candidate.estimatedBytes;
