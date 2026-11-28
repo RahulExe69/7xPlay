@@ -1,4 +1,3 @@
-import 'dart:async';
 
 import 'package:flixquest/models/offline_download.dart';
 import 'package:flixquest/services/download_coordinator.dart';
