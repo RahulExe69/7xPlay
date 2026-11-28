@@ -3832,10 +3832,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         userInitiated: false,
         preserveExplicitSelection: false,
         requirePlaybackAdvance: true,
-        // Initial playback has already advanced before this automatic
-        // preference pass. Preserve that autoplay intent across a source
-        // replacement even if the controller temporarily reports isPlaying
-        // as false while BetterPlayer is reconfiguring or buffering.
+        // This preference pass follows initial source initialization.
+        // Preserve the configured autoplay intent across a source replacement
+        // even if BetterPlayer temporarily reports isPlaying=false while
+        // reconfiguring or buffering; an explicit viewer pause is tracked
+        // separately and remains paused.
         preservePlaybackIntent: true,
       );
       if (switched) return;
