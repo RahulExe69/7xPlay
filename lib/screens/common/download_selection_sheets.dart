@@ -142,7 +142,8 @@ abstract final class DownloadSelectionSheets {
                 titleDetail: format.smallestSizeBytes == null
                     ? tr('size_unknown')
                     : '~${_formatBytes(format.smallestSizeBytes!)}',
-                subtitle: '${format.sourceCount} '
+                subtitle: '${_resolutionDescription(format.label)} · '
+                    '${format.sourceCount} '
                     '${format.sourceCount == 1 ? "source" : "sources"} · '
                     '${format.deliveryDescription}',
                 icon: PhosphorIcons.monitorPlay(),
@@ -159,7 +160,11 @@ abstract final class DownloadSelectionSheets {
     final height = int.tryParse(
       RegExp(r'(\d{3,4})').firstMatch(resolution)?.group(1) ?? '',
     );
-    if (height == null) return tr('quality_adaptive');
+    if (height == null) {
+      return resolution.toLowerCase().contains('auto')
+          ? tr('quality_adaptive')
+          : tr('quality_small');
+    }
     if (height >= 2160) return tr('quality_uhd');
     if (height >= 1080) return tr('quality_fhd');
     if (height >= 720) return tr('quality_hd');
