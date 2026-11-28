@@ -238,9 +238,7 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
       Future<ProviderSelection?>? backgroundProviderSelection;
       Stream<ProviderAttempt>? backgroundProviderAttempts;
       if (widget.download) {
-        final provider = selectedDownloadProvider;
-        if (provider == null) return;
-        selection = await _fetchSelection(providers: [provider]);
+        selection = await _fetchSelection(providers: videoProviders);
       } else {
         // Start all providers together but hand off to playback as soon as a
         // single usable result arrives. Alternatives continue in background.
