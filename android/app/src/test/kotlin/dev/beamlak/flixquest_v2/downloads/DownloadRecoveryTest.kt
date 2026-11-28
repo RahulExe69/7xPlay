@@ -176,14 +176,34 @@ class DownloadRecoveryTest {
     }
 
     @Test fun ordinaryErrorsAndLegacyDownloadsNeverRegenerate() {
-        for ((original, failure) in listOf(request() to response(503), request() to response(403, "Forbidden"),
-            request(source = false) to response(403, "Token expired"))) {
-            val downloader = RecoveringDownloader(original, state(), { _, _ -> Task { throw failure } },
-                { _, _ -> fail("Unexpected regeneration"); original }, {})
-            assertSame(failure, runCatching { downloader.download(null) }.exceptionOrNull())
-        }
-    }
+        var renewals = 0
+        val ordinaryFailure = response(416, "Range not satisfiable")
+        val ordinary = RecoveringDownloader(request(), state(),
+            { _, _ -> Task { throw ordinaryFailure } },
+            { _, _ -> renewals++; request("unexpected:") }, {})
+        assertSame(ordinaryFailure, runCatching { ordinary.download(null) }.exceptionOrNull())
 
+        val providerFailure = response(503, "Provider unavailable")
+        var fallbackAttempts = 0
+        val providerUnavailable = RecoveringDownloader(request(), state(),
+            { _, _ -> Task { throw providerFailure } },
+            { _, _ -> renewals++; request("unexpected:") }, {},
+            fallback = { _, _ -> fallbackAttempts++; null })
+        val terminalProviderError = runCatching { providerUnavailable.download(null) }.exceptionOrNull()
+        assertTrue(terminalProviderError is IOException)
+        assertSame(providerFailure, terminalProviderError?.cause)
+        assertEquals(1, fallbackAttempts)
+
+        val legacyFailure = response(403, "Token expired")
+        val legacy = RecoveringDownloader(request(source = false), state(),
+            { _, _ -> Task { throw legacyFailure } },
+            { _, _ -> renewals++; request("unexpected:") }, {},
+            fallback = { _, _ -> null })
+        val terminalLegacyError = runCatching { legacy.download(null) }.exceptionOrNull()
+        assertTrue(terminalLegacyError is IOException)
+        assertSame(legacyFailure, terminalLegacyError?.cause)
+        assertEquals("Legacy requests must not be renewed", 0, renewals)
+    }
     @Test fun failedRenewalIsNotRepeatedByMedia3AutomaticRetries() {
         var calls = 0
         val downloader = RecoveringDownloader(request(), state(), { _, _ -> Task { throw response(403, "Token expired") } },
