@@ -3823,6 +3823,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         userInitiated: false,
         preserveExplicitSelection: false,
         requirePlaybackAdvance: true,
+        // Initial playback has already advanced before this automatic
+        // preference pass. Preserve that autoplay intent across a source
+        // replacement even if the controller temporarily reports isPlaying
+        // as false while BetterPlayer is reconfiguring or buffering.
+        preservePlaybackIntent: true,
       );
       if (switched) return;
 
@@ -3993,7 +3998,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     bool userInitiated = true,
     bool preserveExplicitSelection = false,
     bool requirePlaybackAdvance = false,
-    bool forcePlaybackForRecovery = false,
+    bool preservePlaybackIntent = false,
   }) async {
     if (!mounted ||
         _adBlockStopped ||
@@ -4005,7 +4010,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final wasPlaying = _betterPlayerController
             .videoPlayerController?.value.isPlaying ==
         true;
-    final shouldResumePlayback = wasPlaying || forcePlaybackForRecovery;
+    final shouldResumePlayback = wasPlaying || preservePlaybackIntent;
 
     // Prefer an in-place native track change when the active stream already
     // contains the requested language. This avoids needless provider reloads
@@ -4744,7 +4749,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           userInitiated: false,
           preserveExplicitSelection: true,
           requirePlaybackAdvance: true,
-          forcePlaybackForRecovery: true,
+          preservePlaybackIntent: true,
         );
         if (switched) {
           playbackRecovered = true;
