@@ -176,7 +176,6 @@ void main() {
       expect(item.isComplete, isFalse);
       expect(item.createdAt.millisecondsSinceEpoch, 1234);
       expect(item.totalBytes, 4096);
-      expect(item.totalBytesIsEstimated, isFalse);
     });
 
     test('normalizes invalid platform progress', () {
@@ -190,7 +189,7 @@ void main() {
       expect(item.isComplete, isTrue);
     });
 
-    test('estimates adaptive stream size while content length is unknown', () {
+    test('does not publish a moving total while content length is unknown', () {
       final item = OfflineDownload.fromMap({
         'id': 'movie_2',
         'progress': 25,
@@ -199,8 +198,15 @@ void main() {
         'state': 'downloading',
       });
 
-      expect(item.totalBytes, 200 * 1024 * 1024);
-      expect(item.totalBytesIsEstimated, isTrue);
+      expect(item.totalBytes, -1);
+
+      final completed = OfflineDownload.fromMap({
+        'id': 'movie_2',
+        'bytesDownloaded': 50 * 1024 * 1024,
+        'contentLength': -1,
+        'state': 'completed',
+      });
+      expect(completed.totalBytes, 50 * 1024 * 1024);
     });
 
     test('encodes every source field needed by the native downloader', () {

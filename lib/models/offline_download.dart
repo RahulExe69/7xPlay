@@ -156,14 +156,9 @@ class OfflineDownload {
       state == OfflineDownloadState.queued ||
       state == OfflineDownloadState.restarting;
 
-  bool get totalBytesIsEstimated => contentLength <= 0 && !isComplete;
-
   int get totalBytes {
     if (contentLength > 0) return contentLength;
     if (isComplete) return bytesDownloaded;
-    if (bytesDownloaded > 0 && progress > 0) {
-      return (bytesDownloaded * 100 / progress).round();
-    }
     return -1;
   }
 

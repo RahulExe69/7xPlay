@@ -362,6 +362,11 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
           _showErrorSheet(tr('movie_vid_404'));
         }
       }
+    } on StateError catch (error) {
+      debugPrint('[MovieVideoLoader] State error loading video: $error');
+      if (mounted) {
+        _showErrorSheet(error.message.toString());
+      }
     } on Exception catch (e) {
       debugPrint('[MovieVideoLoader] Exception loading video: $e');
       if (mounted) {

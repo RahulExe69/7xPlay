@@ -4013,6 +4013,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
       );
       if (!requirePlaybackAdvance) return true;
       // A matching native track is not proof that a stalled source recovered.
+      await _betterPlayerController.play();
       return _waitForSourceReady(expectPlaying: true);
     }
 
@@ -4025,6 +4026,7 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
     final wasPlaying = _betterPlayerController
             .videoPlayerController?.value.isPlaying ==
         true;
+    final shouldResumePlayback = wasPlaying || requirePlaybackAdvance;
     final previousDataSource = _betterPlayerController.betterPlayerDataSource;
     final previousAudioLanguage = _activeAudioLanguageCode;
     final previousExplicitSelection = _audioLanguageExplicitlySelected;
@@ -4085,7 +4087,12 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           return false;
         }
         _applyPreferredAdaptiveQuality();
-        if (!await _waitForSourceReady(expectPlaying: wasPlaying)) {
+        if (shouldResumePlayback) {
+          await _betterPlayerController.play();
+        }
+        if (!await _waitForSourceReady(
+          expectPlaying: shouldResumePlayback,
+        )) {
           throw TimeoutException(tr('provider_playback_failed'));
         }
         _currentProviderCode = _allVideoProviderCodes[key];
@@ -4095,7 +4102,11 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
         )) {
           throw StateError(tr('provider_language_unavailable'));
         }
-        if (!wasPlaying) await _betterPlayerController.pause();
+        if (shouldResumePlayback) {
+          await _betterPlayerController.play();
+        } else {
+          await _betterPlayerController.pause();
+        }
 
         _recordAudioSourceSuccess(key);
         final successfulProviderCode = _allVideoProviderCodes[key];
@@ -4180,9 +4191,10 @@ class _PlayerOneState extends State<PlayerOne> with WidgetsBindingObserver {
           previousDataSource,
           initialPosition: position,
         );
-        if (!wasPlaying) {
+        if (!shouldResumePlayback) {
           await _betterPlayerController.pause();
         } else {
+          await _betterPlayerController.play();
           await _waitForSourceReady(
             expectPlaying: true,
             timeout: const Duration(seconds: 6),

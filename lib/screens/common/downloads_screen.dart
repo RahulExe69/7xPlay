@@ -978,8 +978,7 @@ class _DownloadActionTile extends StatelessWidget {
 String _totalSizeText(OfflineDownload download) {
   final total = download.totalBytes;
   if (total <= 0) return 'Calculating size';
-  final prefix = download.totalBytesIsEstimated ? '~' : '';
-  return '$prefix${_formatBytes(total)}';
+  return _formatBytes(total);
 }
 
 String _formatBytes(int bytes) {
