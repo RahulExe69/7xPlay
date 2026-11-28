@@ -10,13 +10,10 @@ import 'package:flixquest/functions/player_route_handoff.dart';
 import 'package:flixquest/models/movie.dart';
 import 'package:flixquest/catalog/hindi_origin_movie_recommendations.dart';
 import 'package:flixquest/models/movie_stream_metadata.dart';
-import 'package:flixquest/models/offline_download.dart';
 import 'package:flixquest/models/provider_video_source.dart';
 import 'package:flixquest/models/provider_load_state.dart';
 import 'package:flixquest/services/globle_method.dart';
-import 'package:flixquest/services/offline_download_service.dart';
 import 'package:flixquest/widgets/playback_loading_screen.dart';
-import 'package:flixquest/services/stream_size_estimator.dart';
 import 'package:flixquest/services/unified_download_workflow.dart';
 import 'package:flixquest/video_providers/provider_loader.dart';
 import 'package:flixquest/video_providers/scraper_api.dart';
@@ -26,7 +23,6 @@ import '../../video_providers/common.dart';
 import '../../video_providers/names.dart';
 import '/api/endpoints.dart';
 import '/constants/api_constants.dart';
-import '/provider/offline_download_provider.dart';
 import '/provider/app_dependency_provider.dart';
 import '/provider/settings_provider.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -37,7 +33,6 @@ import 'package:flixquest/constants/app_constants.dart' show MediaType;
 
 import 'package:flutter/material.dart';
 import '../../screens/common/player.dart';
-import '../../screens/common/download_selection_sheets.dart';
 import '../../tv/player/tv_player_screen.dart';
 
 /// Finds a movie stream and keeps the complete playback route ad-free.
@@ -106,7 +101,6 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
   final Map<String, Stopwatch> _providerStopwatches = {};
   int currentProviderIndex = 0;
   String _scraperApiUrl = '';
-  final Map<String, int?> _streamSizeCacheByToken = {};
 
   Map<String, String> videos = {};
   List<BetterPlayerSubtitlesSource> subs = [];
@@ -552,143 +546,6 @@ class _MovieVideoLoaderState extends State<_MovieVideoLoader> {
       ),
     );
   }
-
-  Future<void> _enqueueDownload({
-    required Map<String, String> sources,
-    required Map<String, BetterPlayerVideoFormat?> videoFormats,
-    required Map<String, Map<String, String>> videoHeaders,
-    required Map<String, String> videoSizeTokens,
-    String? providerName,
-    VideoProvider? downloadProvider,
-  }) async {
-    final estimatedSizes = ValueNotifier<Map<String, int?>>({
-      for (final entry in videoSizeTokens.entries)
-        if (_streamSizeCacheByToken.containsKey(entry.value))
-          entry.key: _streamSizeCacheByToken[entry.value],
-    });
-    var sizePickerOpen = true;
-    unawaited(StreamSizeEstimator.load(
-      scraperApiUrl: _scraperApiUrl,
-      tokens: videoSizeTokens,
-      cacheByToken: _streamSizeCacheByToken,
-      onEstimate: (token, bytes) {
-        if (!sizePickerOpen) return;
-        final next = Map<String, int?>.of(estimatedSizes.value);
-        for (final entry in videoSizeTokens.entries) {
-          if (entry.value == token) next[entry.key] = bytes;
-        }
-        estimatedSizes.value = next;
-      },
-    ));
-    if (!mounted) return;
-    final quality = await DownloadSelectionSheets.showResolution(
-      context,
-      resolutions: sources.keys.toList(),
-      providerName: providerName,
-      estimatedSizesListenable: estimatedSizes,
-    );
-    sizePickerOpen = false;
-    estimatedSizes.dispose();
-    if (!mounted) return;
-    if (quality == null) {
-      settings.analytics.trackDownload(
-        action: 'resolution_selection',
-        mediaType: 'movie',
-        outcome: 'cancelled',
-        provider: providerName,
-      );
-      Navigator.pop(context, false);
-      return;
-    }
-    final url = sources[quality]!;
-    final declaredFormat = videoFormats[quality];
-    final format = OfflineDownloadService.inferFormat(
-      url: url,
-      isHls: declaredFormat == BetterPlayerVideoFormat.hls,
-      isDash: declaredFormat == BetterPlayerVideoFormat.dash,
-    );
-    final posterPath = _metadata.posterPath;
-    final subtitleTrack = _preferredSubtitle(movieVideoSubs);
-    try {
-      final downloadHeaders = videoHeaders[quality] ??
-          VideoUtils.inferVideoHeaders(url) ??
-          const <String, String>{};
-      final audioSelection = await DownloadSelectionSheets.chooseAudio(
-        context,
-        tracks: OfflineDownloadService.instance.getAudioTracks(
-          url: url,
-          format: format,
-          headers: downloadHeaders,
-          maxVideoHeight: _qualityHeight(quality),
-        ),
-      );
-      if (!mounted) return;
-      if (audioSelection == null) {
-        Navigator.pop(context, false);
-        return;
-      }
-      await context.read<OfflineDownloadProvider>().enqueue(
-            OfflineDownloadRequest(
-              id: 'movie_${_metadata.movieId}',
-              url: url,
-              format: format,
-              title: _metadata.movieName ?? 'Movie',
-              subtitle: providerName == null ? null : 'From $providerName',
-              mediaType: 'movie',
-              quality: quality,
-              posterUrl: posterPath == null
-                  ? null
-                  : '${TMDB_BASE_IMAGE_URL}w500$posterPath',
-              maxVideoHeight: _qualityHeight(quality),
-              headers: downloadHeaders,
-              audioTrack: audioSelection.track,
-              source: OfflineDownloadSource.forSelection(
-                provider: downloadProvider,
-                apiBaseUrl: _scraperApiUrl,
-                links: movieVideoLinks ?? const [],
-                url: url,
-                headers: downloadHeaders,
-              ),
-              contentId: _metadata.movieId,
-              subtitleTrackUrl: subtitleTrack?.url,
-              subtitleTrackName: subtitleTrack?.language,
-              subtitleTrackHeaders: subtitleTrack?.headers ?? const {},
-            ),
-          );
-      settings.analytics.trackDownload(
-        action: 'enqueue',
-        mediaType: 'movie',
-        outcome: 'success',
-        provider: providerName,
-        quality: quality,
-      );
-      if (mounted) {
-        AdsterraPlaybackAdsService.instance.afterDownloadQueued(context);
-        Navigator.pop(context, true);
-      }
-    } catch (error) {
-      settings.analytics.trackDownload(
-        action: 'enqueue',
-        mediaType: 'movie',
-        outcome: isAlreadyDownloaded(error) ? 'already_downloaded' : 'error',
-        provider: providerName,
-        quality: quality,
-        error: error.toString(),
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            offlineEnqueueErrorMessage(error,
-                title: _metadata.movieName ?? 'This movie'),
-          ),
-        ),
-      );
-      Navigator.pop(context, false);
-    }
-  }
-
-  int? _qualityHeight(String quality) => VideoUtils.videoQualityHeight(quality);
 
   RegularSubtitleLinks? _preferredSubtitle(
     List<RegularSubtitleLinks>? subtitles,
